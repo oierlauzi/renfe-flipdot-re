@@ -116,12 +116,59 @@ Two register groups initialised by `FUN_ram_03F2` in a way that matches the
 ```
 
 Runtime write counts (`0xE1`: 33, `0xE2`: 39, `0xE3`: 39) put the hot loop on
-ports A/B/C of group 1 — the flip-dot row/column drive. The `IN 0xE7`
-presence test is a **board-detect for the second display bank**, which is why
-the unit still works with the LED matrix absent.
+ports A/B/C of group 1 — the flip-dot row/column drive.
 
-`0xE6/0xE7` fall outside the six 81C55 registers, so they are probably a
-separate latch or buffer sharing the decode window. **[?]**
+## 0xE7 — expansion memory bank register **[C]**
+
+`0xE7` falls outside the six 81C55 registers and is a **separate latch on the
+expansion board**, serving two purposes:
+
+* **Read** — a capability/status register. `0xFF` means *the expansion board is
+  absent*. When present, individual bits carry configuration: `0x112E` tests
+  bit 4.
+* **Write** — selects the memory page visible through the `0xE000-0xFFFF`
+  window. `0x042C` writes `0xE0`, the base page.
+
+All banked access goes through three accessor functions, which between them
+account for 46 call sites:
+
+| Address | Operation | Callers |
+| --- | --- | --- |
+| `0x1B69` | read `A = (HL)` | 21 |
+| `0x1B95` | write `(HL) = A` | 21 |
+| `0x1BC4` | compare `A` with `(HL)` | 4 |
+
+All three have the same shape:
+
+```
+        IN   0xE7
+        CPI  0xFF
+        JZ   plain_access      ; board absent -> access (HL) directly
+        LDA  0xA05A            ; re-entrancy flag (set inside the ISRs)
+        CPI  0x01
+        JZ   save_restore      ; ...then also save/restore the previous page
+        MOV  A,H
+        STA  0xA059            ; remember the page
+        OUT  0xE7              ; select page = high byte of the target address
+        ORI  0xE0
+        MOV  H,A               ; force the address into the 0xE000 window
+plain_access:
+        MOV  A,(HL)            ; (or MOV (HL),A / CMP (HL))
+        RET
+```
+
+`ORI 0xE0` preserves the low 5 bits of `H`, so the CPU's `A12-A8` still carry
+part of the offset while the latch supplies the higher bits. **[L]**
+
+Two consequences worth being explicit about:
+
+1. **There is no handshake.** Every one of the eleven `IN 0xE7` sites is an
+   immediate conditional branch. No site loops, retries, waits or times out, and
+   there is no error path. **[C]**
+2. **Absence is handled by design, not by accident.** At `0x0675` the firmware
+   goes further: with the board absent it reads **DIP switch port A bit 6**
+   instead, substituting a switch for a value the expansion board would
+   otherwise have supplied. **[C]**
 
 ## 0xC0-0xCF — probable LED matrix interface **[L]**
 

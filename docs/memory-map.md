@@ -12,7 +12,20 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 | `0x0000-0x7FFF` | 32 KiB | U4 M27256 EPROM (only `0x0000-0x3047` used) | **[C]** |
 | `0x8000-0x9FFF` | 8 KiB | unmapped | **[L]** |
 | `0xA000-0xA0FF` | 256 B | U2 M81C55-5 static RAM | **[C]** |
-| `0xA100-0xFFFF` | — | unmapped / aliases of the above | **[?]** |
+| `0xA100-0xDFFF` | — | unmapped / aliases of the above | **[?]** |
+| `0xE000-0xFFFF` | 8 KiB | **Paged window into expansion-board memory** | **[C]** |
+
+### The paged window at 0xE000
+
+The `0xE000-0xFFFF` window is not present in this unit: it lives on the absent
+expansion board, and the page visible through it is selected by writing I/O port
+`0xE7`. Reading `0xE7` returns `0xFF` when the board is missing, and the firmware
+then bypasses the window entirely and accesses local RAM directly. See
+[io-map.md](io-map.md#0xe7--expansion-memory-bank-register-c).
+
+This is why the Ghidra decompilation contains references to `DAT_ram_e000`,
+`DAT_ram_e03b`, `DAT_ram_e07d` and friends: they are banked addresses, not real
+locations in this machine.
 
 Ghidra imports the image at `0x0000`, so listing addresses are ROM offsets
 throughout. Ghidra labels the single flat block `ram:`, which is why the
@@ -74,6 +87,8 @@ Variables identified so far:
 | `0xA07E` | Status flags; bits 7:6 polled for `0b01` in the main loop | **[L]** |
 | `0xA07F` | Loop/repeat count for the 0x61-iteration render loop at `0x03CE` | **[L]** |
 | `0xA039-` | Buffer walked by that render loop | **[L]** |
+| `0xA059` | Saved expansion memory page, for restore after a banked access | **[C]** |
+| `0xA05A` | Re-entrancy flag; set to 1 inside the ISRs (`0x0271`, `0x0296`) so banked accessors save and restore the page | **[C]** |
 
 The stack pointer initialisation and the full variable map are still to be
 recovered; see [open-questions.md](open-questions.md).

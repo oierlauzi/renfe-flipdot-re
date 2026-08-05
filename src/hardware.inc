@@ -68,7 +68,10 @@ DISP0_PORT_B    equ     0E2h
 DISP0_PORT_C    equ     0E3h
 DISP0_TIMER_LO  equ     0E4h
 DISP0_TIMER_HI  equ     0E5h
-DISP_DETECT     equ     0E7h            ; reads 0FFh when board 2 is absent
+XRAM_PAGE       equ     0E7h            ; R: capability (0FFh = board absent)
+                                        ; W: page for the 0E000h window
+XRAM_WINDOW     equ     0E000h          ; paged window into expansion memory
+XRAM_ABSENT     equ     0FFh
 
 ; ---------------------------------------------------------------------------
 ; Display interface, group 1 - second board (absent in this unit)

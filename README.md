@@ -48,9 +48,14 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
   directly by character code, one byte per column, bit 0 = top row.
 * Three banks of **DIP switches** feed the 81C55's input ports; port B bits 7:5
   choose the baud rate, port C bit 5 chooses between two startup paths.
-* The firmware **probes for a second display board** and skips it when absent,
-  which is why this unit works without its LED matrix — and which, with the
-  "MAESTRA" label, strongly suggests an addressed master/slave protocol.
+* The firmware is **designed to run standalone**. Expansion-board memory is
+  reached through a paged window at `0xE000` selected by I/O port `0xE7`, and all
+  46 banked accesses funnel through three accessors that check for the board and
+  fall back to local RAM. No site waits, retries or errors out; one even
+  substitutes a DIP switch for a value the board would have supplied.
+* The "MAESTRA" (master) label plus a switch-selectable configuration suggests
+  the *serial* protocol carries a display address — a separate question from the
+  expansion board, and still open.
 
 ## Layout
 

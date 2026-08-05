@@ -25,6 +25,8 @@ delete them from here — this file should shrink over time.
 - [ ] Decode the constants `0x4A` / `0x4E` at `0x03A0`.
 - [ ] Name the RX interrupt path: RST5.5 (`0x0260`) and RST7.5 (`0x02A9`) —
       which one services the 8251?
+- [ ] Which bits of the `0xE7` capability register mean what? `0x112E` tests
+      bit 4. Only reachable with an expansion board present.
 - [ ] Find where the stack pointer is set (`LXI SP,...`) and confirm the
       `0xA0F0-0xA0FF` stack guess. → [docs/memory-map.md](memory-map.md)
 - [ ] Map the rest of the `0xA000` RAM variables.

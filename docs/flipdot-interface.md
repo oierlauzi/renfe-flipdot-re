@@ -34,7 +34,7 @@ Runtime write counts: `0xE1` 33, `0xE2` 39, `0xE3` 39. The hot path is at
 
 ```
 0x210D  PUSH DE / PUSH HL
-0x210F  CALL 0x1B69
+0x210F  CALL 0x1B69        ; banked read of (HL) - see docs/io-map.md
 0x2112  CMA                ; complement
 0x2113  OUT 0xE1           ; port A  <- inverted value
 0x2115  MVI C,0x10         ; 16 ...
@@ -66,7 +66,6 @@ Two readings worth testing:
 - [ ] Does it repaint the whole panel or only changed dots? (Matters for how
       fast an external controller can push updates, and for coil heating.)
 - [ ] Where is the frame buffer in the `0xA000` RAM, and in what layout?
-- [ ] What is `FUN_ram_1B69` (called immediately before the first `OUT`)?
 
 ## Safety note
 

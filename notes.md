@@ -20,6 +20,47 @@ Entry template:
 
 ---
 
+## 2026-08-05 — I/O port 0xE7 is a memory bank register, not a peer handshake
+
+**Did:** Chased every one of the 11 `IN 0xE7` / 10 `OUT 0xE7` sites, after the
+one-line "board detect" claim in the first pass was questioned.
+
+**Found:** `0xE7` is a **bank/page register plus capability register on the
+expansion board**, and the earlier description of it was too shallow.
+
+* Three accessor functions wrap every banked memory access: `0x1B69` (read,
+  21 callers), `0x1B95` (write, 21 callers), `0x1BC4` (compare, 4 callers).
+* Each one reads `0xE7` first. `0xFF` means the expansion board is absent, and
+  the accessor falls straight through to a plain `(HL)` access on local RAM.
+  Otherwise it writes the target address's high byte to `0xE7` as a page select
+  and forces the address into the `0xE000-0xFFFF` window with `ORI 0xE0`.
+* `0xA05A` is set to 1 inside the ISRs (`0x0271`, `0x0296`); when set, the
+  accessors also save the previous page in `0xA059` and restore it afterwards.
+  That is re-entrancy protection, so an interrupt cannot leave the page
+  switched under the code it interrupted.
+* `0xE7` also carries status bits when a board is present: `0x112E` tests bit 4.
+* This explains the stray `DAT_ram_e000`, `DAT_ram_e03b`, `DAT_ram_e07d`
+  references in the Ghidra decompilation — they are banked addresses, not real
+  locations in this machine.
+
+**Concluded:**
+
+* **There is no handshake with the expansion board, and no possibility of one.**
+  All 11 read sites are immediate conditional branches. Not one loops, retries,
+  waits, or has an error path. **[C]**
+* **Standalone operation is the designed behaviour, not a lucky accident.**
+  `0x0675` is the clincher: with the board absent the firmware reads DIP switch
+  port A bit 6 instead, deliberately substituting a switch for a value the board
+  would otherwise have supplied. **[C]**
+* Corrected `docs/io-map.md`, `docs/memory-map.md` (the `0xE000-0xFFFF` window
+  was previously listed as "unmapped [?]", which was wrong),
+  `docs/flipdot-interface.md` and `ghidra/symbols.csv`.
+
+**Next:** unchanged — the serial framing is still the blocker. The `0xE7` bits
+cannot be probed further without an expansion board, so that question is parked.
+
+---
+
 ## 2026-08-05 — Project structure, and a first pass over the ROM
 
 **Did:** Reorganised the repository (see [README.md](README.md#layout)) and read
