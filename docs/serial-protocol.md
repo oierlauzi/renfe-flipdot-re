@@ -74,9 +74,95 @@ ISR writing `0x4E`, **`0x4A` and `0x4E` are ISR/main-loop handshake tokens, not
 framing bytes** — an earlier guess that they might be `'J'`/`'N'` delimiters is
 wrong.
 
-## Application layer — NOT YET REVERSE ENGINEERED
+## Frame format, receive handler A (`0x08B7`) **[C]**
 
-The framing itself is still unknown. What is known:
+Handler A runs when `0xA00C = 0` — no expansion board **and** DIP switch port A
+bit 6 clear. It is a byte-at-a-time state machine driven by the RST5.5 ISR.
+
+### Framing
+
+| Element | Source | Notes |
+| --- | --- | --- |
+| Start-of-frame | byte at `0xA006` | **configurable at runtime**, not a literal |
+| Alternate start | `0xA006 + 1` | selects a second buffer at `0xE03C` |
+| End-of-frame | byte at `0xA007` | configurable; on match, posts `0x4A` to the mailbox |
+| Buffer | `0xE000` (or `0xE03C`) | write pointer kept in `0xA00E` |
+
+On the start byte the handler resets the write pointer to `0xE000` and stores the
+byte. On the end byte it posts token **`0x4A`** to the mailbox at `0xA012`, which
+is what the main loop at `0x03A0` is waiting for. **`0x4A` means "message
+complete"**.
+
+### Per-character filtering
+
+In the order the handler tests them:
+
+| Condition | Action |
+| --- | --- |
+| `== (0xA006)` | start of frame — reset buffer to `0xE000` |
+| `== 0x7D` `}` | set duration `0xA016` to 80 or 2000 (per port C bit 5), `0xA014 \|= 0x02` |
+| `== 0x7C` `\|` | `0xA014 = (0xA014 & 0x7F) \| 0x05` |
+| `== 0x7F` DEL | `0xA014 = (0xA014 & 0xFA) \| 0x80` |
+| `== (0xA007)` | end of frame — post `0x4A` |
+| bit 7 set | **not stored**; write pointer still advances |
+| bits 6:5 == `00` (`0x00-0x1F`) | ignored entirely |
+| bits 6:5 == `11` (`0x60-0x7F`) | state change only, not stored |
+| `== (0xA00B)` | stored as `0x20` (space) — a "blank" substitute character |
+| otherwise | **stored**, pointer advances |
+
+In an extended sub-mode (`0xA008 = 1`, entered at `0x097B`) further codes are
+recognised: `0x11`, `0x12`, and `0x64`/`0x65`/`0x66` which set the duration
+words at `0xA016`/`0xA018`.
+
+**`0xA014` is a display attribute byte** and `0xA016`/`0xA018` are durations, so
+these in-band control characters select display effects — static, scroll, blink
+and their timings. Working out the exact meaning of each `0xA014` bit is the
+natural next step.
+
+### Error handling
+
+The handler reads the 8251A status and masks `0x78` (PE, OE, FE, SYNDET):
+
+| Status & 0x78 | Action |
+| --- | --- |
+| `0x00` | normal — read and process the byte |
+| `0x08` (parity error only) | read and discard the byte, re-issue command `0x17`, and **substitute `0x23` `#`** into the message |
+| anything else | full 8251A re-init (reset `0x40`, restore mode from `0xA005`, command `0x17`), post `0x4E` or `0x4A` |
+
+**A parity error puts a `#` on the display.** That is a very characteristic,
+externally observable behaviour and a good way to confirm the link is live.
+
+## Transmit **[C]**
+
+The unit does transmit. Two send routines, both polling TxRDY (`IN 0x81`,
+`ANI 0x01`) before `OUT 0x80`:
+
+* `0x1A43`, reached via `0x1A1A`, which runs configurable inter-character delay
+  loops before sending — the signature of a half-duplex or current-loop link
+  needing turnaround time.
+* `0x303F`, via `0x3027` — called from 21 sites across `0x2D00-0x3000`, a whole
+  transmit subsystem. It uses the watchdog counter `0xA01E` as a TxRDY timeout.
+
+Run under emulation with default switches, the firmware continuously emits a
+repeating **5-byte frame**:
+
+```
+18 18 1E 15 7F      and periodically      18 18 1E 15 BF
+```
+
+The two variants differ only in bits 7:6 of the last byte. Given the MAESTRA
+label this looks like a **poll or beacon** — the master soliciting from slaves,
+with the last byte carrying an address or a flag. `0x7F` is also the value found
+in `0xA006` (the start-of-frame byte), which is unlikely to be a coincidence.
+
+Reproduce with:
+
+```sh
+PYTHONPATH=tools python3 tools/pit100_sim.py --port-a 0xBF --port-c 0xDF \
+    --xram board --send '7F 48 4F 4C 41 03'
+```
+
+## Still unknown
 
 * The sticker reads **MAESTRA** ("master"), and DIP switch port A is largely
   unattributed. A master/slave addressing scheme on the serial bus is therefore

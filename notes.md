@@ -20,6 +20,60 @@ Entry template:
 
 ---
 
+## 2026-08-05 — Receive handler A decoded; emulator running the real ROM
+
+**Did:** Disassembled `rx_handler_a` (`0x08B7`) and built an 8085 emulator
+(`tools/emu8085.py`) plus a machine model (`tools/pit100_sim.py`) that boots the
+actual firmware against stub peripherals.
+
+**Found — the framing, from the listing:**
+
+* **Start and end delimiters are runtime variables**, not literals: `0xA006` and
+  `0xA007`. A second start byte (`0xA006 + 1`) selects an alternate buffer at
+  `0xE03C`. Messages accumulate at `0xE000`, pointer in `0xA00E`.
+* On the end byte the handler posts **`0x4A`** to the mailbox — that is the
+  "message complete" signal the main loop waits for at `0x03A0`.
+* Per-character filtering is layered: bit 7 set means skip-but-advance; `0x00-0x1F`
+  is ignored; `0x60-0x7F` changes state without storing; a configurable byte at
+  `0xA00B` stores as a space.
+* In-band control characters `0x7C`, `0x7D`, `0x7F` and (in an extended sub-mode)
+  `0x64`/`0x65`/`0x66` write an attribute byte `0xA014` and duration words
+  `0xA016`/`0xA018`. These are display effects with timings.
+* **A parity error inserts `0x23` `#` into the message** and re-issues command
+  `0x17`. Externally observable, and a good live-link test.
+
+**Found — from running it:**
+
+* The emulator reproduces the documented cold-boot 8251A init exactly: mode
+  `0x7E`, command `0x37`, with port C bit 5 clear. Independent confirmation that
+  both the listing reading and the model are right.
+* With port C bit 5 *set* the switch-derived path produces mode `0xFA` instead,
+  as `docs/dip-switches.md` predicts.
+* **The firmware transmits continuously**: a 5-byte frame `18 18 1E 15 7F`, with
+  `18 18 1E 15 BF` periodically substituted. Only two distinct frames in ~2000
+  bytes. Given the MAESTRA label this looks like a poll or beacon, and the last
+  byte differs only in bits 7:6 — an address or flag field. Note `0x7F` is also
+  what `0xA006` holds.
+* Both transmit routines poll TxRDY before writing. The one at `0x1A1A` runs
+  configurable inter-character delay loops first, which is what a half-duplex or
+  current-loop link needs for turnaround.
+
+**Concluded:**
+
+* Framing structure **[C]**; the meaning of the individual `0xA014` attribute
+  bits **[?]**.
+* The beacon is **[C]** as an observation of the firmware, **[L]** as "a poll".
+* **The firmware writes to `0xE000-0xE083` even with no expansion board and
+  handler A selected.** So something must answer there. The simulator offers
+  `none` / `board` / `alias` and reports unbacked writes; deciding between them
+  needs the hardware.
+
+**Next:** handler B (`0x0ACB`), then the `0xA014` attribute bits. Also worth
+chasing: ~120 emulated writes land at `0x9FFD-0x9FFF`, i.e. the stack dipping
+below `0xA000`. Either a model artefact or a real clue about RAM size.
+
+---
+
 ## 2026-08-05 — Baud ladder, stack, and the receive architecture
 
 **Did:** Worked through the "cheap wins, no hardware needed" list in
