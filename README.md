@@ -31,7 +31,9 @@ Full details in [docs/device.md](docs/device.md).
 | Memory map | done — [docs/memory-map.md](docs/memory-map.md) |
 | I/O port map | done — all ports enumerated, most attributed — [docs/io-map.md](docs/io-map.md) |
 | Character font | done — [docs/font.md](docs/font.md) |
-| Serial link layer | done — **9600 8E1** (baud pending a scope check) |
+| Serial link layer | done — **9600 8E1** default; full 300-9600 ladder mapped |
+| DIP switches | port B fully attributed; port C bit 5 known; port A mostly open |
+| Receive architecture | done — RST5.5 ISR, two handlers — [docs/serial-protocol.md](docs/serial-protocol.md) |
 | Serial framing | **not started — this is the blocker** |
 | DB37 pinout | not measured |
 | Flip-dot drive | partially traced |
@@ -46,8 +48,13 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
   selectable.
 * The **font is fully decoded**: 256 glyphs of 5x7 at ROM `0x1C0D`, indexed
   directly by character code, one byte per column, bit 0 = top row.
-* Three banks of **DIP switches** feed the 81C55's input ports; port B bits 7:5
-  choose the baud rate, port C bit 5 chooses between two startup paths.
+* **The whole baud ladder is mapped**: dividers 20/40/80/160/320/640, an exact
+  1:2:4:8:16:32 sequence giving 9600 down to 300. Port B also selects word length
+  (bit 4) and parity (bits 3:2), so port B is fully attributed.
+* **RST5.5 is the serial receive interrupt**, gated by DIP switch port C bit 5,
+  dispatching to one of *two* receive handlers (`0x08B7`, `0x0ACB`) — the unit
+  implements two protocols or two link roles. RST7.5 is a tick and watchdog.
+* `0x4A`/`0x4E` at `0x03A0` are an **ISR/main-loop mailbox**, not framing bytes.
 * The firmware is **designed to run standalone**. Expansion-board memory is
   reached through a paged window at `0xE000` selected by I/O port `0xE7`, and all
   46 banked accesses funnel through three accessors that check for the board and

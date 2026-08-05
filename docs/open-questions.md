@@ -19,17 +19,19 @@ delete them from here — this file should shrink over time.
 
 ## Cheap wins available right now (no hardware needed)
 
-- [ ] Complete the baud-rate table: read the five branch targets at `0x04D2`,
-      `0x04C5`, `0x04B8`, `0x04AB`, `0x049E`.
-      → [docs/dip-switches.md](dip-switches.md)
-- [ ] Decode the constants `0x4A` / `0x4E` at `0x03A0`.
-- [ ] Name the RX interrupt path: RST5.5 (`0x0260`) and RST7.5 (`0x02A9`) —
-      which one services the 8251?
+- [ ] **Disassemble the two receive handlers `0x08B7` and `0x0ACB` in full.**
+      The framing is inside them. Highest-value work left, no hardware needed.
+      → [docs/serial-protocol.md](serial-protocol.md)
+- [ ] What does `0xA00C` select between, and which handler runs on a unit with
+      no expansion board and default switches?
+- [ ] Attribute DIP switch **port A**. Bit 6 feeds `0xA00C` at `0x0689`; the
+      other seven bits are unknown and are the likeliest home of a display
+      address. → [docs/dip-switches.md](dip-switches.md)
 - [ ] Which bits of the `0xE7` capability register mean what? `0x112E` tests
       bit 4. Only reachable with an expansion board present.
-- [ ] Find where the stack pointer is set (`LXI SP,...`) and confirm the
-      `0xA0F0-0xA0FF` stack guess. → [docs/memory-map.md](memory-map.md)
 - [ ] Map the rest of the `0xA000` RAM variables.
+- [ ] What drives the 8085 SOD pin's consumer? SOD is set in RST7.5 and cleared
+      at `0x0344`, so something external watches it.
 
 ## Hardware identification
 

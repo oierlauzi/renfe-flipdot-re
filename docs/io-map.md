@@ -15,7 +15,8 @@ Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
 | `0xA0-0xA5` | U2 M81C55-5 I/O section | DIP switches + baud-rate timer | **[C]** |
 | `0xC0-0xCF` | *unidentified* | LED matrix interface (board absent) | **[L]** |
 | `0xDE` | *unidentified* | read twice only | **[?]** |
-| `0xE0-0xE7` | 8155-class device | Flip-dot interface | **[L]** |
+| `0xE0-0xE5` | 8155-class device | Flip-dot interface | **[L]** |
+| `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
 | `0xE8-0xEF` | 8155-class device | Second display bank / LED matrix | **[L]** |
 
 ## 0x80-0x81 — M82C51A-2 USART **[C]**
@@ -73,15 +74,19 @@ registers:
 | `0xA0` | W | Command/status register | `0x00` then `0xC0` (all ports input, timer run) |
 | `0xA1` | R | Port A | read-only in firmware → **input, DIP switch bank** |
 | `0xA2` | R | Port B | read-only → **input, DIP switch bank**; bits 7:5 select baud rate |
-| `0xA3` | R | Port C (6 bit) | read-only → **input**; bit 5 selects an alternate init path at `0x0430` |
+| `0xA3` | R | Port C (6 bit) | read-only → **input**; bit 5 selects an alternate init path at `0x0430` **and gates serial reception in the RST5.5 ISR** |
 | `0xA4` | W | Timer count LSB | `0x14` |
 | `0xA5` | W | Timer count MSB | `0x40` |
 
 Timer preload `0x4014`: mode bits `01` = continuous square wave, count =
-`0x014` = 20. The 81C55 timer output is the classic way to clock an 8251, so
-this divider plus the x16 baud factor sets the line rate. With a 3.072 MHz
-TIMER IN this gives 3072000 / 20 / 16 = **9600 baud** — consistent, but the
-actual TIMER IN frequency still has to be measured on the board. **[L]**
+`0x014` = 20. The 81C55 timer output clocks the 8251A, so this divider plus the
+x16 baud factor sets the line rate: `baud = TIMER_IN / (count x 16)`.
+
+The switch-selected dividers form an exact 1:2:4:8:16:32 ladder
+(20/40/80/160/320/640), which confirms this is a standard baud-rate generator and
+reduces the whole question to a single frequency measurement — see
+[dip-switches.md](dip-switches.md#port-b-bits-75--line-rate-c). With a 3.072 MHz
+TIMER IN the ladder is 9600 down to 300. **[L]**
 
 Because the firmware never writes A/B/C, all 22 port bits are inputs. Three
 banks of DIP switches are visible in
@@ -170,16 +175,27 @@ Two consequences worth being explicit about:
    instead, substituting a switch for a value the expansion board would
    otherwise have supplied. **[C]**
 
-## 0xC0-0xCF — probable LED matrix interface **[L]**
+## 0xC0-0xCF — unidentified, serviced by the watchdog tick **[?]**
 
-`0xC0`-`0xC5` are each written exactly once (an init sequence), then only
-`0xCD` (7 W / 6 R), `0xCE` (2 W) and `0xCF` (3 W) are touched. Low traffic is
-what you would expect from the interface to the LED matrix panel this unit
-does not have.
+`0xC0`-`0xC5` are each written exactly once (an init sequence in the 81C55
+register order), then only `0xCD` (7 W / 6 R), `0xCE` (2 W) and `0xCF` (3 W) are
+touched at runtime.
+
+**Earlier this was labelled "LED matrix interface, board absent". That is now
+doubtful.** The RST7.5 handler at `0x02A9` reads `0xCD` on every tick and runs
+the watchdog, which points at a device that is *present* — the firmware has no
+absence check for `0xC0` anywhere, unlike the careful probing it does for `0xE7`.
+
+Either the device is on the motherboard and does something else entirely, or
+RST7.5 simply never fires in this unit (its counter is decremented inside the
+handler, so a never-firing RST7.5 is harmless). **Distinguishing these two needs
+one scope probe on the 8085's RST7.5 pin.**
 
 ## Open questions
 
-- [ ] Measure the 81C55 TIMER IN frequency to pin the baud rate down.
+- [ ] Measure the 81C55 TIMER IN frequency (or the 8085 CLK OUT) to pin the
+      whole baud ladder down. One measurement, six answers.
+- [ ] Does RST7.5 actually fire? Decides whether the `0xC0` device is present.
 - [ ] Identify U9 (DIP16), U10 (DIP20), U19 (DIP16, ST) and U20 (DIP40) and map
       them onto the `0xC0`/`0xE0`/`0xE8` decode windows.
 - [ ] Trace which address lines form the `0x80` / `0xA0` / `0xC0` / `0xE0`

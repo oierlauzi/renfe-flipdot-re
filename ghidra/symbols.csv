@@ -16,10 +16,11 @@ mem,0000,reset,func,Reset vector: DI then jump to fatal_or_init
 mem,002c,vec_rst55,label,RST5.5 hardware interrupt vector
 mem,003c,vec_rst75,label,RST7.5 hardware interrupt vector
 mem,0064,fw_version_string,data,"ASCII ""AK0052.139U1"""
-mem,0260,isr_rst55,func,RST5.5 handler; starts IN sw_port_c
-mem,02a9,isr_rst75,func,RST7.5 handler; starts IN io_cd
+mem,0260,isr_rst55,func,Serial receive ISR. Gated by sw_port_c bit 5; dispatches on rx_handler_sel
+mem,02a9,isr_rst75,func,"Periodic tick + watchdog. Reads io_cd, decrements watchdog_count, drives SOD"
 mem,034b,fatal_or_init,func,Target of every unused vector trampoline
-mem,03a0,poll_rx_state,label,Polls rx state byte against 0x4a / 0x4e under DI/EI
+mem,034c,init_stack,label,"LXI SP,0xA0F3 - stack top, grows down"
+mem,03a0,poll_rx_state,label,Atomic swap of isr_mailbox with 0x4E; branches if the old value was 0x4A
 mem,03b2,main_loop,label,Waits on status flags then repaints the panel
 mem,03f2,init_display_ifaces,func,Initialises the 0xE0 and 0xE8 display port groups
 mem,0430,init_check_mode_switch,label,Tests sw_port_c bit 5 to pick the startup path
@@ -28,15 +29,20 @@ mem,0459,clear_ram_f0,label,Zero 0xF0 bytes from 0xA000 (normal path)
 mem,0468,init_alt_path,label,Alternate startup path when sw_port_c bit 5 is set
 mem,0469,clear_ram_80,label,Zero 0x80 bytes from 0xA000 (alternate path)
 mem,0474,select_baud_rate,label,sw_port_b bits 7:5 select the 81C55 timer preload
+mem,0491,baud_9600,label,Default 81C55 timer preload 0x4014 (divider 20)
 mem,0533,init_uart_from_switches,label,8251A init with the mode word taken from B
+mem,08b7,rx_handler_a,func,"Serial receive handler A, dispatched from isr_rst55 when rx_handler_sel != 1"
+mem,0acb,rx_handler_b,func,"Serial receive handler B, dispatched from isr_rst55 when rx_handler_sel == 1"
 mem,1b69,xram_read,func,"Banked read: A = (HL), via the 0xE000 window if the expansion board is present. 21 callers"
-mem,1b95,xram_write,func,"Banked write: (HL) = A. 21 callers"
-mem,1bc4,xram_compare,func,"Banked compare: A against (HL). 4 callers"
+mem,1b95,xram_write,func,Banked write: (HL) = A. 21 callers
+mem,1bc4,xram_compare,func,Banked compare: A against (HL). 4 callers
 mem,1c0d,font_5x7,data,256 glyphs x 5 columns; bit 0 = top row. See docs/font.md
 mem,a003,timer_preload_lo,data,81C55 timer count LSB (baud divider)
 mem,a004,timer_preload_hi,data,81C55 timer count MSB
 mem,a005,uart_mode_word,data,Cached 8251A mode word
-mem,a012,rx_state,data,Receive state machine byte; guarded by DI/EI
+mem,a00c,rx_handler_sel,data,Selects rx_handler_a vs rx_handler_b; set at 0x0689
+mem,a012,isr_mailbox,data,"RST5.5/main-loop mailbox; tokens 0x4A and 0x4E, swapped atomically at 0x03A0"
+mem,a01e,watchdog_count,data,Decremented by isr_rst75; reaching 1 jumps to fatal_or_init
 mem,a039,render_buffer,data,Buffer walked by the 0x61-iteration render loop
 mem,a059,xram_saved_page,data,"Previous expansion memory page, restored after a banked access"
 mem,a05a,in_isr_flag,data,"Set to 1 in the ISRs (0x0271, 0x0296); makes the banked accessors save/restore the page"
@@ -51,7 +57,7 @@ io,a2,sw_port_b,port,81C55 port B - DIP switches; bits 7:5 = baud select
 io,a3,sw_port_c,port,81C55 port C - DIP switches; bit 5 = startup mode
 io,a4,sw_timer_lo,port,81C55 timer count LSB - clocks the 8251A
 io,a5,sw_timer_hi,port,81C55 timer count MSB + mode bits
-io,c0,io_c0,port,Unidentified; written once at init. Probable LED matrix iface
+io,c0,io_c0,port,Unidentified; written once at init. See docs/io-map.md - the LED-matrix guess is doubtful
 io,c1,io_c1,port,Unidentified; written once at init
 io,c2,io_c2,port,Unidentified; written once at init
 io,c3,io_c3,port,Unidentified; written once at init
@@ -67,7 +73,7 @@ io,e2,disp0_port_b,port,Display group 0 port B - flip-dot drive
 io,e3,disp0_port_c,port,Display group 0 port C - flip-dot drive
 io,e4,disp0_timer_lo,port,Display group 0 timer count LSB
 io,e5,disp0_timer_hi,port,Display group 0 timer count MSB
-io,e7,xram_page,port,"R: capability reg (0xFF = expansion board absent). W: page select for the 0xE000 window"
+io,e7,xram_page,port,R: capability reg (0xFF = expansion board absent). W: page select for the 0xE000 window
 io,e8,disp1_cmd,port,Display group 1 command register (second board)
 io,e9,disp1_port_a,port,Display group 1 port A
 io,ea,disp1_port_b,port,Display group 1 port B

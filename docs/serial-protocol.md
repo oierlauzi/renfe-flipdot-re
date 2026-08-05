@@ -44,30 +44,59 @@ power-on (`0x0533` writes the mode word from a register; `0x0474` picks the
 timer preload from port B bits 7:5), so a unit in the field may be running
 something else — see [dip-switches.md](dip-switches.md).
 
+## Receive architecture **[C]**
+
+**RST5.5 is the serial receive interrupt.** The handler at `0x0260`:
+
+1. `MVI A,0x0B / SIM` masks RST5.5 and RST6.5 but leaves RST7.5 unmasked, then
+   `EI` — so the timer tick can preempt the receive path.
+2. `IN 0xA3 / ANI 0x20` — checks DIP switch port C bit 5 and does nothing if it
+   is clear. **The mode switch gates reception entirely.**
+3. Writes token `0x4E` to the mailbox byte `0xA012`.
+4. Sets `0xA05A = 1` for the duration, so banked memory accessors save and
+   restore their page (see [io-map.md](io-map.md#0xe7--expansion-memory-bank-register-c)).
+5. Dispatches on `0xA00C`: **two different receive handlers**, `0x08B7` and
+   `0x0ACB`. Both touch the 8251A. `0xA00C` is set at `0x0689` from either the
+   expansion board or DIP switch port A bit 6 — so the unit implements **two
+   protocols or two link roles**, selected by configuration.
+
+RST7.5 (`0x02A9`) is a periodic tick, not part of the receive path: it services
+the `0xC0` device and decrements a counter at `0xA01E` that jumps to
+`fatal_or_init` on expiry — i.e. a **watchdog**. It also drives the 8085's SOD
+pin (`SIM` with `0xC0` sets it, `0x0344` clears it), so SOD is used as a GPIO
+output — possibly a heartbeat or an external watchdog strobe. **[L]**
+
+### The 0xA012 mailbox
+
+`0x03A0` in the main loop performs an atomic swap on `0xA012` under `DI`/`EI`:
+write `0x4E`, and branch on whether the old value was `0x4A`. Combined with the
+ISR writing `0x4E`, **`0x4A` and `0x4E` are ISR/main-loop handshake tokens, not
+framing bytes** — an earlier guess that they might be `'J'`/`'N'` delimiters is
+wrong.
+
 ## Application layer — NOT YET REVERSE ENGINEERED
 
-Nothing below the link layer is established yet. What is known:
+The framing itself is still unknown. What is known:
 
-* The sticker reads **MAESTRA** ("master"), and the firmware probes for a
-  second display board (`IN 0xE7`, `0x040F`). A master/slave addressing scheme
-  on the serial bus is therefore likely, meaning frames probably carry a
-  **display address** taken from the DIP switches. **[L]**
-* `0x03A0` polls a RAM byte against the constants `0x4A` and `0x4E` under
-  `DI`/`EI` — the shape of a receive-state machine driven by an ISR. **[L]**
+* The sticker reads **MAESTRA** ("master"), and DIP switch port A is largely
+  unattributed. A master/slave addressing scheme on the serial bus is therefore
+  likely, meaning frames probably carry a **display address** taken from those
+  switches. **[L]**
 * The main loop at `0x03B2` waits for `0xA07E & 0xC0 == 0x40` and
   `0xA07C & 0x01 == 0` before rendering 0x61 (97) items from a buffer at
   `0xA039`. Those are almost certainly the "message ready" flags. **[L]**
 
 ### Where to look next
 
-1. Follow the RX path: `IN 0x80` sites (`0x08D8`, `0x093F`, …) back to the
-   buffer they fill, and forward to the state machine at `0x03A0`.
-2. Decode the constants `0x4A`/`0x4E` — plausibly framing characters
-   (`0x4A` = `'J'`, `0x4E` = `'N'`) or state enum values.
-3. Look for the usual framing bytes near the RX code: `STX` `0x02`,
-   `ETX` `0x03`, `SOH` `0x01`, `EOT` `0x04`, `ACK` `0x06`, `NAK` `0x15`.
+1. **Disassemble `0x08B7` and `0x0ACB` fully.** These are the two receive
+   handlers; everything about the framing is inside them. This is the single
+   highest-value piece of work left and it needs no hardware.
+2. Work out what selects between them, i.e. what `0xA00C` means, and which one
+   a unit with no expansion board and default switches actually uses.
+3. Look for the usual framing bytes in those routines: `STX` `0x02`, `ETX`
+   `0x03`, `SOH` `0x01`, `EOT` `0x04`, `ACK` `0x06`, `NAK` `0x15`.
 4. Check whether the reply path (`OUT 0x80`, only 2 sites) sends an ACK/NAK —
-   if it does, the frame format is much easier to confirm by experiment.
+   if it does, the frame format becomes cheap to confirm by experiment.
 
 ## Protocol scratchpad
 

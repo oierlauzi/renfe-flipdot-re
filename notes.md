@@ -20,6 +20,56 @@ Entry template:
 
 ---
 
+## 2026-08-05 — Baud ladder, stack, and the receive architecture
+
+**Did:** Worked through the "cheap wins, no hardware needed" list in
+`docs/open-questions.md`. All of it was mechanical listing reading.
+
+**Found:**
+
+* **The complete baud table.** The five unread branch targets give dividers
+  40, 80, 160, 320, 640 alongside the default 20 — an exact 1:2:4:8:16:32
+  ladder. `baud = TIMER_IN / (divider x 16)`, so one frequency measurement fixes
+  all six rates. 3.072 MHz gives 9600 down to 300.
+* **Port B is fully attributed.** `0x04EA` builds the 8251A mode word from port
+  B: bits 7:5 baud, bit 4 word length (7 vs 8 data bits), bits 3:2 parity
+  (off / odd / even). The hardwired `0x7E` (8E1) is what the common switch
+  setting produces.
+* **Stack is at `0xA0F3`** (`LXI SP,0xA0F3` at `0x034C`), growing down. The RAM
+  clear stops at `0xA0EF`, so it never touches the stack. The phantom Ghidra
+  symbols at `0xA0ED`/`0xA0EF`/`0xA0F1` are stack slots.
+* **RST5.5 is the serial receive interrupt.** It masks 5.5 and 6.5 but leaves
+  7.5 unmasked and re-enables interrupts, so the tick can preempt reception. It
+  is gated by DIP switch port C bit 5 — that switch turns reception off
+  entirely. It then dispatches on `0xA00C` to **one of two receive handlers**,
+  `0x08B7` or `0x0ACB`, both of which touch the 8251A.
+* `0xA00C` is set at `0x0689` from either the expansion board or DIP switch port
+  A bit 6. So there are **two protocols or two link roles**, chosen by
+  configuration.
+* **RST7.5 is a tick and watchdog**, not part of the receive path: reads `0xCD`,
+  decrements `0xA01E`, and jumps to `fatal_or_init` on expiry. It also drives the
+  8085 SOD pin as a GPIO output (`SIM` `0xC0` sets it, `0x0344` clears it).
+* `0x4A`/`0x4E` at `0x03A0` are an **ISR/main-loop mailbox**, swapped atomically
+  under `DI`/`EI`. The earlier guess that they might be `'J'`/`'N'` framing
+  delimiters is wrong.
+
+**Concluded:**
+
+* Everything above is **[C]** from the listing. The only remaining unknown on the
+  link layer is the absolute clock frequency, and the ladder's exactness makes
+  even that low-risk.
+* **Revised an earlier claim:** `0xC0-0xCF` was labelled "LED matrix interface,
+  board absent". RST7.5 reads `0xCD` every tick and there is no absence check
+  anywhere for `0xC0` — unlike the careful probing done for `0xE7`. Either the
+  device is on the motherboard, or RST7.5 never fires here. Downgraded to **[?]**
+  pending a scope probe on the RST7.5 pin.
+
+**Next:** disassemble `0x08B7` and `0x0ACB` in full. The framing lives there and
+needs no hardware. Then attribute DIP switch port A, which is the likeliest home
+of a display address.
+
+---
+
 ## 2026-08-05 — I/O port 0xE7 is a memory bank register, not a peer handshake
 
 **Did:** Chased every one of the 11 `IN 0xE7` / 10 `OUT 0xE7` sites, after the
