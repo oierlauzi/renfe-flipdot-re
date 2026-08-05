@@ -1,0 +1,35 @@
+# Build artefacts
+/build/
+*.p
+*.lst.new
+
+# Ghidra projects are binary blobs and cannot be reviewed or merged.
+# The analysis lives in ghidra/symbols.csv instead - see ghidra/README.md.
+*.rep/
+*.gpr
+*.gzf
+ghidra_*/
+.ghidra/
+
+# Generated exports
+/font.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logic analyser / scope captures can be huge; keep them out unless
+# deliberately added with `git add -f` after downsampling.
+*.sr
+*.logicdata
+*.wfm
+*.csv.gz

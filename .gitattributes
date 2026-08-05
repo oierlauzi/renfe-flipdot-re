@@ -1,0 +1,24 @@
+# Never let git "fix" line endings or try to merge the ground truth.
+original/firmware.bin   binary
+*.bin                   binary
+*.rom                   binary
+
+# Ghidra exports are generated; keep them out of diff noise and out of
+# language statistics.
+ghidra/export/*         -diff linguist-generated
+ghidra/export/*.lst     text eol=lf -diff linguist-generated
+ghidra/export/*.c       text eol=lf -diff linguist-generated
+
+# Photos and datasheets
+*.jpg                   binary
+*.jpeg                  binary
+*.png                   binary
+*.pdf                   binary
+
+# Text files use LF everywhere
+*.md                    text eol=lf
+*.py                    text eol=lf
+*.asm                   text eol=lf
+*.inc                   text eol=lf
+*.csv                   text eol=lf
+Makefile                text eol=lf
