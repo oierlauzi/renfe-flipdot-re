@@ -1,0 +1,71 @@
+# Symbol table for the PI-T100-M firmware.
+#
+# THIS FILE IS THE SOURCE OF TRUTH for names, not the Ghidra project. The
+# .gzf/.rep project directory is deliberately gitignored: it is a binary blob
+# that cannot be reviewed or merged. Add a name here, re-run
+# ghidra/scripts/apply_symbols.py, and the project catches up.
+#
+# space  : "mem" for a CPU memory address, "io" for an 8085 I/O port
+# addr   : hex, no 0x prefix
+# name   : Ghidra label / function name
+# kind   : func | label | data | port
+# comment: free text, ends up as a Ghidra plate/EOL comment
+#
+space,addr,name,kind,comment
+mem,0000,reset,func,Reset vector: DI then jump to fatal_or_init
+mem,002c,vec_rst55,label,RST5.5 hardware interrupt vector
+mem,003c,vec_rst75,label,RST7.5 hardware interrupt vector
+mem,0064,fw_version_string,data,"ASCII ""AK0052.139U1"""
+mem,0260,isr_rst55,func,RST5.5 handler; starts IN sw_port_c
+mem,02a9,isr_rst75,func,RST7.5 handler; starts IN io_cd
+mem,034b,fatal_or_init,func,Target of every unused vector trampoline
+mem,03a0,poll_rx_state,label,Polls rx state byte against 0x4a / 0x4e under DI/EI
+mem,03b2,main_loop,label,Waits on status flags then repaints the panel
+mem,03f2,init_display_ifaces,func,Initialises the 0xE0 and 0xE8 display port groups
+mem,0430,init_check_mode_switch,label,Tests sw_port_c bit 5 to pick the startup path
+mem,0443,init_uart,label,8251A wake-up: reset + mode 0x7E (8E1) + command 0x37
+mem,0459,clear_ram_f0,label,Zero 0xF0 bytes from 0xA000 (normal path)
+mem,0468,init_alt_path,label,Alternate startup path when sw_port_c bit 5 is set
+mem,0469,clear_ram_80,label,Zero 0x80 bytes from 0xA000 (alternate path)
+mem,0474,select_baud_rate,label,sw_port_b bits 7:5 select the 81C55 timer preload
+mem,0533,init_uart_from_switches,label,8251A init with the mode word taken from B
+mem,1c0d,font_5x7,data,256 glyphs x 5 columns; bit 0 = top row. See docs/font.md
+mem,a003,timer_preload_lo,data,81C55 timer count LSB (baud divider)
+mem,a004,timer_preload_hi,data,81C55 timer count MSB
+mem,a005,uart_mode_word,data,Cached 8251A mode word
+mem,a012,rx_state,data,Receive state machine byte; guarded by DI/EI
+mem,a039,render_buffer,data,Buffer walked by the 0x61-iteration render loop
+mem,a07c,status_flags_a,data,Bit 0 polled by main_loop
+mem,a07e,status_flags_b,data,Bits 7:6 polled by main_loop for 0b01
+mem,a07f,render_count,data,Iteration count for the render loop at 0x03CE
+io,80,uart_data,port,8251A RX (read) / TX (write) data
+io,81,uart_ctrl,port,8251A status (read) / mode+command (write)
+io,a0,sw_cmd,port,81C55 command/status register
+io,a1,sw_port_a,port,81C55 port A - DIP switch bank (input)
+io,a2,sw_port_b,port,81C55 port B - DIP switches; bits 7:5 = baud select
+io,a3,sw_port_c,port,81C55 port C - DIP switches; bit 5 = startup mode
+io,a4,sw_timer_lo,port,81C55 timer count LSB - clocks the 8251A
+io,a5,sw_timer_hi,port,81C55 timer count MSB + mode bits
+io,c0,io_c0,port,Unidentified; written once at init. Probable LED matrix iface
+io,c1,io_c1,port,Unidentified; written once at init
+io,c2,io_c2,port,Unidentified; written once at init
+io,c3,io_c3,port,Unidentified; written once at init
+io,c4,io_c4,port,Unidentified; written once at init
+io,c5,io_c5,port,Unidentified; written once at init
+io,cd,io_cd,port,Unidentified; read by isr_rst75
+io,ce,io_ce,port,Unidentified
+io,cf,io_cf,port,Unidentified
+io,de,io_de,port,Unidentified; two reads in the whole firmware
+io,e0,disp0_cmd,port,Display group 0 command register (81C55-like)
+io,e1,disp0_port_a,port,Display group 0 port A - flip-dot drive
+io,e2,disp0_port_b,port,Display group 0 port B - flip-dot drive
+io,e3,disp0_port_c,port,Display group 0 port C - flip-dot drive
+io,e4,disp0_timer_lo,port,Display group 0 timer count LSB
+io,e5,disp0_timer_hi,port,Display group 0 timer count MSB
+io,e7,disp_detect,port,Reads 0xFF when the second display board is absent
+io,e8,disp1_cmd,port,Display group 1 command register (second board)
+io,e9,disp1_port_a,port,Display group 1 port A
+io,ea,disp1_port_b,port,Display group 1 port B
+io,eb,disp1_port_c,port,Display group 1 port C
+io,ec,disp1_timer_lo,port,Display group 1 timer count LSB
+io,ed,disp1_timer_hi,port,Display group 1 timer count MSB
