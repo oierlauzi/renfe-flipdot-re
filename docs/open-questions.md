@@ -1,0 +1,56 @@
+# Open questions
+
+The working queue. Move items into the relevant document once answered, and
+delete them from here — this file should shrink over time.
+
+## Blocking the goal (external control without hardware modification)
+
+- [ ] **DB37 pinout.** Which 4 of the 37 pins are populated, and which is TX+,
+      TX-, RX+, RX-? Continuity-trace from the connector to the daughter 1
+      terminal block and on to U7 (6N139). → [hardware/connectors.md](../hardware/connectors.md)
+- [ ] **Electrical standard.** RS-422/485 differential, or 20 mA current loop?
+      Decides what transceiver to build. → [hardware/connectors.md](../hardware/connectors.md)
+- [ ] **Frame format.** Start/end delimiters, addressing, checksum, text
+      payload encoding. → [docs/serial-protocol.md](serial-protocol.md)
+- [ ] **Does the unit reply?** Only two `OUT 0x80` sites exist. If one is an
+      ACK/NAK, protocol discovery by experiment becomes far cheaper.
+- [ ] **Upper-half character encoding** (`0x80-0xFF` glyphs). What byte
+      produces `Ñ`? → [docs/font.md](font.md)
+
+## Cheap wins available right now (no hardware needed)
+
+- [ ] Complete the baud-rate table: read the five branch targets at `0x04D2`,
+      `0x04C5`, `0x04B8`, `0x04AB`, `0x049E`.
+      → [docs/dip-switches.md](dip-switches.md)
+- [ ] Decode the constants `0x4A` / `0x4E` at `0x03A0`.
+- [ ] Name the RX interrupt path: RST5.5 (`0x0260`) and RST7.5 (`0x02A9`) —
+      which one services the 8251?
+- [ ] Find where the stack pointer is set (`LXI SP,...`) and confirm the
+      `0xA0F0-0xA0FF` stack guess. → [docs/memory-map.md](memory-map.md)
+- [ ] Map the rest of the `0xA000` RAM variables.
+
+## Hardware identification
+
+- [ ] U8, U9 (DIP16), U10 (DIP20) on the motherboard.
+- [ ] U12-U17 (DIP8, four of them yellow — likely optocouplers) on daughter 1.
+- [ ] U19 (DIP16, ST) and U20 (DIP40) on daughter 2. Is U20 a third 81C55?
+      That would confirm the `0xE0`/`0xE8` interpretation.
+- [ ] Which address lines generate the `0x80` / `0xA0` / `0xC0` / `0xE0` chip
+      selects.
+- [ ] Measure the 81C55 TIMER IN frequency → pins the baud rate exactly.
+- [ ] What does `IN 0xDE` read?
+
+## Flip-dot drive
+
+- [ ] Column/row scan order and the pulse width used to flip a dot.
+- [ ] Does the firmware only flip *changed* dots, or repaint the whole panel?
+- [ ] Ribbon cable pinout to the panel.
+- [ ] What the `0xE8` group would drive if the second board were present.
+
+## Nice to have
+
+- [ ] Identify the 5x7 font's provenance — is it a stock PAGE Ibérica font or
+      a standard one?
+- [ ] Find other PAGE Ibérica PI-T100 documentation, service manuals, or
+      RENFE Cercanías installation notes.
+      → [docs/references.md](references.md)
