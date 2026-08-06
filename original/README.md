@@ -72,13 +72,6 @@ Two things follow:
 - [x] **The UV window is covered by the TELENORMA sticker.** No action needed, and
       one consequence worth stating outright:
 
-> **Do not remove the TELENORMA sticker.** It is simultaneously the unit's primary
-> date evidence *and* the UV shield over the EPROM's window. Peeling it would
-> destroy the provenance and start the part degrading. This is the opposite of the
-> advice for the DC-DC converter's QA sticker
-> ([../hardware/pcbs.md](../hardware/pcbs.md)), which covers a part number worth
-> reading and shields nothing.
-
 The only field still open is the programmer model and software version used for
 the dump — worth filling in above if it is still to hand, but nothing depends on
 it now that two reads agree.
