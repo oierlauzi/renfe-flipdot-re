@@ -201,6 +201,92 @@ record their as-found positions before touching anything.
 
 Port B bits 1:0. **[?]**
 
+## As found **[C] for the readings, [?] for the mapping**
+
+Recorded 2026-08, before anything was moved. **Do not change these without
+writing the new positions down.**
+
+### The two banks beside the 81C55 — 16 switches
+
+| Bank | As found (1 = *closed circuit*) |
+| --- | --- |
+| A' | `1 0 0 0 0 1 0 1` |
+| B' | `0 1 1 1 1 1 0 1` |
+
+Three unknowns sit between these digits and the port values the firmware sees:
+**polarity** (a pull-up with the switch to ground means closed reads 0),
+**bit order** (which end of the printed bank is bit 7), and **which bank is which
+port**. That gives eight self-consistent readings:
+
+| A'→ | bit order | polarity | PA | PB | Port A decodes as | Port B decodes as |
+| --- | --- | --- | --- | --- | --- | --- |
+| PA | left=b7 | closed=1 | `0x85` | `0x7D` | addr 5, proto A | 2400, 7 data, even |
+| PA | left=b7 | closed=0 | `0x7A` | `0x82` | addr 26, proto B | 4800, 8 data, **no parity** |
+| PA | left=b0 | closed=1 | `0xA1` | `0xBE` | addr 1, proto A | 9600, 7 data, even |
+| PA | left=b0 | closed=0 | `0x5E` | `0x41` | addr 30, proto B | 1200, 8 data, **no parity** |
+| PB | left=b7 | closed=1 | `0x7D` | `0x85` | addr 29, proto B | 4800, 8 data, **no parity** |
+| PB | left=b7 | closed=0 | `0x82` | `0x7A` | addr 2, proto A | 2400, 7 data, odd |
+| PB | left=b0 | closed=1 | `0xBE` | `0xA1` | addr 30, proto A | 9600, 8 data, **no parity** |
+| **PB** | **left=b0** | **closed=0** | **`0x41`** | **`0x5E`** | **addr 1, proto B** | **1200, 7 data, even** |
+
+### Narrowing it
+
+Two arguments, neither decisive alone, that point at the last row.
+
+**Polarity: closed almost certainly reads 0.** The near-universal DIP arrangement
+is a pull-up on the port pin with the switch shorting to ground. That halves the
+table to the four `closed=0` rows.
+
+**Seven data bits would explain the second `Ñ`.** [font.md](font.md) records
+that `0x25` holds a second `Ñ` glyph inside the 7-bit range, which was already
+noted as "what a Spanish installation needs when the link is not 8-bit clean". If
+port B really is set for **7 data bits**, that is not a coincidence — it is the
+reason. A 7-bit link physically cannot carry `0xA5`, the CP437 `Ñ`, so the font
+carries a duplicate below `0x80`. Two independent findings corroborating each
+other. **[L]**
+
+Together those favour **address 1, command protocol, 1200 baud, 7 data bits, even
+parity** — a thoroughly ordinary 1990s industrial-bus configuration, and a
+sensible setting for the first sign on a platform. But it remains **[?]**.
+
+### The device will tell us, once the link is readable
+
+No guessing is ultimately needed, because **the status frame is a read-out of the
+switches themselves**:
+
+* Its last byte is `0x60 | (port A & 0x1F)` — **port A bits 4:0 directly**, with no
+  assumption about polarity or bit order.
+* It is transmitted at the switch-selected **baud rate** — giving port B bits 7:5.
+* Its **character format** on the wire — data bits, parity — gives port B bits 4:2.
+
+So a single clean capture of `18 18 1E 15 <addr>` resolves almost the whole
+question, and cross-checks the eight-row table above. See
+[../hardware/connectors.md](../hardware/connectors.md#attempt-2-capture-one-frame-properly).
+
+### The other three switches
+
+| Location | Count | As found |
+| --- | --- | --- |
+| Motherboard, away from the banks | 1 | **open** |
+| Daughter 2 | 2 | **both open** |
+
+**16 + 1 + 2 = 19 switches against the 81C55's 22 input bits.** So the two banks
+of 8 are ports A and B, and **port C is not on a DIP bank at all** — it comes from
+the single motherboard switch plus hardwired links. That fits what port C does
+perfectly: bits 4:0 select the **display type** and bit 5 is the **serial
+enable**, both factory decisions rather than installation ones, while ports A and
+B carry the address, baud rate and character format an installer needs to set.
+**[L]**
+
+One inference worth testing: the unit was in service and receiving, so port C bit
+5 must have read as *enabled*. The motherboard switch was found **open**. If that
+switch is bit 5, then **open must read as 1** — independently confirming the
+pull-up polarity argued above. **[L]**
+
+The two daughter-2 switches are on the flip-dot board, so they more likely feed
+U20's port C (I/O `0xE3`, which the firmware reads 14 times) than the 81C55.
+**[?]**
+
 ## Recording the physical state — do this first
 
 Before flipping anything, photograph each bank and write the as-found positions

@@ -20,6 +20,56 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Switch positions as found, and a convergence on 7 data bits
+
+**Recorded (owner)** — the P0 item, the one piece of state no amount of later work
+could have recovered:
+
+| Where | As found (1 = closed) |
+| --- | --- |
+| Bank A', beside the 81C55 | `1 0 0 0 0 1 0 1` |
+| Bank B', beside the 81C55 | `0 1 1 1 1 1 0 1` |
+| Single switch elsewhere on the motherboard | open |
+| Two switches on daughter 2 | both open |
+
+**Three unknowns sit between those digits and the port values**: polarity, bit
+order, and which bank is which port. That is eight self-consistent readings,
+tabulated in `docs/dip-switches.md`. Two arguments narrow them:
+
+* **Closed almost certainly reads 0** — the near-universal DIP arrangement is a
+  pull-up on the pin with the switch shorting to ground. Halves the table.
+* **Seven data bits would explain the second `Ñ`.** This is the interesting one.
+  `docs/font.md` already recorded that `0x25` holds a duplicate `Ñ` inside the
+  7-bit range, noted at the time as "what a Spanish installation needs when the
+  link is not 8-bit clean". If port B really is set for 7 data bits then that is
+  not a coincidence but the *reason*: a 7-bit link physically cannot carry `0xA5`,
+  the CP437 `Ñ`. **Two findings reached from opposite directions agreeing.** [L]
+
+Together those favour **address 1, command protocol, 1200 baud, 7 data bits, even
+parity** — an unremarkable 1990s industrial-bus setting, and a sensible one for
+the first sign on a platform. Still **[?]**.
+
+**No guessing will ultimately be needed, because the device reports its own
+switches.** The status frame's last byte is `0x60 | (port A & 0x1F)` — port A bits
+4:0 with no assumption about polarity or bit order — it is sent at the
+switch-selected baud rate, and its character format on the wire is the
+switch-selected one. **One clean capture of `18 18 1E 15 <addr>` resolves almost
+the entire question** and cross-checks the eight-row table.
+
+**A structural finding from the counts.** 16 + 1 + 2 = **19 switches against the
+81C55's 22 input bits**. So the two banks of 8 are ports A and B, and **port C is
+not on a DIP bank at all** — the lone motherboard switch plus hardwired links.
+That fits exactly what port C does: bits 4:0 select the display *type* and bit 5
+is the serial enable, both factory decisions, while ports A and B carry the
+address, baud rate and character format an installer sets. [L]
+
+**And a testable inference:** the unit was in service and receiving, so port C bit
+5 must have read as enabled. The lone motherboard switch was **open**. If that
+switch is bit 5, open must read as 1 — independently confirming the pull-up
+polarity argued above. [L]
+
+---
+
 ## 2026-08-06 — Dump provenance closed out
 
 **Confirmed (owner):** a second independent read of the EPROM produced an

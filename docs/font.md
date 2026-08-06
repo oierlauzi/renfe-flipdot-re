@@ -111,6 +111,13 @@ when the link, the controller or an intermediate system is not 8-bit clean. The
 identity of `0x24` is less certain — another accented capital, but which one is
 **[?]**.
 
+**This now has independent support.** The DIP switches as found decode, under the
+most plausible reading, to **7 data bits** on the serial link
+([dip-switches.md](dip-switches.md#as-found-c-for-the-readings--for-the-mapping)).
+A 7-bit link physically cannot carry `0xA5`, the CP437 `Ñ` — so a duplicate below
+`0x80` is not a curiosity, it is a requirement. Two findings arrived at from
+opposite directions agreeing is worth more than either on its own. **[L]**
+
 **Consequence for a controller:** do not send `$` or `%` expecting them to
 appear. Everything else in `0x20-0x7E` matches ASCII as far as the glyph map
 shows.
