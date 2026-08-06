@@ -95,7 +95,7 @@ The passive inventory in [pcbs.md](pcbs.md) is more informative than it looks.
 
 #### The strongest argument: there is no transceiver IC
 
-Daughter 1 carries a DC-DC converter, a hex Schmitt trigger, six DIP8s that are
+Daughter 1 carries a DC-DC converter, a hex Schmitt trigger, five DIP8s that are
 almost certainly optocouplers, and a handful of resistors, diodes and capacitors.
 **That is the parts list for an opto-isolated current loop built from discretes.**
 
@@ -185,7 +185,7 @@ Supporting checks:
       voltage it gives the intended loop current directly: ~1 kΩ from 24 V is a
       20 mA loop.
 - [ ] Determine whether the transmit side is **passive or active** — i.e. whether
-      anything on daughter 1 supplies current to the TX pair, or whether U14-U17
+      anything on daughter 1 supplies current to the TX pair, or whether the yellow DIP8s
       are bare switches expecting an external supply.
 
 ### Attempt 4: if the transmitter turns out to be a passive loop after all
@@ -214,7 +214,7 @@ the whole project — see [../docs/open-questions.md](../docs/open-questions.md)
    terminal block; record the terminal number.
 3. **Trace from the terminal block to U7** (6N139 optocoupler). The two wires
    reaching the 6N139 anode/cathode (pins 2 and 3) are the **receive** pair.
-4. **Find the transmit driver.** Look at the four yellow DIP8 parts U14-U17 on
+4. **Find the transmit driver.** Look at the three yellow DIP8 parts on
    daughter 1: if they are optocouplers, the TX path is opto-isolated too, and
    whichever pair they drive is the transmit pair.
 5. **Measure the idle voltage** across each pair with the unit powered and

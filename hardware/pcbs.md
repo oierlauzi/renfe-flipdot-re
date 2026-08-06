@@ -90,7 +90,7 @@ anything.
 | --- | --- | --- |
 | 1 | DC-DC converter module | Isolated, soldered down |
 | 1 | U11 MC14584BCP | Hex Schmitt trigger |
-| 6 | U12-U17, DIP8 | U14-U17 have yellow bodies; **almost certainly optocouplers** |
+| 5 | DIP8, **unlabelled** | 3 have yellow bodies; **almost certainly optocouplers** |
 | 4 | Diodes | |
 | 2 | Electrolytic capacitors | |
 | 8 | Film capacitors | |
@@ -119,7 +119,7 @@ the unit to the (absent) LED panel.
 
 | Count | Part | Notes |
 | --- | --- | --- |
-| 3 | ULN2003A (U18a, U18b TI; U19 ST) | **21 Darlington sinks** |
+| 3 | ULN2003A (U17, U18 TI; U19 ST) | **21 Darlington sinks** |
 | 1 | U20, DIP40 | Strong 81C55 candidate; the whole `0xE0` reading rests on it |
 | **9** | **Transistors, each with a diode and a 22 kΩ resistor** | Near the ribbon — see below |
 

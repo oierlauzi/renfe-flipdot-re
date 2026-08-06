@@ -101,8 +101,8 @@ third is a safety precondition.
       - Result:
 - [x] ~~120 Ω termination?~~ Daughter 1's only resistor values are **560 Ω** and
       **~1 kΩ**. Nothing near 120 Ω, and **no differential transceiver IC at all** —
-      the parts are a DC-DC converter, a hex Schmitt trigger and six probable
-      optocouplers. That is a discrete opto-isolated interface, not RS-422.
+      the parts are a DC-DC converter, one hex Schmitt trigger and five DIP8s,
+      three of them probable optocouplers. That is a discrete opto-isolated interface, not RS-422.
       → [hardware/connectors.md](hardware/connectors.md#what-daughter-1s-parts-imply-l)
 - [x] **The converter is genuinely isolated.** Four nets (`VI+`/`VI-`/`VO+`/`VO-`)
       with no shared ground — a buck or linear regulator would expose three pins.
@@ -141,10 +141,10 @@ third is a safety precondition.
       one. Do not assume only TX and RX exist when tracing — look for a third
       (RTS, or a second channel for the LED matrix).
 - [ ] **Is the transmit side passive or active?** Does anything on daughter 1
-      supply current to the TX pair, or are U14-U17 bare switches expecting an
+      supply current to the TX pair, or are the yellow DIP8s bare switches expecting an
       external supply?
       - Result:
-- [ ] **Locate the transmit driver.** Part numbers on U14-U17 (the yellow DIP8s
+- [ ] **Locate the transmit driver.** Part numbers on the three yellow DIP8s
       on daughter 1). If they are optocouplers, whichever pair they drive is TX.
       - Result:
 

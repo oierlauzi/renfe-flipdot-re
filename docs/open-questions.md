@@ -36,7 +36,8 @@ delete them from here — this file should shrink over time.
 ## Hardware identification
 
 - [ ] U8, U9 (DIP16), U10 (DIP20) on the motherboard.
-- [ ] U12-U17 (DIP8, four of them yellow — likely optocouplers) on daughter 1.
+- [ ] The five unlabelled DIP8s on daughter 1, three of them yellow and likely
+      optocouplers. They carry no silkscreen designators.
 - [ ] U19 (DIP16, ST) and U20 (DIP40) on daughter 2. Is U20 a third 81C55?
       That would confirm the `0xE0`/`0xE8` interpretation.
 - [ ] Which address lines generate the `0x80` / `0xA0` / `0xC0` / `0xE0` chip

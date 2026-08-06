@@ -17,8 +17,8 @@ package so they can be identified later; see
 | U6 | 7555 | Mother | — | Timer (watchdog / reset?) |
 | U7 | 6N139 | Mother | — | Optocoupler, serial RX isolation |
 | U8-U10 | ? | Mother | ? | unidentified |
-| U12-U17 | ? (DIP8) | D1 | — | unidentified; likely optocouplers |
-| U18a, U18b | ULN2003A | D2 | — | Darlington sinks, flip-dot drive |
+| (5 unlabelled) | ? (DIP8) | D1 | — | 3 have yellow bodies; likely optocouplers |
+| U17, U18 | ULN2003A | D2 | — | Darlington sinks, flip-dot drive |
 | U19 | ULN2003A (ST) | D2 | — | Third Darlington array; 21 sinks in total |
 | U20 | ? (DIP40) | D2 | `0xE0-0xE5`? | unidentified; **81C55 candidate** |
 
@@ -136,67 +136,37 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Datasheet:** [https://www.onsemi.com/download/data-sheet/pdf/mc14584b-d.pdf]
 - **Notes:** 
 
-## U12 — ?
-- **Manufacturer:** 
+## The five DIP8s on daughter 1 — unidentified, and **unlabelled**
+- **Manufacturer:**
 - **Part number:**
 - **PCB:** Daughter 1
 - **Datasheet:** []
-- **Notes:** DIP8 Package
+- **Notes:** Daughter 1 carries **five DIP8 packages**, of which **three have
+  yellow bodies** and are the likely optocouplers; they are the candidates for the
+  serial isolation, see [connectors.md](connectors.md).
 
-## U13 — ?
-- **Manufacturer:** 
-- **Part number:**
-- **PCB:** Daughter 1
-- **Datasheet:** []
-- **Notes:** DIP8 Package
+  **They carry no reference designators on the silkscreen.** Earlier revisions of
+  this file gave them numbers (`U12`-`U17`) — those were invented here, not read
+  from the board, and have been removed. Identify them by position and body colour
+  until real markings are read.
 
-## U14 — ?
-- **Manufacturer:** 
-- **Part number:**
-- **PCB:** Daughter 1
-- **Datasheet:** []
-- **Notes:** Yellow DIP8 package — the colour suggests an optocoupler. Candidate for the serial TX isolation; see [connectors.md](connectors.md).
-
-## U15 — ?
-- **Manufacturer:** 
-- **Part number:**
-- **PCB:** Daughter 1
-- **Datasheet:** []
-- **Notes:** Yellow DIP8 package — the colour suggests an optocoupler. Candidate for the serial TX isolation; see [connectors.md](connectors.md).
-
-## U16 — ?
-- **Manufacturer:** 
-- **Part number:**
-- **PCB:** Daughter 1
-- **Datasheet:** []
-- **Notes:** Yellow DIP8 package — the colour suggests an optocoupler. Candidate for the serial TX isolation; see [connectors.md](connectors.md).
-
-## U17 — ?
-- **Manufacturer:** 
-- **Part number:**
-- **PCB:** Daughter 1
-- **Datasheet:** []
-- **Notes:** Yellow DIP8 package — the colour suggests an optocoupler. Candidate for the serial TX isolation; see [connectors.md](connectors.md).
-
-## U18a — 7 NPN Darlington Pairs
-- **Manufacturer:** Texas Instruments
-- **Part number:** ULN2003A
-- **PCB:** Daughter 2
-- **Datasheet:** [https://www.ti.com/lit/ds/symlink/uln2003a.pdf]
-- **Notes:** One of two packages sharing the U18 designator on the silkscreen.
-  Drives the flip-dot coils. Being current *sinks* is consistent with the
-  firmware complementing (`CMA`) every value before writing it to the display
-  ports — i.e. active-low drive.
-
-## U18b — 7 NPN Darlington Pairs
+## U17 — 7 NPN Darlington Pairs
 - **Manufacturer:** Texas Instruments
 - **Part number:** ULN2003AN
 - **PCB:** Daughter 2
 - **Datasheet:** [https://www.ti.com/lit/ds/symlink/uln2003a.pdf]
-- **Notes:** Second package. With U19 also a ULN2003A there are **21 Darlington
-  sinks** on daughter 2 — see
-  [../docs/flipdot-interface.md](../docs/flipdot-interface.md). Confirm the
-  designators against the silkscreen; one may actually be U21.
+- **Notes:** Previously recorded as "U18b". With U18 and U19 this makes **21
+  Darlington sinks** on daughter 2 — see
+  [../docs/flipdot-interface.md](../docs/flipdot-interface.md).
+
+## U18 — 7 NPN Darlington Pairs
+- **Manufacturer:** Texas Instruments
+- **Part number:** ULN2003A
+- **PCB:** Daughter 2
+- **Datasheet:** [https://www.ti.com/lit/ds/symlink/uln2003a.pdf]
+- **Notes:** Previously recorded as "U18a". Drives the flip-dot coils. Being
+  current *sinks* is consistent with the firmware complementing (`CMA`) every
+  value before writing it to the display ports — i.e. active-low drive.
 
 ## U19 — 7 NPN Darlington Pairs
 - **Manufacturer:** STMicroelectronics
@@ -205,7 +175,7 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Datasheet:** [https://www.st.com/resource/en/datasheet/uln2001.pdf]
 - **Notes:** **Third** ULN2003A on daughter 2, bringing the total to **21
   Darlington sinks**. A second-source part from a different manufacturer to
-  U18a/U18b, which is ordinary production practice.
+  U17/U18, which is ordinary production practice.
 
 ## U20 — ?
 - **Manufacturer:**

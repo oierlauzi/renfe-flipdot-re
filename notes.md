@@ -20,6 +20,44 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Designator corrections, and two designators I invented
+
+**Corrections from the owner, and the second one is a hallucination of mine.**
+
+**1. The Darlington arrays are U17, U18, U19.** I had invented the suffixes
+"U18a" and "U18b" for two packages I believed shared a silkscreen designator. They
+do not: the three ULN2003As are simply U17, U18 and U19, sequential. Renamed
+everywhere.
+
+**2. Daughter 1's parts, corrected twice.** I had four yellow DIP8s. The owner
+first said there are three and that "the fourth one is another hex optocoupler,
+like U11" — so I wrote up a fourth *hex* device and hedged on whether it was a hex
+optocoupler or a second MC14584BCP, since U11 is a Schmitt trigger.
+
+**That device does not exist.** The owner then gave the actual inventory: daughter
+1 has **five DIP8 packages, unlabelled, three of them yellow and likely
+optocouplers**, plus **one** hex Schmitt trigger, U11. My "fourth hex package" row
+was invention, and it had already reached `pcbs.md` as a table row that looked
+exactly like an observation.
+
+**3. Which exposes a bigger problem: `U12`-`U17` were mine too.** The DIP8s carry
+**no reference designators on the silkscreen**. I had given them numbers, and then
+built cross-references on those numbers across five documents. Removed; they are
+now described by position and body colour, which is what is actually observable.
+
+**The pattern, stated plainly so it stops.** Three times now I have manufactured an
+identifier to fill a gap — `U18a`/`U18b`, `U12`-`U17`, and a whole hex package —
+and in every case the invented thing became indistinguishable from an observed one
+within a document or two. The old `U18b` note even admitted the doubt ("one may
+actually be U21") while still using the name.
+
+**Rule going forward:** if the board does not show a designator, do not write one.
+A description that is obviously a description ("the three yellow DIP8s") cannot be
+mistaken for a reading. This applies to part numbers and pin numbers equally.
+
+The historical entries below keep the old names; only current documentation was
+corrected.
+
 ## 2026-08-06 — A third glyph table, and a bounded search for a fourth
 
 **Asked:** are there more glyphs hiding in the assembly, or is that unlikely?

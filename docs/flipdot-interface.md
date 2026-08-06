@@ -8,7 +8,7 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 ## Signal chain
 
 ```
-81C55-class device @ I/O 0xE0        ULN2003A x3 (U18a, U18b, U19)
+81C55-class device @ I/O 0xE0        ULN2003A x3 (U17, U18, U19)
   port A (0xE1) ─┐                   7 Darlington sinks each
   port B (0xE2) ─┼─ daughter 2 ──▶   = 21 sinks, with     ──▶ ribbon ──▶ panel
   port C (0xE3) ─┘                   free-wheel diodes                  coils
@@ -20,7 +20,7 @@ That near-match is unlikely to be coincidence: it suggests the ports drive the
 Darlington inputs almost one-for-one, with a single bit left over for a strobe or
 an enable.
 
-**Three** ULN2003A packages — U18a, U18b and U19 — give **21 Darlington sinks**.
+**Three** ULN2003A packages — U17, U18 and U19 — give **21 Darlington sinks**.
 
 Two facts about that part constrain the topology more than the count does:
 
