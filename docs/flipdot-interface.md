@@ -169,14 +169,44 @@ Consistent with observation: the type-`0x11` driver writes only `0xE2` (49
 distinct values) while the type-`0x10` and `0x12` drivers write both `0xE1` and
 `0xE2` — different panel widths using one or both select ports.
 
-### Consequence: the ribbon conductor count is now a sharp test
+### The ribbon has 26 conductors — the model holds **[C]**
 
-* **~20-26 conductors** (16 selects + clock + data + control + power/ground) →
-  the model above is right.
-* **~8-10 conductors** → it is wrong, and the position is decoded somewhere on
-  the panel after all.
+Counted at the splice (owner, 2026-08). That is comfortably in the predicted
+20-26 band and **decisively rules out** the ~8-10 alternative in which position
+would have been decoded on the panel.
 
-The splice point makes this directly countable. → [TODO.md](../TODO.md)
+A plausible allocation, with 6 conductors left over for supply:
+
+| Conductors | Function |
+| --- | --- |
+| 16 | character selects, one per module, active low |
+| 1 | shift clock — port C bit 4 |
+| 1 | serial data — port C bit 5 |
+| 2 | control / latch — port C bits 1:0 |
+| **6** | **24 V and returns** — flip-dot coils draw real current, so several |
+
+26 is also a standard IDC ribbon width (13 x 2), so the header is very likely a
+26-way IDC.
+
+The **allocation** above is still **[L]** — what is confirmed is the *count*, and
+therefore the shape of the interface. Tracing which conductor is which is now a
+well-guided job rather than a guess: look for **16 conductors that each reach
+exactly one module** (the selects), **2 that reach every module** (clock and
+data), and the remainder carrying supply.
+
+### This opens a plan B for the whole project
+
+If the interface really is 16 selects plus a clock and a data line, then **the
+panel can be driven directly**, bypassing the original electronics entirely — no
+serial link, no current loop, no unresolved physical layer. An ESP32 with a
+shift register or port expander can produce 16 selects, a clock and a data line
+without difficulty, and the bit format is already fully decoded above.
+
+That is not the project's stated goal, which is to drive the display *through* its
+own firmware over the DB37. But it is a genuine fallback if the electrical layer
+proves awkward, and it needs no modification to the display — only a different
+cable onto the existing ribbon header. Worth knowing it exists. See
+[controller.md](controller.md).
 
 ## The panel is a serial shift register **[C] from the ROM**
 

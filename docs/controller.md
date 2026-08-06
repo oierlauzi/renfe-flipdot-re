@@ -155,6 +155,26 @@ A sensible division of labour: **bring the link up on a PC with a USB adapter**,
 where you can iterate quickly and log everything, then **move the working
 protocol onto an ESP32** for the finished object.
 
+## Plan B: drive the panel directly
+
+Worth knowing this exists, because it sidesteps the unresolved physical layer
+entirely.
+
+The flip-dot panel's ribbon carries **26 conductors**, and the drive format is
+fully decoded: 16 per-character select lines, a shift clock, a serial data line
+(active low), and 74 bits per character — see
+[flipdot-interface.md](flipdot-interface.md#the-panel-is-a-serial-shift-register-c-from-the-rom).
+
+An ESP32 with a shift register or port expander can produce that without
+difficulty. No serial link, no current loop, no DB37, and **no modification to the
+display** — only a different cable onto the existing ribbon header.
+
+The trade-off is real, though: doing this bypasses the original firmware, so the
+unit stops being a working PI-T100 and becomes a flip-dot panel with new
+electronics. The stated goal is to drive it *through* its own firmware, which
+preserves the machine as it was. Treat this as the fallback if the electrical
+layer proves intractable, not the first choice.
+
 ## Notes for whatever you build
 
 * **The display transmits continuously.** Its status frame goes out forever with

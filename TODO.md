@@ -167,13 +167,19 @@ third is a safety precondition.
 - [ ] **Does RST7.5 fire?** Scope on 8085 pin 7. Settles whether the `0xC0`
       device is present or absent.
       - Result:
-- [ ] **Panel ribbon conductor count — now a sharp test of the drive model.**
-      Countable at the splice. ~20-26 conductors confirms 16 per-character select
-      lines plus clock, data, control and power; ~8-10 refutes it and means the
-      position is decoded on the panel.
-      → [docs/flipdot-interface.md](docs/flipdot-interface.md#consequence-the-ribbon-conductor-count-is-now-a-sharp-test)
-      - Result — conductor count:
-      - Result — which conductors go to which module pin:
+- [x] **Panel ribbon conductor count: 26.** Confirms the select-line drive model
+      and rules out position being decoded on the panel.
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#the-ribbon-has-26-conductors--the-model-holds-c)
+- [ ] **Trace the 26 conductors.** Now a well-guided job: find the **16 that each
+      reach exactly one module** (selects), the **2 that reach every module**
+      (clock and data), and the remainder carrying 24 V and returns. This also
+      gives the pinout needed for the direct-drive fallback in
+      [docs/controller.md](docs/controller.md#plan-b-drive-the-panel-directly).
+      - Result — the 16 selects, and which module each goes to:
+      - Result — clock and data conductors:
+      - Result — supply conductors:
+- [ ] **Ribbon pitch and header type** (26-way IDC expected).
+      - Result:
 - [ ] **Test the missing-RAM prediction.** With the LED panel absent the unit
       should still sweep at power-on and still answer `SUB`, but should be
       **unable to display sent text** — because the message buffer may live in RAM

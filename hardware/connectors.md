@@ -236,13 +236,14 @@ spliced where the display was removed. It almost certainly continued to the
 **second LED panel**, making this one bus shared by both displays.
 
 That forces per-character **select lines** — see
-[../docs/flipdot-interface.md](../docs/flipdot-interface.md#what-that-forces) — and
-makes the conductor count a sharp test of the whole drive model:
+[../docs/flipdot-interface.md](../docs/flipdot-interface.md#what-that-forces).
 
-* **~20-26 conductors** → 16 selects + clock + data + control + power. Model holds.
-* **~8-10 conductors** → model wrong; position is decoded on the panel.
+**Counted: 26 conductors.** That confirms the model and rules out the ~8-10
+alternative in which position would have been decoded on the panel. Expected
+allocation: 16 selects, 1 clock, 1 data, 2 control, and 6 for 24 V and returns.
 
-The splice makes this directly countable.
+Next: trace which conductor is which. Look for **16 that each reach exactly one
+module**, **2 that reach every module**, and the remainder carrying supply.
 
 
 Large ribbon header on daughter 2, driven by the ULN2003A Darlington arrays
@@ -251,9 +252,10 @@ Large ribbon header on daughter 2, driven by the ULN2003A Darlington arrays
 
 | Property | Value | Conf. |
 | --- | --- | --- |
-| Pin count | *TODO* | |
+| Conductor count | **26** | **[C]** |
+| Type | Very likely 26-way IDC (13 x 2), standard width | **[L]** |
 | Pitch | *TODO* | |
-| Pinout | *TODO* | |
+| Pinout | *TODO* — 16 selects + clock + data + control + supply expected | **[L]** |
 
 For 16 characters x 5 columns = 80 columns and 7 rows, a plausible arrangement
 is 7 row lines plus a column address, or column-strobe shift registers on the

@@ -20,6 +20,37 @@ Entry template:
 
 ---
 
+## 2026-08-06 — 26 conductors: the select-line model is confirmed
+
+**Counted (owner):** the panel ribbon has **26 conductors**.
+
+That sits in the predicted 20-26 band and **decisively rules out** the ~8-10
+alternative in which the character position would have been decoded on the panel.
+The select-line model stands: 16 per-character selects, a shift clock, a serial
+data line, two control lines, and 6 conductors left for 24 V and returns — which
+flip-dot coils need, being genuinely current-hungry. 26 is also a standard IDC
+width (13 x 2), so the header is very likely 26-way IDC.
+
+What is confirmed is the **count**, and therefore the *shape* of the interface. The
+per-conductor allocation is still [L] until traced — but tracing is now a guided
+job rather than guesswork: find the 16 conductors that each reach exactly one
+module, the 2 that reach every module, and the rest carrying supply.
+
+**A strategic consequence worth recording.** With 16 selects plus clock and data,
+and the 74-bit frame format already decoded, **the panel can be driven directly** —
+bypassing the original electronics, the DB37, the serial link and the entire
+unresolved current-loop question. An ESP32 with a shift register does it easily,
+and it needs no modification to the display, only a different cable onto the
+existing ribbon header.
+
+That is *not* the project's goal, which is to drive the display through its own
+firmware and so keep the machine intact as a working PI-T100. But it is a real
+fallback if the electrical layer proves intractable, and it is worth knowing the
+project cannot be completely blocked. Recorded in `docs/controller.md` as plan B,
+explicitly flagged as second choice.
+
+---
+
 ## 2026-08-06 — Panel topology: independent modules on a shared bus
 
 **Observed (owner):** each character is an **independent module**, sixteen of them,

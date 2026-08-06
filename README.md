@@ -84,7 +84,7 @@ and [tools/extract_font.py](tools/extract_font.py) (`--png`) to regenerate it.
 | Receive architecture | done — RST5.5 ISR, two handlers — [docs/serial-protocol.md](docs/serial-protocol.md) |
 | Serial framing | both handlers mapped; per-command semantics open |
 | DB37 pinout | not measured |
-| Flip-dot drive | partially traced |
+| Flip-dot drive | **serial shift register decoded** — clock, data, 16 selects, 74 bits/char — [docs/flipdot-interface.md](docs/flipdot-interface.md) |
 
 The working queue is [docs/open-questions.md](docs/open-questions.md).
 
@@ -126,6 +126,10 @@ GS '5' STX HOLA ETX  -> ACK '5'                  (acknowledged, with address)
 GS '9' SUB           -> nothing                  (wrong address, stays silent)
 ```
 * `0x4A`/`0x4E` at `0x03A0` are an **ISR/main-loop mailbox**, not framing bytes.
+* **The panel is driven serially, not as a matrix.** Each of the 16 characters is
+  an independent module on a shared 26-conductor bus with its own select line;
+  port C bit 4 is the shift clock and bit 5 the data, 74 bits per character.
+  Validated by reconstructing the glyphs from the emulated bit stream.
 * The firmware is **designed to run standalone**. Expansion-board memory is
   reached through a paged window at `0xE000` selected by I/O port `0xE7`, and all
   46 banked accesses funnel through three accessors that check for the board and
