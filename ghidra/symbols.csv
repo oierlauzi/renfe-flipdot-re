@@ -170,3 +170,6 @@ mem,09F3,attr_apply,func,"On a change of 0xA014, dispatch on the panel family an
 mem,199F,attr_age,func,"Age the display attribute: clear bit 0/1 when duration 0xA018/0xA016 expires. Handler A only"
 mem,A015,attr_shadow,data,"Previous value of 0xA014, so attr_apply acts only on change"
 mem,A013,attr_active,data,"1 when 0xA014 & 3 is non-zero; gates the duration countdown at 0x02EF"
+mem,A057,second_display_sel,data,"Selects the second buffer/shadow pair at 0xE084/0xE0C6. Never set: its only writer is behind an always-taken jump at 0x07ED"
+mem,E084,msg_buffer2,data,"Second display's message buffer; loaded by EOT block-write but never rendered in this build"
+mem,E0C6,shadow_buffer2,data,"Shadow for the second display buffer"

@@ -216,7 +216,49 @@ Every boundary here is written by identifiable code, not inferred from a dump:
 | `0xE041`, `0xE042` | 2 | terminator, `0x03` twice | `0x12E0`, `0x12E4` |
 | `0xE043-0xE082` | 64 | **shadow copy** — what the panel currently shows | `0x136A` per character |
 | `0xE083` | 1 | terminator for the shadow | — |
-| `0xE084-…` | 64 | a third region, filled `0xFF` or `0x00` when `0xA057 != 0` | `0x0FFA`, `0x102F` |
+| `0xE084-0xE0C3` | 64 | **second message buffer** — see below | `0x0FFA`, `0x102F`, `EOT` |
+| `0xE0C4`, `0xE0C5` | 2 | terminators for the second buffer | — |
+| `0xE0C6-0xE105` | 64 | **second shadow copy** | — |
+
+### The second buffer pair is a disabled feature **[C]**
+
+`0xE084` is not an attribute plane, as an earlier draft guessed. It is a **second
+buffer and shadow with exactly the same `0x42` stride** as the first pair, and the
+firmware substitutes one for the other wholesale:
+
+```
+0x1498  LXI  H,0xE001      ; buffer 1
+0x149B  LXI  D,0xE043      ; shadow 1
+0x14A3  LDA  0xA057
+0x14A6  CPI  0x01
+0x14A8  JNZ  0x14B1
+0x14AB  LXI  H,0xE084      ; ...replaced by buffer 2
+0x14AE  LXI  D,0xE0C6      ; ...and shadow 2
+```
+
+The same substitution appears at `0x1542` and `0x1703`, and `FF`/`CAN` clear from
+`0xE084` instead of `0xE001` under the same condition. So `0xA057` selects which of
+two displays the whole render path operates on.
+
+**But `0xA057` can never be set in this build.** Its only writer is `0x07F2`,
+guarded by:
+
+```
+0x07E9  MVI  A,0x01
+0x07EB  CPI  0x01          ; ...against the value just loaded
+0x07ED  JZ   0x07FB        ; therefore always taken
+```
+
+`MVI A,0x01` followed by `CPI 0x01` is unconditionally equal, so the jump always
+skips the setter. Confirmed by emulation across panel types and with the serial
+link disabled: `0xA057` stays `0x00` and `0x07F2` never executes. This has the
+shape of a **feature patched out at build time** by replacing a real test with a
+constant — the ROM is a generic multi-display build, and this unit does not get the
+second display.
+
+Consequence: `EOT`'s block-write still lands in `0xE084` (it does not consult
+`0xA057`), but **nothing ever renders it**. Writing there is harmless and
+invisible.
 
 The 64-byte message buffer and its 64-byte shadow are the mechanism behind the
 differential repaint: `0x124E` walks the two in step and calls the panel driver

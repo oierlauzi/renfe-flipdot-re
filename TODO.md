@@ -353,9 +353,13 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       displays: types 2, 8, 9, 0x0B-0x0E refresh continuously, everything else
       including this panel's `0x11` updates differentially. A standalone unit
       (port C bit 5 clear) also refreshes continuously.
-- [ ] **What is the third 64-byte region at `0xE084`?** Filled with `0xFF` by `FF`
-      and `0x00` by `CAN`, but only when `0xA057 != 0`. Per-character attributes
-      is the obvious guess.
+- [x] **The `0xE084` region identified: a second buffer/shadow pair**, not an
+      attribute plane. `0xE084` + `0xE0C6` with the same `0x42` stride as
+      `0xE001` + `0xE043`, and the render path substitutes one pair for the other
+      on `0xA057`. That flag is **never set** — its only writer is behind
+      `MVI A,0x01 / CPI 0x01 / JZ`, an always-taken jump — so this is a second
+      display patched out at build time. `EOT` still writes there, invisibly.
+      → [docs/io-map.md](docs/io-map.md#the-second-buffer-pair-is-a-disabled-feature-c)
 - [ ] What are the 97-iteration loop at `0x03CE` and `0xA021` (the 16-vs-32
       character count) for?
 - [x] **Code page identified: IBM CP437.** Every region matches — control

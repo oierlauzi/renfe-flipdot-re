@@ -175,13 +175,19 @@ class PIT100:
     def block_write(self, data, offset=0):
         """EOT '2' <offset-hi> <offset-lo> <count-hi> <count-lo> <data...>.
 
-        A general block load into the third region at 0xE084, whose purpose is
-        still unknown -- see docs/flipdot-interface.md. Offset and count are both
-        16-bit, so this can reach well past the region into paged expansion
-        memory. Confirmed in emulation for offset 4, count 6.
+        A general block load into the buffer at 0xE084, which is the **second
+        display's** message buffer (its shadow follows at 0xE0C6, the same 0x42
+        stride as the primary pair). Offset and count are both 16-bit, so this can
+        reach well past the buffer into paged expansion memory. Confirmed in
+        emulation for offset 4, count 6.
 
-        Nothing in the render path is known to read 0xE084, so this is here for
-        experiment, not for putting text on the panel.
+        **Nothing renders it in this build.** The render path only switches to the
+        second pair when 0xA057 is set, and that flag's only writer sits behind an
+        always-taken jump -- the feature is patched out. So this writes real bytes
+        to real memory that nothing will ever display. Kept because it is a clean
+        way to prove a link works end to end without disturbing the panel, and
+        because a different ROM build may well enable it.
+        See docs/io-map.md.
         """
         n = len(data)
         self.t.write(bytes((EOT, 0x32, offset >> 8, offset & 0xFF,

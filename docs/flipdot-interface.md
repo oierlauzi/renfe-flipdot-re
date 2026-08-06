@@ -689,9 +689,11 @@ That closes one of the two remaining unattributed port B bits — see
 - [x] ~~Where is the frame buffer, and in what layout?~~ Not in the `0xA000` RAM
       at all: it is the 64-byte buffer at `0xE001` with a 64-byte shadow at
       `0xE043`. → [io-map.md](io-map.md#what-is-in-the-window-c-from-emulation)
-- [ ] **What is the third 64-byte region at `0xE084`?** Filled with `0xFF` (by
-      `FF`) or `0x00` (by `CAN`) but only when `0xA057 != 0`. A per-character
-      attribute plane is the obvious guess. **[?]**
+- [x] ~~What is the third 64-byte region at `0xE084`?~~ **Answered: it is a second
+      buffer/shadow pair** (`0xE084` + `0xE0C6`, same `0x42` stride), selected by
+      `0xA057` — which is **never set**, because its only writer sits behind an
+      always-taken jump. A feature patched out at build time.
+      → [io-map.md](io-map.md#the-second-buffer-pair-is-a-disabled-feature-c)
 
 ## Safety note
 
