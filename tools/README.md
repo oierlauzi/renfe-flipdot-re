@@ -8,6 +8,7 @@ Run them from the repository root; they default to `original/firmware.bin`.
 | Script | Purpose |
 | --- | --- |
 | [rom_info.py](rom_info.py) | Integrity check, used/erased extent, region cross-check, printable strings |
+| [disasm.py](disasm.py) | 8085 disassembler with symbol annotation; also finds cross-references |
 | [extract_font.py](extract_font.py) | Render or export the 5x7 glyph table |
 | [emu8085.py](emu8085.py) | Intel 8085 CPU core; machine-agnostic, memory and I/O via callbacks |
 | [pit100_sim.py](pit100_sim.py) | Runs the real firmware against stub peripherals |
@@ -31,9 +32,45 @@ PYTHONPATH=tools python3 tools/panel_view.py --fill
 ```
 
 Frame length, marker position, bit order and polarity all had to be right at once
-for that to come out. **`--text` does not yet show real text** — see the
-assumptions and the known gap in
+for that to come out. `--text` works too:
+
+```sh
+PYTHONPATH=tools python3 tools/panel_view.py --text "HOLA MUNDO"
+```
+
+```
+#...#  .###.  #....  .###.  #...#  #...#  #...#  ####.  .###.
+#...#  #...#  #....  #...#  ##.##  #...#  #...#  #...#  #...#
+#...#  #...#  #....  #...#  #.#.#  #...#  ##..#  #...#  #...#
+#####  #...#  #....  #####  #.#.#  #...#  #.#.#  #...#  #...#
+#...#  #...#  #....  #...#  #...#  #...#  #..##  #...#  #...#
+#...#  #...#  #....  #...#  #...#  #...#  #...#  #...#  #...#
+#...#  .###.  #####  #...#  #...#  .###.  #...#  ####.  .###.
+```
+
+Nine glyphs for ten characters: the space produces no frame because it was
+already a space, which is the differential update doing its job.
+
+Two settings matter and both bit earlier attempts. `--port-b` must have bit 0
+clear or the pad character is a solid block, and the command stream must end in
+`RS` or a selected unit never repaints at all — see
+[../docs/serial-protocol.md](../docs/serial-protocol.md#the-repaint-interlock-rs-is-not-optional-c).
+The remaining assumptions are listed in
 [../docs/flipdot-interface.md](../docs/flipdot-interface.md#assumptions-this-rests-on-and-how-to-falsify-each).
+
+## disasm.py — reading the ROM
+
+Three modes, all annotating with the names in [../ghidra/symbols.csv](../ghidra/symbols.csv):
+
+```sh
+python3 tools/disasm.py 0x1440-0x1470     # disassemble a range
+python3 tools/disasm.py --xref 0xA00A     # who touches this address or port
+python3 tools/disasm.py --calls 0x136A    # who calls this routine
+```
+
+The xref scan disassembles linearly from `0x0000`, so it can lose sync inside the
+font table and other data. It cross-checks against a raw byte search and says so
+when the two disagree, rather than quietly under-reporting.
 
 ## pit100.py — the driver
 

@@ -20,6 +20,67 @@ Entry template:
 
 ---
 
+## 2026-08-06 — The render path closes: text on the virtual panel
+
+**Did:** built `tools/disasm.py` first, because the repo had an emulator but no
+disassembler and I had been reading code through throwaway scripts. Validated it
+by reproducing the hand-annotated listings at `0x210D` and `0x29F6` in the docs
+byte for byte. Then instrumented the emulator: window writes with their callers,
+a PC ring buffer to catch what jumped where, and marks on the candidate render
+entry points.
+
+**Found:** the buffer-to-glyph link had **two** breaks, neither in the frame
+format.
+
+1. **The repaint interlock.** `0x130B` is `LDA 0xA040 / CPI 0 / JNZ 0x130B` — the
+   repaint task spins for as long as the unit is *selected*. Send `GS <addr> STX
+   text ETX` and stop, and the text is stored, `ACK`ed, and never drawn. Without
+   `RS`: 259 016 spin hits, zero render passes. With `RS`: 131 passes and exactly
+   two characters drawn for a two-character message. Almost certainly deliberate —
+   it stops a half-received line from being displayed.
+2. **Port B bit 0.** Set, the pad character becomes the solid block `0x23`. The
+   "fill character" I had recorded as a symptom of a missing step was the pad
+   character working correctly all along.
+
+`panel_view.py --text "HOLA MUNDO"` now renders. Kept that string as the example
+rather than a station name because the space in the middle produces **no frame** —
+it was already a space, so the differential update correctly does nothing. A
+single word would not show that.
+
+**Also found, while in there:**
+
+* The window layout, every boundary written by identifiable code: `0xE000` start
+  char, `0xE001-0xE040` buffer, `0xE041`/`0xE042` terminators, `0xE043-0xE082`
+  shadow, `0xE083` terminator, and a **third 64-byte region at `0xE084`** whose
+  purpose is unknown.
+* Both render passes terminate on the byte matching `0xA007`, **not on a count**.
+* `0xA023` splits the supported displays into continuously refreshed (types 2, 8,
+  9, `0x0B`-`0x0E`) and differentially updated (everything else, including this
+  panel's `0x11`). **This independently supports assumption A1**: bistable dots
+  must be driven differentially or you are just heating coils, so `0x11` landing
+  in the differential class agrees with it being the flip-dot driver — reached
+  from a different direction than the "most drive activity" heuristic that
+  originally picked it.
+* `HL` in the paged accessors is a flat 16-bit address into the expansion, split
+  by the accessor into a bank for the latch and an offset inside the window.
+
+**A wrong turn worth recording.** My first probe sent `GS 0x65` because I had
+`0x60 | addr` in mind. `0x60 | addr` is real but it is `0xA006`, handler A's frame
+*delimiter* — handler B's `GS` address is printable ASCII, `0x30`/`0x40 | bits
+3:0`. Every byte was silently discarded and I spent a probe cycle thinking
+selection was broken. `tools/pit100.py` had it right the whole time; I hand-rolled
+the bytes instead of using the driver.
+
+**Concluded:** the render path is understood end to end, from serial byte to
+clocked glyph bit. **[C]** in emulation. The last structural unknown is whether
+*this* unit has the memory the buffer lives in — A6, and only the hardware can
+answer it.
+
+**Next:** the `0xE084` region; `EOT` sub-modes and the `BS` status report; the 8
+display attribute values.
+
+---
+
 ## 2026-08-06 — Correction: the module address is encoded, not one-hot
 
 **Three observations from the owner, and the second one refutes yesterday's

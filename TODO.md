@@ -169,7 +169,7 @@ third is a safety precondition.
       - Result:
 - [x] **Panel ribbon conductor count: 26.** Confirms the select-line drive model
       and rules out position being decoded on the panel.
-      → [docs/flipdot-interface.md](docs/flipdot-interface.md#the-ribbon-has-26-conductors--the-model-holds-c)
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#the-ribbon-has-26-conductors-c)
 - [ ] **Trace the 26 conductors.** The address is **encoded, not one-hot**, so look
       for a **group carrying a binary count** (~6-7 conductors), the **two that
       toggle per data bit** (clock and data), a strobe, and supply.
@@ -309,8 +309,25 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       the receive handler re-entered indefinitely on stale data. Fixed; the stack
       now peaks at `0xA0C1`, using 50 of the 243 available bytes, with zero writes
       outside mapped memory. There is nothing to explain.
-- [ ] Trace the render path: frame buffer layout, the 97-iteration loop at
-      `0x03CE`, and `0xA021` (the 16-vs-32 character count).
+- [x] **Render path traced end to end.** The buffer is 64 bytes at `0xE001` with a
+      64-byte shadow at `0xE043`; two passes (`0x124E` paged, `0x13F7` unpaged,
+      chosen by port B bit 0) walk them in step and repaint only what differs.
+      `panel_view.py --text` now renders real text.
+      → [io-map.md](docs/io-map.md#what-is-in-the-window-c-from-emulation)
+- [x] **Why message text did not render: solved, two causes.** A *selected* unit
+      never repaints (the task spins at `0x130B`), so `RS` is mandatory; and port B
+      bit 0 set makes the pad character a solid block, which is what the "fill
+      character" actually was.
+      → [serial-protocol.md](docs/serial-protocol.md#the-repaint-interlock-rs-is-not-optional-c)
+- [x] **Whole-panel versus changed-dots settled.** `0xA023` splits the supported
+      displays: types 2, 8, 9, 0x0B-0x0E refresh continuously, everything else
+      including this panel's `0x11` updates differentially. A standalone unit
+      (port C bit 5 clear) also refreshes continuously.
+- [ ] **What is the third 64-byte region at `0xE084`?** Filled with `0xFF` by `FF`
+      and `0x00` by `CAN`, but only when `0xA057 != 0`. Per-character attributes
+      is the obvious guess.
+- [ ] What are the 97-iteration loop at `0x03CE` and `0xA021` (the 16-vs-32
+      character count) for?
 - [x] **Code page identified: IBM CP437.** Every region matches — control
       pictograms, accented Latin, box drawing, Greek and maths. `Ñ` is `0xA5`,
       and `text.encode("cp437")` produces correct bytes.
@@ -318,3 +335,9 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
 - [ ] **What is `0x24`?** `0x24` and `0x25` are accented capitals, not `$`/`%`.
       `0x25` reads as a second `Ñ`; `0x24` is unidentified.
 - [ ] A friendlier glyph tool: generating and editing 5-byte glyphs by hand.
+- [x] **8085 disassembler with symbol annotation and cross-reference search** —
+      `tools/disasm.py`. Reproduces the hand-annotated listings in the docs
+      exactly, and is the tool the matching disassembly in `src/` will need.
+- [ ] **Which panel type does the differential/continuous split imply?** The
+      classes are known; matching them to the seven distinct drivers would narrow
+      down which port C value belongs to a flip-dot panel without the hardware.

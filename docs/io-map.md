@@ -164,6 +164,36 @@ plain_access:
 `ORI 0xE0` preserves the low 5 bits of `H`, so the CPU's `A12-A8` still carry
 part of the offset while the latch supplies the higher bits. **[L]**
 
+So `HL` is best read as a **flat 16-bit address into the expansion**, which the
+accessor splits: `H`'s top bits go to the latch as a bank number, `H`'s low 5
+bits and `L` address a byte inside the 8 KiB window. Every address the firmware
+actually uses has `H = 0xE0`, i.e. bank 7, offset 0 — the base page the
+initialisation at `0x042C` selects. Nothing in this build ever changes banks, so
+the paging is latent capability rather than something a host has to think about.
+
+### What is in the window **[C] from emulation**
+
+Recovered by running the firmware with `--xram board` and watching the writes.
+Every boundary here is written by identifiable code, not inferred from a dump:
+
+| Range | Size | Contents | Written by |
+| --- | --- | --- | --- |
+| `0xE000` | 1 | frame start char, `0x60 \| address` | `0x055A` → `0xA006` |
+| `0xE001-0xE040` | 64 | **message buffer** — what a host writes | `0x0C13` per character |
+| `0xE041`, `0xE042` | 2 | terminator, `0x03` twice | `0x12E0`, `0x12E4` |
+| `0xE043-0xE082` | 64 | **shadow copy** — what the panel currently shows | `0x136A` per character |
+| `0xE083` | 1 | terminator for the shadow | — |
+| `0xE084-…` | 64 | a third region, filled `0xFF` or `0x00` when `0xA057 != 0` | `0x0FFA`, `0x102F` |
+
+The 64-byte message buffer and its 64-byte shadow are the mechanism behind the
+differential repaint: `0x124E` walks the two in step and calls the panel driver
+only where they differ. The terminator matters — both render passes end on
+whichever byte equals `0xA007`, not on a count.
+
+That the buffer is **64 columns** and the panel address counter also spans
+**64 positions** ([flipdot-interface.md](flipdot-interface.md)) is one fact, not
+two: one buffer column per panel address.
+
 Two consequences worth being explicit about:
 
 1. **There is no handshake.** Every one of the eleven `IN 0xE7` sites is an

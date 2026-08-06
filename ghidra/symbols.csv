@@ -149,3 +149,17 @@ io,ea,disp1_port_b,port,Display group 1 port B
 io,eb,disp1_port_c,port,Display group 1 port C
 io,ec,disp1_timer_lo,port,Display group 1 timer count LSB
 io,ed,disp1_timer_hi,port,Display group 1 timer count MSB
+mem,124E,render_pass_paged,func,"Buffer-vs-shadow walk via the paged accessors; the pass handler B always uses"
+mem,13F7,render_pass_direct,func,"Same walk with direct MOV A,M; selected by 0xA008 = 1 under handler A only"
+mem,1445,render_loop_direct,label,"Body of the direct pass: compare, CNZ render_char, advance, stop on 0xA007"
+mem,136A,render_char,func,"Update the shadow byte, then dispatch on 0xA009 to the panel-specific driver"
+mem,13C6,clear_shadow,func,"Zero the 64-byte shadow, forcing a full repaint on the next pass"
+mem,130B,render_interlock,label,"Spin while 0xA040 is set: a selected unit never repaints. RS releases it"
+mem,1348,alt_fill_step,func,"One step of the ENQ alternator: pick the fill char, clear the buffer with it"
+mem,A008,render_pass_sel,data,"From port B bit 0 at 0x0547. 1 = direct pass, 0 = paged pass"
+mem,A023,refresh_mode,data,"0xFF = repaint the whole panel every pass; 0 = differential. Set per panel type at 0x07D4"
+mem,A03D,alt_state,data,"ENQ sets it, ACK clears it; 0x1348 toggles 1<->2. Nonzero = alternating fill"
+mem,E001,msg_buffer,data,"64-byte message buffer; what a host writes with STX...ETX"
+mem,E041,msg_terminator,data,"Two 0x03 bytes written at 0x12E0/0x12E4; both render passes stop here"
+mem,E043,shadow_buffer,data,"64-byte copy of what the panel currently shows; the differential update's reference"
+mem,E084,attr_region,data,"Third 64-byte region, filled 0xFF by FF or 0x00 by CAN when 0xA057 != 0. Purpose unknown"

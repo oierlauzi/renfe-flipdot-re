@@ -113,7 +113,13 @@ class PIT100:
         self.t.write(bytes((GS, address_byte(self.address))))
 
     def deselect(self):
-        """RS. Ignored by a unit whose address is 0."""
+        """RS. Ignored by a unit whose address is 0.
+
+        **Not optional if you want to see anything.** The repaint task spins at
+        0x130B for as long as `selected` (0xA040) is set, so a selected unit
+        accepts and ACKs text but never moves a dot. RS releases the interlock
+        and the panel updates. See docs/serial-protocol.md.
+        """
         self.t.write(bytes((RS,)))
 
     def reset(self):
@@ -122,7 +128,11 @@ class PIT100:
 
     # ---------------------------------------------------------------- writing
     def message(self, text, expect_reply=True):
-        """STX <text> ETX. Returns (ok, error) once the unit answers."""
+        """STX <text> ETX. Returns (ok, error) once the unit answers.
+
+        The ACK means "stored", not "displayed" -- nothing is painted until the
+        unit is deselected. Use show(), or call deselect() yourself.
+        """
         payload = encode(text)
         if len(payload) > BUFFER_COLS:
             raise ValueError(
@@ -207,10 +217,19 @@ class PIT100:
 
     # -------------------------------------------------------------- convenience
     def show(self, text):
-        """Select, clear, write one line, and confirm. The everyday operation."""
+        """Select, clear, write one line, confirm, then deselect. The everyday
+        operation.
+
+        The trailing deselect is what actually makes the dots move: while the
+        unit is selected the repaint task is held off, so text written and ACKed
+        during a selection stays invisible until RS. Verified in emulation --
+        without it the render pass runs zero times.
+        """
         self.select()
         self.clear()
-        return self.message(text)
+        ok, err = self.message(text)
+        self.deselect()
+        return ok, err
 
 
 def strip_status_frames(data):

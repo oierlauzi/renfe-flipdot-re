@@ -26,10 +26,16 @@ FRAME_BITS = IDLE_BITS + 1 + GLYPH_BITS + 1
 
 
 def capture(port_c_type=0x03, address=5, xram="board", cmds=b"",
-            settle=250_000, run=900_000, tick=2000):
-    """Run the firmware and return the bits it clocked out of port 0xE3."""
+            settle=250_000, run=900_000, tick=2000, port_b=0xFE):
+    """Run the firmware and return the bits it clocked out of port 0xE3.
+
+    port_b bit 0 must be CLEAR for text to be legible: set, it makes the pad
+    character the solid block 0x23, and the alternator at 0x1348 then repaints
+    every column with blocks -- which is what earlier captures were showing.
+    """
     rom = open("original/firmware.bin", "rb").read()
-    m = Machine(rom, 0x40 | (address & 0x1F), 0xFF, 0x20 | port_c_type, xram=xram)
+    m = Machine(rom, 0x40 | (address & 0x1F), port_b, 0x20 | port_c_type,
+                xram=xram)
     cpu = m.cpu
     bits, prev, original = [], [0], cpu.io_out
 
@@ -94,18 +100,26 @@ def main():
     ap.add_argument("--type", type=lambda s: int(s, 0), default=0x03,
                     help="port C bits 4:0, which select the panel driver "
                          "(default 0x03 -> 0xA009 = 0x11)")
+    ap.add_argument("--port-b", type=lambda s: int(s, 0), default=0xFE,
+                    help="81C55 port B switches. Bit 0 set makes the pad "
+                         "character a solid block instead of a space "
+                         "(default 0xFE = space)")
     ap.add_argument("--xram", choices=("none", "board", "alias"), default="board")
     ap.add_argument("--max", type=int, default=16, help="glyphs to show")
     args = ap.parse_args()
 
-    from pit100 import GS, STX, ETX, FF, address_byte, encode
+    from pit100 import GS, RS, STX, ETX, FF, address_byte, encode
     cmds = bytes((GS, address_byte(args.address)))
     if args.fill:
         cmds += bytes((FF,))
     elif args.text:
         cmds += bytes((STX,)) + encode(args.text, fold=True) + bytes((ETX,))
+    # RS is mandatory: the repaint task is held off while the unit is selected,
+    # so without it the text is stored, ACKed, and never drawn.
+    cmds += bytes((RS,))
 
-    bits, _ = capture(args.type, args.address, args.xram, cmds)
+    bits, _ = capture(args.type, args.address, args.xram, cmds,
+                      port_b=args.port_b)
     found = list(frames(bits))
     print(f"{len(bits)} clocked bits, {len(found)} frames "
           f"({FRAME_BITS} bits each)\n")

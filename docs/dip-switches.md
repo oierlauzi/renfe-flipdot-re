@@ -197,14 +197,25 @@ firmware serve several PI-T100 variants. Which value corresponds to this
 16-character panel is unknown until the switches are read — another reason to
 record their as-found positions before touching anything.
 
-## Port B bit 0 — fill character **[L]**
+## Port B bit 0 — fill character *and* render pass **[C]**
 
-At `0x0822` and `0x1351` the firmware reads port B, tests bit 0, and when set
+The bit is read in two unrelated places, so it does two things at once.
+
+**Fill character.** At `0x0822` and `0x1351` the firmware tests bit 0 and when set
 stores `0x23` into `0xA041`, the pad/substitute character. `0x23` is the
 **solid-block** glyph, so bit 0 set makes the fill a solid block rather than a
-space — confirmed by watching the fill activity vanish from a panel capture with
-the bit cleared. See
-[flipdot-interface.md](flipdot-interface.md#a-newly-attributed-switch-bit).
+space — confirmed by watching the block fill vanish from a panel capture with the
+bit cleared.
+
+**Render pass.** At `0x0547` the same bit sets `0xA008`, which selects between the
+paged buffer walk at `0x124E` (bit clear) and the unpaged one at `0x13F7` (bit
+set). This half only takes effect under receive handler A; handler B always uses
+the paged pass.
+
+Practical note: **for legible text this bit should be clear.** Set, the panel pads
+with solid blocks, which is what made early captures look like the firmware could
+not find its glyphs. See
+[flipdot-interface.md](flipdot-interface.md#a-newly-attributed-switch-bit-port-b-bit-0-does-two-things).
 
 ## Still unmapped
 

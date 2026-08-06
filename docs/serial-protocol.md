@@ -26,7 +26,7 @@ for the measurement plan.
 
 ## Link layer **[C] unless noted**
 
-From the 8251A initialisation (see [io-map.md](io-map.md#0x80-0x81--m82c51a-2-usart)):
+From the 8251A initialisation (see [io-map.md](io-map.md#0x80-0x81--m82c51a-2-usart-c)):
 
 | Property | Value |
 | --- | --- |
@@ -315,8 +315,46 @@ Everything else falls straight through to `RET`. The 28-entry dispatch table at
 So every transaction looks like:
 
 ```
-GS <addr>  <commands...>   [RS]
+GS <addr>  <commands...>   RS
 ```
+
+### The repaint interlock: `RS` is not optional **[C]**
+
+The trailing `RS` above was originally written as optional. **It is not, if you
+want anything to appear on the panel.**
+
+The repaint task reaches this at `0x130B`:
+
+```
+0x130B  LDA  0xA040        ; the selected flag
+0x130E  CPI  0x00
+0x1310  JNZ  0x130B        ; spin, for as long as this unit is selected
+0x1313  MVI  A,0x01
+0x1315  STA  0xA045
+0x1318  JMP  0x124E        ; ...and only then render
+```
+
+**A selected unit never repaints.** Text sent between `GS` and `RS` is stored in
+the buffer and acknowledged with `ACK`, and the dots do not move. Deselecting
+releases the spin and the panel updates.
+
+Measured in emulation, feeding `GS '5' STX A B ETX` and running 800 000
+instructions:
+
+| Sent | Spin hits at `0x130B` | Render passes | Characters drawn |
+| --- | --- | --- | --- |
+| without `RS` | 259 016 | **0** | **0** |
+| with `RS` | 131 | 131 | 2 — exactly the two that changed |
+
+This is almost certainly deliberate: it stops the panel from repainting halfway
+through an incoming message, so a partially-written line is never displayed. The
+buffer and its shadow ([io-map.md](io-map.md#what-is-in-the-window-c-from-emulation))
+make the update atomic, and the selection defines the transaction boundary.
+
+**Consequence for a host:** `ACK` means *stored*, not *displayed*. Do not treat
+it as confirmation that the message is on the panel — send `RS` and only then is
+the update committed. `tools/pit100.py`'s `show()` does this; a hand-rolled
+controller must too.
 
 ### Decoded commands **[C]**
 
@@ -390,7 +428,7 @@ GS '9' SUB          -> (nothing - wrong address)
 **`SUB` is the single most useful command for bring-up.** It needs no prior
 state, works under broadcast addressing, and returns a known-answer string, so
 it doubles as a link test *and* dumps the unit's configuration block — which
-[the config section](#build-time-configuration-block-rom-0x0070-0x008b) warns
+[the config section](#build-time-configuration-block-rom-0x0070-0x008b-c) warns
 may differ from this one.
 
 ### Commands that take a parameter byte **[C]**

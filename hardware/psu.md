@@ -22,7 +22,7 @@ beyond the lighting:
 * It is a substantial **inductive noise source** sitting inside the same
   enclosure as the logic and the serial interface. Any signal measurement taken
   with the tube energised is suspect — see
-  [connectors.md](connectors.md#why-the-scope-showed-nothing-useful).
+  [connectors.md](connectors.md#attempt-1-oscilloscope-2026-08--transitions-present-signal-unclear).
 * It means **mains voltage is present inside the case**, in a second place
   beyond the PSU. Treat the interior as live whenever either feed is connected.
 

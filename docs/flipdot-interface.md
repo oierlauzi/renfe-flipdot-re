@@ -188,27 +188,13 @@ faces are now worth looking at specifically. **[?]**
 
 ### What that forces
 
-Identical modules on a shared bus with no per-module addressing can only be
-distinguished by **which conductor each one is wired to**. So position must be
-carried by **dedicated select lines**, one per character — and that is exactly
-what the sink count allows:
-
-| Function | Lines |
-| --- | --- |
-| Character selects, one per module | 16 |
-| Shift clock (port C bit 4) | 1 |
-| Serial data (port C bit 5) | 1 |
-| Control / latch / spare (port C bits 1:0) | 2 |
-| **Total** | **20**, against 21 ULN2003A sinks |
-
-The 81C55's ports fit this cleanly: **port A (`0xE1`) and port B (`0xE2`) supply
-the 16 selects, port C (`0xE3`) the clock, data and control.** The firmware
-inverts (`CMA`) before writing the select ports, and Darlington sinks pull their
-outputs low, so **module select is active low at the module**. **[L]**
+The firmware inverts (`CMA`) before writing the address port, and Darlington
+sinks pull their outputs low, so whatever the modules compare against, the bus
+carries it **active low**. **[L]**
 
 Consistent with observation: the type-`0x11` driver writes only `0xE2` (49
 distinct values) while the type-`0x10` and `0x12` drivers write both `0xE1` and
-`0xE2` — different panel widths using one or both select ports.
+`0xE2` — plausibly a wider address for a longer panel, using one or both ports.
 
 ### The ribbon has 26 conductors **[C]**
 
@@ -230,11 +216,11 @@ count**, the **two that toggle per bit** (clock and data), and the supply.
 
 ### This opens a plan B for the whole project
 
-If the interface really is 16 selects plus a clock and a data line, then **the
-panel can be driven directly**, bypassing the original electronics entirely — no
-serial link, no current loop, no unresolved physical layer. An ESP32 with a
-shift register or port expander can produce 16 selects, a clock and a data line
-without difficulty, and the bit format is already fully decoded above.
+The interface is an encoded address plus a clock and a data line, so **the panel
+can be driven directly**, bypassing the original electronics entirely — no serial
+link, no current loop, no unresolved physical layer. An ESP32 can produce 6-7
+address bits, a clock and a data line without difficulty, and the bit format is
+fully decoded above.
 
 That is not the project's stated goal, which is to drive the display *through* its
 own firmware over the DB37. But it is a genuine fallback if the electrical layer
@@ -341,9 +327,59 @@ is why earlier attempts saw only eight port writes at boot.
 4. **Somewhere for the buffer to live** — see the `0xE000` window question in
    [io-map.md](io-map.md).
 
-Point 3 also bears on the power-on sweep: a purely differential update would
-*not* sweep, yet the panel audibly does. Something must force a full repaint at
-startup, which the shadow buffer alone does not explain.
+5. **The unit must not be selected.** The repaint task spins at `0x130B` while
+   the *selected* flag is set — see
+   [serial-protocol.md](serial-protocol.md#the-repaint-interlock-rs-is-not-optional-c).
+   This is the one that defeated the tooling longest, because it fails silently
+   and the unit still answers `ACK`.
+
+### Two render passes, chosen by port B bit 0 **[C]**
+
+There are two nearly identical passes over the buffer, and which one runs is a
+switch setting:
+
+| Pass | Access | Selected when |
+| --- | --- | --- |
+| `0x124E` | via `xram_read`/`xram_compare`, i.e. **paged** | `0xA008 = 0` |
+| `0x13F7` → `0x1445` | direct `MOV A,M`, **unpaged** | `0xA008 = 1` |
+
+`0xA008` is loaded at `0x0547` from **DIP switch port B bit 0**, and the choice
+only takes effect for receive handler A — under handler B, `0x1243` diverts to
+the paged pass regardless. Both passes walk the buffer and its shadow in step,
+call the panel driver through `0x136A` only where the two differ, and **terminate
+on the byte matching `0xA007`** rather than on a count.
+
+### What forces a full repaint **[C]**
+
+`0x13C6`, called at the top of every pass, clears the 64-byte shadow to zero.
+Every character then differs from it, so the next pass repaints everything. It
+does that when:
+
+* the panel type is `0x08` — and it also pulses `0x36` to port C first; or
+* **port C bit 5 is clear**, i.e. the serial link is disabled — a standalone unit
+  repaints continuously; or
+* `0xA023 = 0xFF`.
+
+It explicitly does **not** for panel type `0x12`, which returns immediately.
+
+`0xA023` is set to `0xFF` at `0x07D4` for panel types **2, 8, 9, 0x0B, 0x0C, 0x0D
+and 0x0E**, and left at zero for every other type — including `0x11`, this
+panel's. So the firmware divides its supported displays into two classes:
+
+* **continuously refreshed** — the whole panel is rewritten every pass;
+* **differentially updated** — only changed characters are touched.
+
+**This independently supports assumption A1.** A flip-dot panel *must* be
+differential: its dots are bistable, so rewriting unchanged ones is pure coil
+heating for no visual effect, and the ULN2003A free-wheel diodes confirm coils.
+A continuously refreshed type is what an LED or lamp matrix needs. Type `0x11`
+being in the differential class is therefore consistent with it being the
+flip-dot driver, arrived at from a completely different direction than the
+"most drive activity" heuristic that originally picked it.
+
+This also explains the puzzle in point 3 above: a purely differential update
+would not sweep at power-on, and the shadow clear is what forces the full
+repaint that does.
 
 ## Assumptions this rests on, and how to falsify each
 
@@ -353,7 +389,7 @@ revisiting if one is wrong.
 
 | # | Assumption | Why it was chosen | How to check on the hardware | If wrong |
 | --- | --- | --- | --- | --- |
-| A1 | Panel type is `0x11`, from port C bits 4:0 = `0x03` | It produced the most drive activity of the 13 candidates | Read port C bits 4:0 from the switches and hardwired links, then look up the branch at `0x055A` | The frame layout may differ per driver. The *method* here applies to whichever driver is real; re-run `panel_view.py --type N` |
+| A1 | Panel type is `0x11`, from port C bits 4:0 = `0x03` | It produced the most drive activity of the 13 candidates, and it falls in the *differentially updated* class, which is the only sane way to drive bistable dots (see above) | Read port C bits 4:0 from the switches and hardwired links, then look up the branch at `0x055A` | The frame layout may differ per driver. The *method* here applies to whichever driver is real; re-run `panel_view.py --type N` |
 | A2 | RST7.5 fires periodically | The idle loop demands it; the rate used (every 2000 instructions) is arbitrary | Scope 8085 pin 7 for a periodic edge and measure its rate | Only the repaint *rate* changes, not the frame format |
 | A3 | Port C bit 4 is the clock and bit 5 the data | The code toggles bit 4 twice per bit while bit 5 carries the varying value | Scope both against the ribbon | Would invert the whole decode; the `FF` validation makes this very unlikely |
 | A4 | Data is active low (low = dot on) | `CMA` precedes every DATA write, and `FF` then renders as a solid block | Send `FF` on the real panel and see whether it goes all-on or all-off | Every rendered glyph inverts |
@@ -383,42 +419,78 @@ If it *does* display text with the panel gone, this reasoning is wrong and the
 informative, and it costs nothing beyond powering the unit up and sending one
 message.
 
-### The one thing that did not work
+### Solved: message text now renders **[C]**
 
-**Message text does not reach the rendered glyphs in emulation.** Sending
-`STX AB ETX` paints the *fill* character rather than `A` and `B`, so the link
-between the message buffer and the render source is still missing a step. The
-frame mechanism above is unaffected — it was validated with `FF`, which drives the
-same path — but do not trust `panel_view.py --text` to show real text yet.
+This section previously recorded a failure — `STX AB ETX` painting the fill
+character instead of letters. **Both causes are found, and neither was in the
+frame format.** `panel_view.py --text "HOLA MUNDO"` now produces:
 
-Most likely related to assumption A6 and the unresolved `0xE000` window.
+```
+   #...#  .###.  #....  .###.  #...#  #...#  #...#  ####.  .###.
+   #...#  #...#  #....  #...#  ##.##  #...#  #...#  #...#  #...#
+   #...#  #...#  #....  #...#  #.#.#  #...#  ##..#  #...#  #...#
+   #####  #...#  #....  #####  #.#.#  #...#  #.#.#  #...#  #...#
+   #...#  #...#  #....  #...#  #...#  #...#  #..##  #...#  #...#
+   #...#  #...#  #....  #...#  #...#  #...#  #...#  #...#  #...#
+   #...#  .###.  #####  #...#  #...#  .###.  #...#  ####.  .###.
+```
 
-## A newly attributed switch bit
+The space between the words produces no frame at all, which is the differential
+update working correctly: it was already a space, so nothing needed flipping.
 
-**Port B bit 0 selects the fill/substitute character.** At `0x0822` and `0x1351`
-the firmware reads port B, tests bit 0, and when set stores `0x23` into `0xA041`.
+**Cause 1 — the repaint interlock.** A *selected* unit does not repaint. See
+[serial-protocol.md](serial-protocol.md#the-repaint-interlock-rs-is-not-optional-c);
+the render task spins at `0x130B` until `selected` clears, so text written and
+ACKed during a selection stays invisible until `RS`. The tooling was never
+sending `RS`. This is a protocol requirement, not a hardware one.
+
+**Cause 2 — port B bit 0.** With it set, the pad character becomes the solid
+block `0x23` and the alternator at `0x1348` repaints every column with blocks —
+which is exactly the "fill character" that was being observed. The block was not
+a stand-in for a glyph the firmware could not find; it was the pad character
+doing its job. `panel_view.py` now defaults port B to `0xFE` and exposes
+`--port-b`.
+
+Assumption A6 is unaffected and still needs the hardware: this was run with
+`--xram board`, so whether *this* unit has the memory remains open.
+
+## A newly attributed switch bit: port B bit 0 does two things
+
+**It selects the fill/substitute character.** At `0x0822` and `0x1351` the
+firmware reads port B, tests bit 0, and when set stores `0x23` into `0xA041`.
 `0x23` is the solid-block glyph, so **bit 0 set makes the pad character a solid
-block instead of a space**. With it clear, the fill activity disappears entirely
-from the capture. That closes one of the two remaining unattributed port B bits —
-see [dip-switches.md](dip-switches.md). **[L]**
+block instead of a space**. **[L]**
+
+**It also selects the render pass.** At `0x0547` the same bit sets `0xA008`,
+which chooses between the paged pass at `0x124E` and the unpaged one at `0x13F7`
+(see above). One switch bit therefore couples the pad character to the buffer
+access method — odd, but both readings are direct from the ROM. **[C]**
+
+That closes one of the two remaining unattributed port B bits — see
+[dip-switches.md](dip-switches.md).
 
 ## Open questions
 
-- [ ] Count the ribbon conductors and match them to the port bits. Now much more
-      informative: with serial data on two lines, most of the 21 sinks must be
-      doing something else — buffering the register chain, or per-character
-      selects from port B.
-- [ ] **Why does message text not reach the rendered glyphs?** The fill character
-      is painted instead. Probably tied to the `0xE000` window.
+- [ ] Trace the 26 ribbon conductors and match them to the port bits: the group
+      carrying the binary address count, the clock, the data line, and supply.
+- [x] ~~Why does message text not reach the rendered glyphs?~~ **Solved** — the
+      repaint interlock plus port B bit 0. See above.
 - [ ] Determine the pulse width used to flip a dot, and whether the firmware
       relies on the 81C55 timer or on software delay loops. **Timing the
       power-on sweep gives this almost for free** — see above.
 - [ ] Does daughter 2 contain a hardware sequencer that performs the power-on
       sweep autonomously? The CPU issues only a short pulse at `0x03FF`, yet the
       panel scans audibly.
-- [ ] Does it repaint the whole panel or only changed dots? (Matters for how
-      fast an external controller can push updates, and for coil heating.)
-- [ ] Where is the frame buffer in the `0xA000` RAM, and in what layout?
+- [x] ~~Does it repaint the whole panel or only changed dots?~~ **Both, and which
+      one is determined by the panel type** — `0xA023` splits the supported
+      displays into continuously refreshed and differentially updated classes.
+      This panel's type `0x11` is differential. See above.
+- [x] ~~Where is the frame buffer, and in what layout?~~ Not in the `0xA000` RAM
+      at all: it is the 64-byte buffer at `0xE001` with a 64-byte shadow at
+      `0xE043`. → [io-map.md](io-map.md#what-is-in-the-window-c-from-emulation)
+- [ ] **What is the third 64-byte region at `0xE084`?** Filled with `0xFF` (by
+      `FF`) or `0x00` (by `CAN`) but only when `0xA057 != 0`. A per-character
+      attribute plane is the obvious guess. **[?]**
 
 ## Safety note
 
