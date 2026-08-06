@@ -135,7 +135,7 @@ io,c5,io_c5,port,Unidentified; written once at init
 io,cd,io_cd,port,Unidentified; read by isr_rst75
 io,ce,io_ce,port,Unidentified
 io,cf,io_cf,port,Unidentified
-io,de,io_de,port,Unidentified; two reads in the whole firmware
+io,de,hw_status_in,port,"Active-low hardware status input; OR-accumulated into 0xA024 each RST7.5 tick, reported by BS"
 io,e0,disp0_cmd,port,Display group 0 command register (81C55-like)
 io,e1,disp0_port_a,port,Display group 0 port A - flip-dot drive
 io,e2,disp0_port_b,port,Display group 0 port B - flip-dot drive

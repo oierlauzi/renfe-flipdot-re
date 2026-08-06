@@ -56,6 +56,25 @@ FOLD = str.maketrans({"Á": "A", "Í": "I", "Ó": "O", "Ú": "U", "À": "A",
                       "Ê": "E", "Î": "I", "Ô": "O", "Û": "U", "Ï": "I"})
 
 
+def escape_controls(payload):
+    """Wrap every byte below 0x20 in the EOT '3' literal escape.
+
+    Handler B's dispatcher consumes 0x00-0x1F as commands, so a bare control byte
+    never reaches the buffer -- it is silently eaten, not stored. `EOT '3' <byte>`
+    stores the next byte verbatim whatever it is, which is the only way to display
+    CP437's control-code glyphs (0x01-0x1F: smileys, card suits, arrows, note
+    symbols). Verified in emulation, including mid-message and for 0x00.
+
+    See docs/serial-protocol.md.
+    """
+    out = bytearray()
+    for b in payload:
+        if b < 0x20:
+            out += bytes((EOT, 0x33))
+        out.append(b)
+    return bytes(out)
+
+
 def encode(text, fold=False):
     """Encode text for the panel: CP437, with the panel's quirks guarded.
 
@@ -66,6 +85,10 @@ def encode(text, fold=False):
     * CP437 has no uppercase A/I/O/U-acute. `Ñ` and `É` are fine, the rest are
       not, which matters because station names are usually uppercase. Pass
       fold=True to strip those accents instead of raising.
+
+    Control codes are *not* escaped here, because the escape only makes sense in
+    a command stream -- use escape_controls() for that, or message(), which
+    applies it.
 
     See docs/font.md.
     """
@@ -138,11 +161,44 @@ class PIT100:
             raise ValueError(
                 f"{len(payload)} bytes exceeds the {BUFFER_COLS}-byte buffer; "
                 f"the unit would NAK with error 0x30")
-        self.t.write(bytes((STX,)) + payload + bytes((ETX,)))
+        self.t.write(bytes((STX,)) + escape_controls(payload) + bytes((ETX,)))
         return self.read_ack() if expect_reply else (None, None)
 
+    def literal(self, data):
+        """Store bytes verbatim, bypassing the command dispatcher.
+
+        The only way to place CP437 glyphs 0x01-0x1F on the panel. Writes at the
+        current cursor, so combine with goto().
+        """
+        self.t.write(escape_controls(bytes(data)))
+
+    def block_write(self, data, offset=0):
+        """EOT '2' <offset-hi> <offset-lo> <count-hi> <count-lo> <data...>.
+
+        A general block load into the third region at 0xE084, whose purpose is
+        still unknown -- see docs/flipdot-interface.md. Offset and count are both
+        16-bit, so this can reach well past the region into paged expansion
+        memory. Confirmed in emulation for offset 4, count 6.
+
+        Nothing in the render path is known to read 0xE084, so this is here for
+        experiment, not for putting text on the panel.
+        """
+        n = len(data)
+        self.t.write(bytes((EOT, 0x32, offset >> 8, offset & 0xFF,
+                            n >> 8, n & 0xFF)) + bytes(data))
+
+    def block_write_default(self, data):
+        """EOT '1' <64 bytes>: the fixed form -- always 64 bytes at 0xE084."""
+        if len(data) != 64:
+            raise ValueError("EOT '1' transfers exactly 64 bytes")
+        self.t.write(bytes((EOT, 0x31)) + bytes(data))
+
     def goto(self, row, col):
-        """VT <row+0x30> <col+0x30>. Both parameters are ASCII digits."""
+        """VT <row+0x30> <col+0x30>. Both parameters are ASCII digits.
+
+        Row is 0-based and each row is 64 bytes: the firmware computes
+        0xE001 + row * 0x40 at 0x0CD8, then adds the column.
+        """
         if not 0 <= col < BUFFER_COLS:
             raise ValueError(f"column must be 0-{BUFFER_COLS - 1}")
         self.t.write(bytes((VT, 0x30 + row, 0x30 + col)))
@@ -193,9 +249,40 @@ class PIT100:
         return raw[0] - 0x30, raw[1] - 0x30
 
     def read_screen(self, length=BUFFER_COLS):
-        """SI - read the buffer contents back from the cursor."""
+        """SI - read back what is currently DISPLAYED, from the cursor onward.
+
+        It reads the *shadow* buffer at cursor+0x42, not the message buffer, so it
+        reports the panel's actual contents rather than what was last written.
+        Text sent but not yet committed with RS therefore does not appear here --
+        which makes this the natural way to confirm an update landed.
+
+        The firmware plants a 0xFF sentinel at 0xE083 to bound the reply, so the
+        last shadow byte is clobbered and character 63 will be repainted on the
+        next pass. Harmless, but it means SI is not perfectly side-effect free.
+        """
         self.t.write(bytes((SI,)))
         return self.t.read_reply(length)
+
+    def status(self):
+        """BS - reply is BS then one status byte. Returns the status byte.
+
+        The byte is a sticky accumulator of I/O port 0xDE, an unidentified 8-bit
+        hardware status input. The RST7.5 tick samples the port, inverts it (it is
+        active low) and ORs it in, so a bit set means "active at some point since
+        the last query". Reading **clears** the accumulator, which makes this
+        edge-triggered: a fault that came and went is still reported once, and
+        polling repeatedly returns 0 while the condition persists.
+
+        With config byte 0x008B non-zero the firmware would report the
+        instantaneous port state instead; this build has it at 0.
+
+        What each bit means needs the hardware. See docs/serial-protocol.md.
+        """
+        self.t.write(bytes((BS,)))
+        raw = self.t.read_reply(2)
+        if len(raw) < 2 or raw[0] != BS:
+            raise ProtocolError(f"unexpected status reply: {raw.hex(' ')}")
+        return raw[1]
 
     # ----------------------------------------------------------------- replies
     def read_ack(self):
@@ -252,17 +339,20 @@ class SimTransport:
     """Talks to the emulated firmware, so the protocol can be tested with no
     hardware. Switch settings mirror docs/dip-switches.md defaults."""
 
-    def __init__(self, address=5, port_c=0xFF, xram="board", boot_steps=200_000):
+    def __init__(self, address=5, port_c=0xFF, xram="board", boot_steps=300_000,
+                 port_b=0xFE):
         from pit100_sim import PIT100 as Machine
         port_a = 0x40 | (address & 0x1F)      # bit 6 set -> command protocol
+        # port B bit 0 clear: pad with spaces rather than solid blocks, and use
+        # the paged render pass. See docs/dip-switches.md.
         self.m = Machine(open("original/firmware.bin", "rb").read(),
-                         port_a, 0xFF, port_c, xram=xram)
-        self.m.run(boot_steps)
+                         port_a, port_b, port_c, xram=xram)
+        self.m.run(boot_steps, tick=2000)
         self.m.tx_bytes.clear()
 
     def write(self, data):
         self.m.feed(data)
-        self.m.run(400_000)
+        self.m.run(600_000, tick=2000)
 
     def read_reply(self, _n):
         raw = strip_status_frames(bytes(self.m.tx_bytes))

@@ -20,6 +20,64 @@ Entry template:
 
 ---
 
+## 2026-08-06 — EOT, BS and SI: three commands finish decoding, one surprise each
+
+**Did:** worked the remaining "what does this command actually do" items with the
+new disassembler, then confirmed every reading by emulation rather than stopping
+at the listing.
+
+**Found — `EOT` is a block-write, with an escape hiding in it.** Three sub-modes,
+all verified: `'1'` writes 64 bytes to `0xE084`; `'2'` takes a 16-bit offset and
+count; **`'3'` stores the next byte verbatim, bypassing the command dispatcher.**
+
+That third one is the practically useful discovery. The dispatcher eats `0x00-0x1F`
+as commands and raises no error, so control bytes silently vanish from a message.
+CP437 has real glyphs there — smileys, card suits, arrows — and `EOT '3'` is the
+only way to reach them. Confirmed mid-message and for `0x00`:
+
+```
+STX 'A' 0x01 'B' ETX          -> 41 42        the 0x01 vanished
+STX 'A' EOT'3' 0x01 'B' ETX   -> 41 01 42     stored
+```
+
+**Found — `BS` reports a sticky hardware status byte.** `0xA024` is not a software
+error code, it is an **accumulator of I/O port `0xDE`**: the RST7.5 tick samples
+the port, complements it (active low) and ORs it in. `BS` returns it *and clears
+it*. So the semantics are edge-triggered — a fault that came and went is still
+reported once, and polling returns `0` while a condition persists.
+
+I had `0xDE` written down as an unidentified port read twice and never explained.
+Its *role* is now clear even though its bit meanings are not: it is the unit's
+hardware status input, readable over the serial link. That upgrades a dead entry
+in the I/O map into a concrete hardware task — ground its driver pins one at a
+time and watch `BS`.
+
+**Correction made mid-session:** I first wrote that port `0xDE` was "a hardware
+input this build never reads", because `0x1101` (the alternate `BS` path) is
+unreachable with ROM `0x008B = 0`. Wrong — `0x19FE` reads it on every tick. I had
+looked at one of the two read sites and generalised from it. Fixed before commit.
+
+**Found — `SI` reads the shadow, not the message buffer.** `0x0E45` sources from
+`write_ptr + 0x42`, which is the shadow copy: **`SI` reports what is displayed,
+not what was written.** That makes it the natural way to confirm an update
+committed, and it produced the cleanest single confirmation of the whole model:
+
+```
+select, message("CHAMARTIN"), goto(0,0), SI   -> spaces
+deselect, select, goto(0,0), SI               -> 'CHAMARTIN'
+```
+
+One experiment validating the repaint interlock, the shadow buffer and `SI`'s
+source together.
+
+**Concluded:** handler B's command set is now fully decoded with every semantic
+claim tested, not just read. **[C]**
+
+**Next:** the 8 display attribute values (`BEL`); what the `0xE084` region is
+*for*, since nothing in the render path reads it; port A bit 7.
+
+---
+
 ## 2026-08-06 — The render path closes: text on the virtual panel
 
 **Did:** built `tools/disasm.py` first, because the repo had an emulator but no

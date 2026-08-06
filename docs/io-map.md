@@ -14,7 +14,7 @@ Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
 | `0x80-0x81` | U3 M82C51A-2 USART | External serial link (DB37) | **[C]** |
 | `0xA0-0xA5` | U2 M81C55-5 I/O section | DIP switches + baud-rate timer | **[C]** |
 | `0xC0-0xCF` | *unidentified* | LED matrix interface (board absent) | **[L]** |
-| `0xDE` | *unidentified* | read twice only | **[?]** |
+| `0xDE` | *unidentified input* | Active-low hardware status; sampled every RST7.5 tick | **[L]** |
 | `0xE0-0xE5` | 8155-class device | Flip-dot interface | **[L]** |
 | `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
 | `0xE8-0xEF` | 8155-class device | Second display bank / LED matrix | **[L]** |
@@ -229,4 +229,13 @@ one scope probe on the 8085's RST7.5 pin.**
       them onto the `0xC0`/`0xE0`/`0xE8` decode windows.
 - [ ] Trace which address lines form the `0x80` / `0xA0` / `0xC0` / `0xE0`
       chip selects (U5/U11 MC14584B + the unidentified decoder).
-- [ ] Find what `IN 0xDE` reads.
+- [ ] **Find what `IN 0xDE` reads — bit by bit.** Its role is now known even if
+      its meaning is not: `0x19FC`, called from the RST7.5 tick at `0x02C0`,
+      samples the port, complements it (so it is **active low**) and ORs it into
+      the sticky accumulator `0xA024`. The `BS` command reports that accumulator
+      and clears it, or with ROM `0x008B` non-zero reports the port directly.
+      So this is the unit's **hardware status/fault input**, readable over the
+      serial link. Temperature, door, lamp or supply monitoring would all fit a
+      station sign. Probing the pins of whatever drives it, and grounding them one
+      at a time while watching `BS`, would map the bits directly.
+      → [serial-protocol.md](serial-protocol.md#bs-returns-one-status-byte-and-reading-clears-it-c)

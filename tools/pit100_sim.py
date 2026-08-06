@@ -40,6 +40,9 @@ TXRDY, RXRDY, TXEMPTY, PE, OE, FE, SYNDET, DSR = (
 
 # Ports whose hardware is genuinely unidentified. Reads return 0xFF (floating
 # bus); every access is counted so the report can say what was touched.
+# 0xDE is an active-low hardware status input, accumulated into 0xA024 on every
+# RST7.5 tick and reported by the BS command. Reading 0xFF here inverts to 0x00,
+# i.e. "no faults", which is the right default for a stub.
 UNKNOWN_PORTS = set(range(0xC0, 0xD0)) | {0xDE}
 
 
@@ -169,11 +172,20 @@ class PIT100:
         self.cpu.pending[5.5] = bool(self.status & RXRDY)
 
     # -------------------------------------------------------------------- run
-    def run(self, max_steps, stop_pc=None):
+    def run(self, max_steps, stop_pc=None, tick=None):
+        """Step the CPU. `tick` requests RST7.5 every that many steps.
+
+        Without a tick the idle loop at 0x1675 never clears its flag and the
+        display is never repainted -- fine for protocol replies, useless for
+        anything to do with the panel. The rate is arbitrary; see assumption A2
+        in docs/flipdot-interface.md.
+        """
         cpu = self.cpu
         seen_pc = set()
         for n in range(max_steps):
             self.poll_interrupts()
+            if tick and n % tick == 0:
+                cpu.request(7.5)
             if stop_pc is not None and cpu.pc == stop_pc and n > 1000:
                 return n, "reached stop-pc"
             seen_pc.add(cpu.pc)

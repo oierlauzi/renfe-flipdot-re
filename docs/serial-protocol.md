@@ -178,11 +178,11 @@ can consume following bytes as parameters.
 | `0x00` | NUL | `0x0C70` | ignore |
 | `0x02` | STX | `0x0F17` | **start of text** — sets `0xA042 = 1`, buffer to `0xE001` |
 | `0x03` | ETX | `0x0F29` | **end of text** — validates and **replies ACK/NAK** |
-| `0x04` | EOT | `0x110D` | |
+| `0x04` | EOT | `0x110D` | **block write**, or the literal-byte escape — sub-mode digit follows |
 | `0x05` | ENQ | `0x1035` | |
 | `0x06` | ACK | `0x1057` | |
 | `0x07` | BEL | `0x10C8` | |
-| `0x08` | BS | `0x10E1` | |
+| `0x08` | BS | `0x10E1` | **status query** — replies `BS <status>`, and reading clears it |
 | `0x09` | TAB | `0x0DF5` | |
 | `0x0A` | LF | `0x0D31` | |
 | `0x0B` | VT | `0x0CA7` | |
@@ -409,8 +409,118 @@ in a ROM-defined prefix and suffix (pointers `0x00D2-0x00D5` and
 | `0x1A` SUB | **identify** — 45 bytes starting at ROM `0x0064`: the version string followed by the whole configuration block |
 | `0x09` TAB | **report cursor** — two ASCII digits, `row+0x30` then `col+0x30` |
 | `0x0E` SO | **read character at cursor** — one byte from the buffer |
-| `0x0F` SI | **read back the display** — buffer contents from the cursor, using a `0xFF` sentinel written at `0xE083` as the terminator |
-| `0x08` BS | status report |
+| `0x0F` SI | **read back what is displayed** — see below |
+| `0x08` BS | **status** — `BS` then one status byte, see below |
+
+#### `SI` reads the shadow, not the message buffer **[C]**
+
+`0x0E45` computes the source as `write_ptr + 0x42`, which for a cursor at
+`0xE001` is `0xE043` — **the shadow copy, i.e. what the panel is actually
+showing**, not what was last written into the message buffer.
+
+That makes `SI` the natural way to confirm an update committed. Demonstrated
+end to end in emulation:
+
+```
+select, message("CHAMARTIN"), goto(0,0), SI
+  -> '                    '     nothing displayed yet: still selected
+deselect, select, goto(0,0), SI
+  -> 'CHAMARTIN           '     the repaint has now happened
+```
+
+The same experiment confirms the repaint interlock, the shadow buffer and `SI`'s
+source simultaneously.
+
+One side effect: the firmware plants a `0xFF` sentinel at `0xE083` to bound the
+reply, clobbering the shadow's last byte. Character 63 is therefore repainted on
+the next pass. Harmless, but `SI` is not quite side-effect free.
+
+#### `BS` returns one status byte, and reading clears it **[C]**
+
+```
+0x10E1  CALL 0x1A7F        ; line turnaround
+0x10E4  MVI  A,0x08        ; echo BS itself
+0x10E6  CALL uart_send
+0x10E9  LDA  0x008B        ; a build-time selector
+0x10EE  JNZ  0x1101
+0x10F1  LDA  0xA024        ; ...this build: the latched status byte
+0x10F4  CALL uart_send
+0x10FA  SUB  A
+0x10FB  STA  0xA024        ; read-and-CLEAR
+0x1101  IN   0xDE          ; ...other builds: a hardware input, inverted
+0x1103  CMA
+```
+
+ROM `0x008B` is `0x00` in this build, so the reply is `08 <0xA024>` and **reading
+clears the byte**. Observed reply: `08 00`.
+
+**`0xA024` is a sticky accumulator of I/O port `0xDE`.** At `0x19FC`:
+
+```
+0x19FE  IN   0xDE
+0x1A00  CMA                ; the port is active low
+0x1A01  MOV  B,A
+0x1A02  LDA  0xA024
+0x1A05  ORA  B             ; sticky: bits latch until read
+0x1A06  STA  0xA024
+```
+
+and `0x19FC` is called from the **RST7.5 tick handler** at `0x02C0`, so the port is
+sampled on every periodic interrupt. The two `BS` variants are therefore the same
+hardware input read two ways:
+
+| ROM `0x008B` | `BS` reports |
+| --- | --- |
+| `0x00` (this build) | `0xA024` — **latched**: any bit active since the last query, then cleared |
+| non-zero | `IN 0xDE` complemented — the **instantaneous** state |
+
+So a host gets edge-triggered semantics here: a fault that came and went between
+two queries is still reported once, and polling repeatedly will read `0` even while
+the condition persists. Treat each reply as "since you last asked".
+
+`0xDE` is an unidentified 8-bit input, almost certainly hardware status —
+temperature, door, lamp or supply monitoring would all fit a station sign. What
+each bit means is open, and only the hardware can answer it. **[?]**
+→ [io-map.md](io-map.md)
+
+### `EOT` is a block-write command **[C]**
+
+`EOT` (`0x04`) sets a state byte and the *next* byte is an ASCII digit selecting
+one of three sub-modes. All three are confirmed in emulation.
+
+| Sub-mode | Form | Effect |
+| --- | --- | --- |
+| `'1'` | `EOT '1' <64 bytes>` | write exactly 64 bytes to `0xE084` |
+| `'2'` | `EOT '2' <ofs-hi> <ofs-lo> <cnt-hi> <cnt-lo> <data…>` | write `cnt` bytes at `0xE084 + ofs` |
+| `'3'` | `EOT '3' <byte>` | **store one byte verbatim**, bypassing the dispatcher |
+| other | | latches error `'0'` and behaves like `STX` |
+
+Verified: `EOT '1'` with `00 01 … 3F` lands byte for byte at `0xE084`; `EOT '2'`
+with offset 4 and count 6 writes exactly `0xE088-0xE08D` and leaves the pointer
+at `0xE08E`.
+
+Both offset and count are **16-bit**, so this is not bounded by the 64-byte
+region — it can reach into paged expansion memory. Nothing in the render path is
+known to read `0xE084`, so what it is *for* remains open; a per-character
+attribute plane is the obvious guess. **[?]**
+
+#### `EOT '3'` is the escape that makes control-code glyphs reachable **[C]**
+
+This one matters for anyone driving the panel. The dispatcher consumes `0x00-0x1F`
+as commands, so a bare control byte is **silently eaten** — it never reaches the
+buffer and no error is raised:
+
+```
+STX 'A' 0x01 'B' ETX            -> buffer: 41 42        the 0x01 vanished
+STX 'A' EOT '3' 0x01 'B' ETX    -> buffer: 41 01 42     stored
+STX EOT '3' 0x00 'A' ETX        -> buffer: 00 41        even 0x00 works
+```
+
+CP437 puts real glyphs at `0x01-0x1F` — smileys, card suits, arrows, note
+symbols ([font.md](font.md)) — and this escape is the only way to display them.
+It works mid-message and needs no state setup beyond being selected.
+`tools/pit100.py` applies it automatically in `message()`; `escape_controls()`
+exposes it directly.
 
 Verified in the simulator. Actual replies, with the repeating status frame
 stripped:
@@ -442,7 +552,7 @@ at the top of handler B are for.
 | `0x07` BEL | `0xA055` | `0x10D0` | **low 3 bits of the parameter become the display attribute `0xA014`** — 8 display modes |
 | `0x05` ENQ | `0xA03E` | `0x103D` | parameter stored at `0xA041`; a `0x12` DC2 parameter is translated to `0x23` `'#'`; sets `0xA03D = 1` |
 | `0x1D` GS | `0xA03F` | `0x105E` | parameter is an **address**; `0x7F` broadcasts. Selects the unit — see [Addressing](#addressing-the-unit-must-be-selected-first-c). This is why `0x1D` never reaches the dispatch table |
-| `0x04` EOT | `0xA05D` | `0x1115` | parameter is an ASCII digit selecting a sub-mode; `'3'` diverts to `0x121A` |
+| `0x04` EOT | `0xA05D` | `0x1115` | ASCII digit selecting a sub-mode: `'1'` and `'2'` block-write to `0xE084`, `'3'` stores the next byte literally |
 | `0x0B` VT | `0xA039` | `0x0CB7`, `0x0CE9` | takes **two** parameters, row then column |
 | `0x1B` ESC | `0xA04C` | — | collects bytes into a buffer at `0xA046`. **Disabled in this build**: `0x0E8C` requires ROM byte `0x0077` to be 1 and it is `0x00` |
 

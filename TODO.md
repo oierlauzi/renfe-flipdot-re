@@ -281,9 +281,22 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       accepted. A wrong address leaves the unit silent.
 - [x] **Port C bit 5 is the serial enable**, not merely an init-path selector.
       Clear = standalone with hardwired 9600 8E1 and reception disabled.
-- [ ] **`0x04` EOT sub-modes** — the parameter is an ASCII digit; `'3'` diverts
-      to `0x121A`. What are the others?
-- [ ] **`0x08` BS status report** — what does it actually return?
+- [x] **`0x04` EOT sub-modes decoded and verified.** `'1'` writes 64 bytes to
+      `0xE084`; `'2'` takes a 16-bit offset and count and block-writes at
+      `0xE084 + offset`; **`'3'` stores the next byte verbatim, bypassing the
+      command dispatcher** — the only way to display CP437's control-code glyphs,
+      which are otherwise silently eaten. Anything else latches error `'0'` and
+      behaves like `STX`.
+      → [serial-protocol.md](docs/serial-protocol.md#eot-is-a-block-write-command-c)
+- [x] **`0x08` BS status report decoded.** Replies `BS <status>`; in this build
+      the byte is the latched accumulator `0xA024` and **reading clears it**. With
+      ROM `0x008B` non-zero it would instead report the inverted state of I/O port
+      `0xDE`, which nothing else in the ROM touches.
+      - Open: what sets `0xA024`? A non-zero reading is currently uninterpretable.
+- [x] **`SI` reads the shadow buffer, not the message buffer** — so it reports
+      what is *displayed*. Confirmed end to end: `SI` returns spaces while the unit
+      is still selected and `CHAMARTIN` after deselecting. That single experiment
+      validates the interlock, the shadow and `SI` together.
 - [ ] **What do the 8 display attribute values mean?** BEL's parameter selects
       one of 8 via `0xA014` bits 2:0. Cross-reference with handler A's
       `0x7C`/`0x7D`/`0x7F` and the durations at `0xA016`/`0xA018`.
