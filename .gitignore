@@ -1,6 +1,7 @@
 # Build artefacts
 /build/
 *.p
+*.lst
 *.lst.new
 
 # Ghidra projects are binary blobs and cannot be reviewed or merged.
