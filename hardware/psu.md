@@ -16,6 +16,16 @@ clock while its backlight follows the station lighting. The flip-dot panel is
 bistable and readable in daylight without illumination, so the tube is purely a
 night-time reading light — losing it does not blank the sign.
 
+**The tube is not coupled to the electronics in any way** (owner, 2026-08): no
+control line, no sense line, mains feed and ballast entirely its own. **[C]**
+
+That is worth stating explicitly because it *excludes* an otherwise attractive
+hypothesis. The firmware drives two "display attribute" lines out to the panel
+([../docs/flipdot-interface.md](../docs/flipdot-interface.md#port-c-bits-10-are-the-display-attribute-lines-c)),
+and illumination control would have been the natural guess for what two such lines
+do on a sign with a lamp in it. The firmware cannot switch this tube, so they must
+do something else.
+
 **The tube's ballast/reactance is inside the display body.** That matters well
 beyond the lighting:
 

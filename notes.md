@@ -20,6 +20,64 @@ Entry template:
 
 ---
 
+## 2026-08-06 — The display attributes are hardware lines, not software effects
+
+**Did:** chased `0x199F` (called after every rendered character) and `0x09F3`
+(called whenever `0xA014` changes), then swept `BEL 0`-`BEL 7` in emulation.
+
+**Found — port C bits 1:0 are the display attribute lines.** I had these recorded
+as "preserved across every write; function unknown". The shift loop preserves them
+because they carry state *between* glyph frames: `0x0A82` does a read-modify-write
+of port C putting attribute bits 1:0 into port C bits 1:0.
+
+So the "8 display attributes" are really **four states on two hardware lines** —
+only `BEL`'s bits 1:0 reach this panel, and 4-7 behave exactly like 0-3. Confirmed
+by sweep. Other panel families route the same two bits to port B (`0x0A90`) or
+split them across ports (`0x0A9E`), which corroborates that they are attribute
+lines rather than something incidental.
+
+**Found — bit 2 is a "permanent" flag, not a third line.** `0x199F` ages the
+attribute: bit 0 is paired with duration `0xA018`, bit 1 with `0xA016`, both
+counted down on the RST7.5 tick, and the bit is cleared when its duration expires.
+The test is `(attr & 0x05) == 0x01`, so **bit 2 set exempts bit 0 from ageing**.
+
+That retro-explains something that had no explanation: handler A's `0x7C` `|`
+sets `0x05` — two bits — where `0x7D` `}` sets only `0x02` and loads a duration.
+`|` means "effect 0, permanent"; `}` means "effect 1, timed". Two findings from
+opposite directions agreeing. The ageing runs **only under handler A**; handler B
+jumps past it, so bit 2 is inert for a command-protocol host.
+
+**Guess made and immediately killed.** I wrote that the two lines were probably
+illumination control for the fluorescent tube. The owner corrected it on sight:
+**the tube is not coupled to the electronics in any manner** — own mains feed, own
+ballast, no control or sense line. The firmware cannot switch it. Recorded in
+[hardware/psu.md](hardware/psu.md) as a fact that *excludes* a hypothesis, which is
+worth as much as one that supports one.
+
+Remaining candidates, none confirmed: the lines target the **LED matrix** further
+along the same ribbon (LEDs can be dimmed or blinked, and it is the scrolling part
+of the sign); or a hardware blink enable on the flip-dot modules; or a mode select
+with no visual meaning. **[?]**
+
+**A simulator bug this exposed.** The first sweep showed port C bits 1:0 stuck at
+`11` for every attribute value. Cause: `io_in` returned a floating `0xFF` for
+`0xE3`, so the shift loop's `IN 0xE3 / ANI 0x03` read `11` and wrote it back on
+every clocked bit, destroying the attribute 74 times per character. Display ports
+must read back what was last written. Fixed with an output latch; glyph rendering
+is unaffected (it uses bits 4 and 5) but every attribute observation before the fix
+was wrong.
+
+That is twice now that a stub returning "floating high" has silently faked a
+result. Standing suspicion worth keeping: `0xFF` is a plausible-looking answer that
+never raises an error.
+
+**Concluded:** `BEL` sets two hardware lines to the panel, four states. **[C]**
+What they physically do is not derivable from the ROM. **[?]**
+
+**Next:** what reads the `0xE084` region; port A bit 7.
+
+---
+
 ## 2026-08-06 — U20's identity was assumed, and the assumption has a contradiction
 
 **Prompted by a question:** had the analysis assumed what U20 is? Yes — and

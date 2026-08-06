@@ -246,7 +246,7 @@ it dissolves the "21 lines cannot address 560 dots" problem: the panel is fed
 | --- | --- | --- |
 | `0xE3` (port C) | 4 (`0x10`) | **shift clock** — data is clocked on the rising edge |
 | `0xE3` (port C) | 5 (`0x20`) | **serial data**, **active low**: low = dot ON |
-| `0xE3` (port C) | 1:0 | preserved across every write; function unknown **[?]** |
+| `0xE3` (port C) | 1:0 | **display attribute lines** — see below **[C]** |
 | `0xE2` (port B) | 7:0 | **character position**, inverted, bit 7 forced set |
 
 The driver for panel type `0x11` sits at `0x29F6-0x2A5D`. Annotated:
@@ -338,6 +338,95 @@ one of them:
 So type `0x0A` is a 16-character parallel panel and type `0x11` a serially-fed one
 with a 64-position address space. Both derive the position from the same `0xA00A`
 counter.
+
+### Port C bits 1:0 are the display attribute lines **[C]**
+
+Previously recorded as "preserved across every write; function unknown". They are
+the **display attribute, driven out to the panel as two hardware lines**, and the
+reason the shift loop carefully preserves them is that they hold state between
+glyph frames.
+
+The path is short. `BEL <param>` stores `param & 0x07` into `0xA014`
+(`0x10D0`). Whenever that value *changes*, `0x09F3` dispatches on the panel family
+(port C switch bits 4:0) and, for this panel's family, reaches `0x0A82`:
+
+```
+0x0A82  LDA  0xA015        ; the attribute
+0x0A85  ANI  0x03          ; low two bits only
+0x0A88  IN   0xE3          ; read-modify-write port C
+0x0A8A  ANI  0xFC
+0x0A8C  ORA  B
+0x0A8D  OUT  0xE3          ; ...bits 1:0 := attribute bits 1:0
+```
+
+Swept in emulation, `BEL 0` through `BEL 7`:
+
+| `BEL` param | `0xA014` | port C bits 1:0 |
+| --- | --- | --- |
+| 0, 4 | `0x00`, `0x04` | `00` |
+| 1, 5 | `0x01`, `0x05` | `01` |
+| 2, 6 | `0x02`, `0x06` | `10` |
+| 3, 7 | `0x03`, `0x07` | `11` |
+
+So of the "8 display attributes", **only the low 2 bits reach this panel** — four
+states on two lines. Bit 2 does something different (below).
+
+**What those two lines do is genuinely open.** Two constraints narrow it:
+
+* **Not brightness on the flip-dots.** The dots are mechanical and bistable;
+  there is nothing to dim.
+* **Not the fluorescent tube.** The tube is **not coupled to the electronics in
+  any way** (owner, 2026-08) — it has its own mains feed and its own ballast, so
+  the firmware cannot switch it. An earlier draft of this document guessed
+  illumination control; that is ruled out.
+
+What remains, in rough order of plausibility:
+
+1. **They target the LED matrix, not the flip-dots.** The same ribbon continues to
+   it, LEDs *can* be dimmed or blinked, and it is the part of the sign that
+   scrolls. Handler A's timed variants fit an attention effect on scrolling text.
+2. **A hardware blink or flash enable** on the flip-dot modules, with the panel
+   doing the toggling rather than the CPU. The durations at `0xA016`/`0xA018`
+   would then set how long the effect lasts, not its rate.
+3. A per-panel enable or mode select with no visual meaning of its own.
+
+Tracing port C bits 1:0 through the ribbon, or simply sending `BEL 0`-`BEL 3` to a
+powered unit and watching, settles it. **[?]**
+
+Other panel families route the same two bits elsewhere, which is good
+corroboration that they are attribute lines rather than anything panel-specific:
+
+| Family (port C bits 4:0) | Routine | Destination |
+| --- | --- | --- |
+| 2, 3, `0x0D`, `0x12`-`0x15`, `0x17` | `0x0A82` | port C bits 1:0 |
+| `0x19` | `0x0A90` | port B bits 1:0 |
+| `0x18` | `0x0A9E` | attribute bit 0 → port C bit 5, bit 1 → port B bit 7 |
+
+### Bit 2 makes the effect permanent; bits 0 and 1 are timed **[C]**
+
+`0x199F`, called after every character, ages the attribute — but **only under
+receive handler A**; handler B jumps straight past it.
+
+* Attribute **bit 0** is paired with duration `0xA018`, **bit 1** with `0xA016`.
+  Both durations count down on the RST7.5 tick (`0x02EF`). When one reaches zero
+  the matching attribute bit is cleared, ending the effect.
+* **Bit 2 suppresses that ageing for bit 0**: the test is
+  `(attr & 0x05) == 0x01`, so with bit 2 set the auto-clear never runs and the
+  effect persists.
+* **Bit 7** short-circuits the whole thing — attribute off.
+* `0xA013` is set to 1 whenever `attr & 0x03` is non-zero, i.e. "an effect is
+  currently running", and is what gates the countdown at `0x02EF`.
+
+That decodes handler A's in-band control characters exactly:
+
+| Character | Sets | Meaning |
+| --- | --- | --- |
+| `0x7C` `\|` | `attr = (attr & 0x7F) \| 0x05` | effect 0, **permanent** (bit 2) |
+| `0x7D` `}` | `attr \|= 0x02` plus `0xA016` = 80 or 2000 | effect 1, **timed** |
+| `0x7F` DEL | `attr = (attr & 0xFA) \| 0x80` | effects off |
+
+Two independent findings agreeing: the timing logic explains why `0x7C` sets
+*two* bits rather than one, which had no explanation before.
 
 ### An aside: the glyph lookup is a linear search
 

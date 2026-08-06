@@ -64,6 +64,13 @@ class PIT100:
         self.switches = {0xA1: port_a, 0xA2: port_b, 0xA3: port_c}
         self.trace_io = trace_io
 
+        # Display ports read back what was last written. The firmware depends on
+        # this: the glyph shift loop does IN 0xE3 / ANI 0x03 to *preserve* bits
+        # 1:0, which carry the display attribute (docs/flipdot-interface.md).
+        # Returning a floating 0xFF instead made those bits read as 11 forever,
+        # silently discarding the attribute on every clocked bit.
+        self.disp_latch = {0xE1: 0x00, 0xE2: 0x00, 0xE3: 0x00}
+
         # 8251A state
         self.rx_queue = deque()
         self.rx_data = 0
@@ -120,6 +127,8 @@ class PIT100:
             return self.status
         if port in self.switches:              # 81C55 ports A/B/C
             return self.switches[port]
+        if port in self.disp_latch:            # display ports read back
+            return self.disp_latch[port]
         if port == 0xE7:                       # expansion board capability
             return 0x00 if self.xram_mode == "board" else 0xFF
         if port in UNKNOWN_PORTS:
@@ -137,6 +146,7 @@ class PIT100:
             self._uart_control(value)
         elif port in (0xE1, 0xE2, 0xE3):
             self.disp_writes.append((port, value))
+            self.disp_latch[port] = value
         elif port in UNKNOWN_PORTS:
             self.unknown_hits[port] = self.unknown_hits.get(port, 0) + 1
 

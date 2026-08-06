@@ -218,10 +218,22 @@ class PIT100:
         self.t.write(bytes((EM,)))
 
     def set_attribute(self, value):
-        """BEL <param>. The low 3 bits select one of 8 display effects.
+        """BEL <param>. Stores param & 7 in 0xA014, the display attribute.
 
-        What each of the eight looks like on a real panel is not yet known -- see
-        docs/flipdot-interface.md.
+        On this panel family only **bits 1:0 reach the hardware**: they are driven
+        out on port C bits 1:0 as two attribute lines, giving four states, not
+        eight. Verified by sweeping 0-7 in emulation. Values 4-7 therefore behave
+        identically to 0-3 here.
+
+        Bit 2 is not a third line. Under receive handler A it marks effect 0 as
+        permanent, exempting it from the countdown that otherwise clears the bit;
+        under handler B (this driver) the ageing logic is skipped entirely, so
+        bit 2 has no effect at all.
+
+        What the two lines physically do is unknown. Not brightness (the dots are
+        mechanical) and not the fluorescent tube (it is electrically independent
+        of the electronics). The leading candidate is that they target the LED
+        matrix further along the same ribbon. See docs/flipdot-interface.md.
         """
         if not 0 <= value <= 7:
             raise ValueError("attribute is 3 bits: 0-7")

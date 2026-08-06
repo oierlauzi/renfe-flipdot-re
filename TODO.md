@@ -304,9 +304,19 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       what is *displayed*. Confirmed end to end: `SI` returns spaces while the unit
       is still selected and `CHAMARTIN` after deselecting. That single experiment
       validates the interlock, the shadow and `SI` together.
-- [ ] **What do the 8 display attribute values mean?** BEL's parameter selects
-      one of 8 via `0xA014` bits 2:0. Cross-reference with handler A's
-      `0x7C`/`0x7D`/`0x7F` and the durations at `0xA016`/`0xA018`.
+- [x] **Display attributes decoded.** `BEL` stores `param & 7` in `0xA014`; only
+      **bits 1:0 reach this panel**, driven out on **port C bits 1:0** as two
+      attribute lines (four states, not eight). Bit 2 marks effect 0 permanent,
+      exempting it from the countdown that `0x199F` runs against `0xA016`/`0xA018`
+      — which also explains why handler A's `0x7C` sets two bits. Other panel
+      families route the same two bits to port B instead.
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#port-c-bits-10-are-the-display-attribute-lines-c)
+- [ ] **What do the two attribute lines physically do?** Not brightness (the dots
+      are mechanical) and **not the fluorescent tube** (electrically independent).
+      Most likely they target the **LED matrix** further along the same ribbon, or
+      are a hardware blink enable. Trace port C bits 1:0 through the ribbon, or
+      send `BEL 0`-`BEL 3` to a powered unit and watch. **[?]**
+      - Result:
 - [x] **Port A fully attributed**: bits 4:0 address, bit 5 blank-substitute
       character, bit 6 protocol select, bit 7 a render option. The address also
       forms handler A's start-of-frame byte as `0x60 | addr`, which is the same
