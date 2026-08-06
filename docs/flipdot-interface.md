@@ -161,8 +161,10 @@ with 0x7F removed    : 3D 3E 3F 00 01 02 03 04 05 06 07 08 09 0A 0B 0C ...
 ```
 
 A plain **incrementing counter over `0x00-0x3F`** — 48 distinct values seen, of
-which only 6 happen to be one-hot. `0x7F` is written between each, so **bit 7 (or
-the all-ones value) acts as a strobe or bus-idle state**.
+which only 6 happen to be one-hot. The `0x7F` between each is now identified: it
+is a literal `MVI A,0x80 / OUT 0xE2` at `0x2A5B` that **deselects** at the end of
+every character. See
+[how an individual character is addressed](#how-an-individual-character-is-addressed-c-from-the-rom).
 
 **So port B is an encoded module address, spanning 64 positions.** Three things
 fall into place:
@@ -283,6 +285,62 @@ The 35 glyph bits are 5 columns of 7 rows, top row first, **DATA low = dot on**.
 **Anchor on the marker, not on the idle run.** A blank glyph is 35 high bits and
 is therefore indistinguishable from idle padding; only the single low marker bit
 reliably locates a frame.
+
+### How an individual character is addressed **[C] from the ROM**
+
+The per-character transaction is bracketed by two writes to port B, which is what
+makes the addressing unambiguous:
+
+| Step | Code | Bus |
+| --- | --- | --- |
+| 1 | `0x29F6`: `LDA 0xA00A / CMA / ORI 0x80 / OUT 0xE2` | **select** character `pos` |
+| 2 | `0x2A00-0x2A12` | 37 idle bits, clocked |
+| 3 | `0x2A16-0x2A23` | 1 marker bit, DATA low |
+| 4 | `0x2A25-0x2A48` | 35 glyph bits |
+| 5 | `0x2A4B-0x2A59` | 1 trailing bit, DATA high |
+| 6 | `0x2A5B`: `MVI A,0x80 / OUT 0xE2` | **deselect** — a literal `0x80` |
+
+`0xA00A` is a plain 0-based character counter, reset at `0x1260`/`0x1407` and
+incremented once per character by the render loop. So the address on the bus is
+
+```
+port B = ~position | 0x80
+```
+
+i.e. **encoded binary, active low, with bit 7 forced high**. Observed for a
+six-character message, with the deselect between each:
+
+```
+written : FF 80  FE 80  FD 80  FC 80  FB 80  FA 80
+position :  0      1      2      3      4      5
+```
+
+`0x80` is `~0x7F`, i.e. "address 127" — outside the 64 valid positions, so it acts
+as a **bus-idle / no-module-selected state** rather than addressing anything. That
+is what the earlier capture recorded as a mysterious alternating `0x7F`.
+
+### The address width is panel-type specific **[C]**
+
+Different drivers address differently, which is worth knowing before trusting any
+one of them:
+
+| Type | Address | Glyph data |
+| --- | --- | --- |
+| `0x11` (`0x29D7`) | port B, 6 bits used of 8, `~pos \| 0x80` | **serial**, shifted on port C |
+| `0x0A` (`0x210D`) | port B bits 3:0, `~pos & 0x0F`, then a strobe OR-ed in from `C` (`0x10` or `0x20`) | **parallel byte** on port A (`0x2113`) |
+
+So type `0x0A` is a 16-character parallel panel and type `0x11` a serially-fed one
+with a 64-position address space. Both derive the position from the same `0xA00A`
+counter.
+
+### An aside: the glyph lookup is a linear search
+
+`0x29DD-0x29F3` walks the font table five bytes at a time comparing the index
+against the character code, up to 255 iterations, even though the table is
+directly indexable as `0x1C0D + code * 5` ([font.md](font.md)). If the code is not
+found it restarts the search for character `0`. Functionally irrelevant, but it
+sets the per-character cost and is a reminder that this firmware is not
+performance-tuned — useful when reasoning about how fast a host can push updates.
 
 ### Validated end to end
 
