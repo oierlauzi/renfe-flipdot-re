@@ -20,6 +20,43 @@ Entry template:
 
 ---
 
+## 2026-08-05 — ESP32 added to the controller comparison
+
+**Did:** Worked the ESP32 into `docs/controller.md` alongside the Pi and Arduino.
+
+**Concluded it is the best fit of the three**, and not merely as another option
+that happens to work:
+
+* **Parity is the discriminator.** The link is 8E1 by default. Arduino's
+  `SoftwareSerial` has no parity; the Pi's `/dev/ttyS0` mini-UART has none either
+  and needs Bluetooth disabled to reach the PL011. The ESP32 has three hardware
+  UARTs, all supporting `SERIAL_8E1`, so the problem simply does not arise.
+* **It can replace the original controller outright.** Since the display computes
+  nothing — no arithmetic, no digit formatting, no minute timer — the countdown
+  and the destination text were always the upstream unit's job. An ESP32 with
+  WiFi and NTP can do exactly that job, with no PC in the loop.
+* **It fits inside the enclosure** off the existing 24 V rail via a small buck,
+  keeping the finished object a self-contained sign.
+* If the link is 2-wire RS-485, the ESP32's UART has a native half-duplex mode
+  that drives DE in hardware.
+
+**The catch worth writing down: 3.3 V logic.** Everything on the display side is
+5 V-era CMOS.
+
+* Use **MAX3485 / MAX3490**, not the 5 V MAX485/MAX490 that most cheap breakout
+  boards carry. A 5 V module will accept 3.3 V as a logic high but its receiver
+  output swings to 5 V into a 3.3 V pin — the standard way to kill an ESP32 on
+  this sort of project.
+* For a current loop, rescale the opto drive: the original uses 560 Ω from 5 V for
+  ~6.5 mA; from 3.3 V that gives only 3.5 mA. **220-330 Ω** reproduces the
+  original drive and stays inside the ~12 mA per-pin continuous limit.
+
+**Recommended division of labour:** bring the link up on a PC with a USB adapter,
+where iteration is fast and everything can be logged, then move the working
+protocol onto an ESP32 for the permanent installation.
+
+---
+
 ## 2026-08-05 — Daughter 1's parts list argues for a current loop
 
 **Recorded (owner):** besides the listed ICs and the DC-DC converter, daughter 1

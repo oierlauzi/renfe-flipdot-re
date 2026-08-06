@@ -164,8 +164,16 @@ See [docs/controller.md](docs/controller.md) for the full comparison. The hedge
 that covers every outcome: a USB-to-TTL serial adapter, a MAX490 and a MAX485
 breakout, a few 6N137/6N139 optocouplers, and a current-limited bench supply.
 
+**Host: ESP32 is the recommendation.** Three hardware UARTs with parity (which
+rules out Arduino's `SoftwareSerial` and the Pi's mini-UART), WiFi for pushing
+text, and enough capability to replace the original upstream controller outright —
+the display itself computes nothing. Watch the 3.3 V logic level: use MAX3485 /
+MAX3490, **not** the 5 V MAX485/MAX490 on most cheap breakouts.
+
 - [ ] Decide the interface hardware once the diode test or a clean capture
       settles the electrical standard.
+- [ ] Plan on bringing the link up on a PC with a USB adapter first, then moving
+      the working protocol to an ESP32 for the permanent installation.
 
 ## P4b — Long shots worth an hour
 
