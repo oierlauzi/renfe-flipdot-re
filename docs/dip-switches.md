@@ -61,21 +61,31 @@ So port B is now fully accounted for: bits 7:5 baud, bit 4 word length, bits 3:2
 parity. The `0x7E` literal used on the hardwired path (8E1) is what these
 switches produce in their common setting.
 
-## Port C bit 5 — alternate startup path **[C]**
+## Port C bit 5 — SERIAL ENABLE **[C]**
 
-`0x0430` reads port C, tests bit 5, and branches to two very different
-initialisations:
+This bit does far more than pick an init path. **It gates reception entirely.**
 
-* **bit 5 = 0** (`0x0437`): normal path — program the 81C55 timer with the
-  fixed `0x4014` preload, initialise the 8251 with mode `0x7E` (8E1), clear
-  `0xF0` bytes of RAM, jump to `0x055A`.
-* **bit 5 = 1** (`0x0468`): clear only `0x80` bytes of RAM, then read port B to
-  select the baud rate, and later build the 8251 mode word from a register at
-  `0x0533`. **[L]**
+Two separate places test it:
 
-So bit 5 looks like "use hardwired defaults" vs "use the switch-selected
-configuration" — possibly a test/service mode. Confirming which is which is a
-high-value experiment because it decides whether the switches matter at all.
+| Site | Test | Effect |
+| --- | --- | --- |
+| `0x0430` (init) | bit 5 clear → `0x0437` | hardwired config: timer preload `0x4014`, 8251A mode `0x7E` (**9600 8E1**) |
+| `0x0430` (init) | bit 5 set → `0x0468` | switch-derived config: baud from port B bits 7:5, mode word built at `0x0533` |
+| `0x0268` (RST5.5 ISR) | bit 5 clear → return immediately | **no serial data is ever received** |
+
+The two combine into a single meaningful setting:
+
+| Bit 5 | Meaning |
+| --- | --- |
+| **clear** | **Standalone / test mode.** Hardwired 9600 8E1, and the receive ISR returns without touching the UART. The unit will not respond to anything on the serial line. |
+| **set** | **Normal operation.** Baud rate and character format come from the port B switches, and reception is enabled. |
+
+Verified in the simulator: with port C bit 5 clear, no command produces any
+reply; with it set, the unit answers correctly.
+
+**Consequence:** the documented "9600 8E1" default is the configuration of a
+unit that *cannot receive*. A working installation is running whatever the port B
+switches select. Read those switches before assuming a baud rate.
 
 ## Port A bits 4:0 — display address **[C]**
 
@@ -131,9 +141,41 @@ therefore which receive handler the RST5.5 ISR dispatches to:
 
 A fitted expansion board forces `0xA00C = 1` regardless.
 
+## Port A bit 5 — blank substitute character **[C]**
+
+At `0x0664`: bit 5 set stores `0x3F` `'?'` into `0xA00B`, clear stores `0x20`
+(space). `0xA00B` is the byte that handler A renders as a space — see
+[serial-protocol.md](serial-protocol.md). So this switch chooses whether the
+"blank" placeholder shows as `?` or as nothing.
+
+## Port A bit 7 — render option **[L]**
+
+Tested at `0x0753` and `0x0831`, both on display paths (`0x0831` chooses whether
+to start from `0xE001`). Its exact effect needs the render path traced.
+
+## Port A summary — fully attributed **[C]**
+
+| Bits | Function |
+| --- | --- |
+| 4:0 | **display address**, 32 values |
+| 5 | blank substitute: set = `'?'`, clear = space |
+| 6 | receive protocol: set = handler B, clear = handler A |
+| 7 | a render option, exact effect open **[L]** |
+
+An address of **0** is special: `0x10B4` and `0x1304` test `port A & 0x1F` for
+zero and take an unaddressed path, and `RS` is ignored entirely at address 0.
+
+### The address also sets handler A's start byte
+
+At `0x055A` the firmware computes `0x60 | (port A & 0x1F)` and stores it in
+`0xA006` — **handler A's start-of-frame character**. That is the same value the
+status frame carries as its last byte, so the two protocols share one addressing
+scheme: handler B addresses with `GS <0x30|addr>`, handler A embeds
+`0x60|addr` as its frame delimiter.
+
 ## Still unmapped
 
-Port A bits 7 and 5, and the remaining port B / port C bits. **[?]**
+Port B bits 1:0, and port C bits other than 5. **[?]**
 
 ## Recording the physical state — do this first
 

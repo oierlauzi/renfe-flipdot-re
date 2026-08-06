@@ -83,7 +83,7 @@ bit 6 clear. It is a byte-at-a-time state machine driven by the RST5.5 ISR.
 
 | Element | Source | Notes |
 | --- | --- | --- |
-| Start-of-frame | byte at `0xA006` | **configurable at runtime**, not a literal |
+| Start-of-frame | byte at `0xA006` | computed at `0x055A` as **`0x60 \| (port A & 0x1F)`** — the display address |
 | Alternate start | `0xA006 + 1` | selects a second buffer at `0xE03C` |
 | End-of-frame | byte at `0xA007` | configurable; on match, posts `0x4A` to the mailbox |
 | Buffer | `0xE000` (or `0xE03C`) | write pointer kept in `0xA00E` |
@@ -284,6 +284,40 @@ preamble only.**
 After the reply, `0x0F8C` clears `0xA03A`, `0xA04F`, `0xA050`, `0xA051`,
 `0xA052` and `0xA054`, resetting the error state for the next message.
 
+### Addressing: the unit must be selected first **[C]**
+
+This is the key to the whole protocol, and it is why early experiments got no
+reply. Handler B opens with a guard at `0x0ACB`: while `0xA040` (the *selected*
+flag) is zero, **only three commands are accepted** — `EOT`, `VT` and `GS`.
+Everything else falls straight through to `RET`. The 28-entry dispatch table at
+`0x0B76` is reachable only once the unit is selected.
+
+`GS` (`0x1D`) does the selecting. Its parameter handler at `0x105E`:
+
+```
+0x105E  IN   0x80          ; the address byte
+0x1060  ANI  0x7F
+0x1065  CPI  0x7F          ; 0x7F -> broadcast, select unconditionally
+0x1078  IN   0xA1          ; else build this unit's address from port A
+        ...0x30 | bits3:0, or 0x40 | bits3:0 when bit 4 is set...
+0x108D  CMP  B             ; compare with the received byte
+0x108E  JZ   0x1098        ; match -> select
+0x1091  STA  0xA03F = 0    ; no match -> stay deselected and ignore everything
+0x1098  MVI  A,1
+0x109A  STA  0xA040        ; selected
+```
+
+* **`0x7F` is the broadcast address** — every unit on the bus selects.
+* A non-matching address leaves the unit silent, so several displays can share
+  one line.
+* `RS` (`0x1E`) clears `0xA040`, i.e. **deselects**.
+
+So every transaction looks like:
+
+```
+GS <addr>  <commands...>   [RS]
+```
+
 ### Decoded commands **[C]**
 
 | Code | | Effect |
@@ -295,6 +329,70 @@ After the reply, `0x0F8C` clears `0xA03A`, `0xA04F`, `0xA050`, `0xA051`,
 | `0x10` DLE | **reset the unit** | jumps to `fatal_or_init` |
 | `0x06` ACK | clears `0xA03D`, then performs the same clear as CAN |
 
+### The buffer is a cursor-addressable 2-D grid **[C]**
+
+The 64-byte buffer is addressed as **rows of 64 columns**, with the cursor kept
+in two variables:
+
+| Variable | Meaning |
+| --- | --- |
+| `0xA043` | row |
+| `0xA044` | column (0-63) |
+| `0xA03B` | the write pointer these two describe |
+
+That makes the command set a small terminal:
+
+| Code | | Effect |
+| --- | --- | --- |
+| `0x0B` VT | **position cursor** — takes *two* parameter bytes, `VT <row+0x30> <col+0x30>`, each an ASCII digit; recomputes the pointer as `0xE001 + row*64 + col` |
+| `0x0D` CR | **carriage return** — back to column 0 of the current row |
+| `0x0A` LF | **line feed** — advance to column 64, then row++, column := 0 |
+| `0x11` DC1 | **cursor up** — pointer -= 64, row-- |
+| `0x14` DC4 | **cursor down** — pointer += 64, row++ |
+| `0x13` DC3 | **cursor left** — pointer--, column--; wraps to the previous row at column 63 |
+| `0x12` DC2 | **cursor right** — pointer++, column++; wraps to the next row at column 64 |
+| `0x17` ETB | **erase to end of line** — fill spaces from the cursor to column 64 |
+| `0x19` EM | **erase to end of display** — as ETB, continuing across rows |
+| `0x18` CAN | **clear** — fill the whole buffer with spaces |
+| `0x0C` FF | **fill with `#`** (`0x23`) — a test pattern |
+
+Cursor moves that run off the buffer jump to `0x0C66`, which latches error `0x30`
+— the same overflow error a too-long message produces.
+
+### Query commands: the unit reports back **[C]**
+
+Five commands make the display *answer* with real data. Each one wraps its reply
+in a ROM-defined prefix and suffix (pointers `0x00D2-0x00D5` and
+`0x00DA-0x00DD`, mostly empty in this build except a four-`SYN` preamble for
+`SUB`), with `0x1A7F` handling line turnaround first.
+
+| Code | | Reply |
+| --- | --- | --- |
+| `0x1A` SUB | **identify** — 45 bytes starting at ROM `0x0064`: the version string followed by the whole configuration block |
+| `0x09` TAB | **report cursor** — two ASCII digits, `row+0x30` then `col+0x30` |
+| `0x0E` SO | **read character at cursor** — one byte from the buffer |
+| `0x0F` SI | **read back the display** — buffer contents from the cursor, using a `0xFF` sentinel written at `0xE083` as the terminator |
+| `0x08` BS | status report |
+
+Verified in the simulator. Actual replies, with the repeating status frame
+stripped:
+
+```
+GS '5' SUB          -> 16 16 16 16 41 4B 30 30 35 32 2E 31 33 39 55 31 00 00 01 ...
+                       [4x SYN]    A  K  0  0  5  2  .  1  3  9  U  1  <config block>
+GS 0x7F SUB         -> identical (broadcast)
+GS '5' TAB          -> 30 30                       row '0', column '0'
+GS '5' STX HOLA ETX -> 06 35                       ACK, address '5'
+GS '5' ... SI       -> 06 35 23 23 23 ...          ACK, address, then buffer contents
+GS '9' SUB          -> (nothing - wrong address)
+```
+
+**`SUB` is the single most useful command for bring-up.** It needs no prior
+state, works under broadcast addressing, and returns a known-answer string, so
+it doubles as a link test *and* dumps the unit's configuration block — which
+[the config section](#build-time-configuration-block-rom-0x0070-0x008b) warns
+may differ from this one.
+
 ### Commands that take a parameter byte **[C]**
 
 These set a state variable; the *next* byte received is consumed as the
@@ -305,7 +403,10 @@ at the top of handler B are for.
 | --- | --- | --- | --- |
 | `0x07` BEL | `0xA055` | `0x10D0` | **low 3 bits of the parameter become the display attribute `0xA014`** — 8 display modes |
 | `0x05` ENQ | `0xA03E` | `0x103D` | parameter stored at `0xA041`; a `0x12` DC2 parameter is translated to `0x23` `'#'`; sets `0xA03D = 1` |
-| `0x1D` GS | `0xA03F` | `0x105E` | parameter is an **address**, masked to 7 bits and compared against DIP switch port A. This is why `0x1D` never reaches the dispatch table |
+| `0x1D` GS | `0xA03F` | `0x105E` | parameter is an **address**; `0x7F` broadcasts. Selects the unit — see [Addressing](#addressing-the-unit-must-be-selected-first-c). This is why `0x1D` never reaches the dispatch table |
+| `0x04` EOT | `0xA05D` | `0x1115` | parameter is an ASCII digit selecting a sub-mode; `'3'` diverts to `0x121A` |
+| `0x0B` VT | `0xA039` | `0x0CB7`, `0x0CE9` | takes **two** parameters, row then column |
+| `0x1B` ESC | `0xA04C` | — | collects bytes into a buffer at `0xA046`. **Disabled in this build**: `0x0E8C` requires ROM byte `0x0077` to be 1 and it is `0x00` |
 
 `BEL` + one byte is the display-effect selector for handler B, the counterpart of
 the in-band `0x7C`/`0x7D`/`0x7F` characters in handler A.

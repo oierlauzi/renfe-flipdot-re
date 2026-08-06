@@ -20,6 +20,65 @@ Entry template:
 
 ---
 
+## 2026-08-05 — The whole command protocol, validated end to end
+
+**Did:** Decoded the remaining handler-B commands, then drove the real firmware
+in the simulator and captured its replies.
+
+**The unblocking discovery: port C bit 5 is a serial enable.** Two sites test it
+— the init path at `0x0430` *and* the RST5.5 ISR at `0x0268`. With it clear the
+ISR returns immediately, so **the unit never receives anything**. Every earlier
+experiment ran with bit 5 clear (`--port-c 0xDF`) and was therefore testing a
+deaf machine. That also reframes the "9600 8E1 default": that configuration
+belongs to a unit that cannot receive. A working installation uses the port B
+switches.
+
+**Second key discovery: the unit must be addressed before it listens.** Handler B
+guards its dispatch table on a *selected* flag at `0xA040`. Until it is set, only
+`EOT`, `VT` and `GS` are accepted. `GS <addr>` selects — comparing against the
+port A address, with **`0x7F` as a broadcast** — and `RS` deselects. So every
+transaction is `GS <addr> <commands> [RS]`.
+
+**The command set is a small cursor-addressable terminal.** The 64-byte buffer is
+rows of 64 columns with the cursor in `0xA043`/`0xA044`: `VT <row> <col>`
+positions (two ASCII-digit parameters), `CR`/`LF`/`DC1`/`DC2`/`DC3`/`DC4` move,
+`ETB`/`EM` erase to end of line/display, `CAN` clears, `FF` fills with `#`.
+
+**Five commands make it answer with real data**, each wrapped in ROM-defined
+prefix/suffix strings: `SUB` identifies, `TAB` reports the cursor, `SO` reads the
+character at the cursor, `SI` reads back the display, `BS` reports status.
+
+**Verified in emulation** — actual captured replies:
+
+```
+GS '5' SUB           -> 16 16 16 16 "AK0052.139U1" + the config block
+GS 0x7F SUB          -> identical (broadcast works)
+GS '5' TAB           -> "00"
+GS '5' STX HOLA ETX  -> ACK '5'
+GS '5' ... SI        -> ACK '5' then the buffer contents
+GS '9' SUB           -> nothing at all
+```
+
+**Concluded:**
+
+* All of it **[C]**: read from the listing *and* reproduced by executing the ROM.
+* `SUB` is the best bring-up command — no prior state, works under broadcast, and
+  returns a known-answer string while dumping the unit's own config block.
+* `ESC` is **disabled in this build** (`0x0E8C` requires ROM `0x0077 == 1`; it is
+  `0x00`).
+
+**Also closed port A completely** by enumerating every `IN 0xA1` site: bits 4:0
+address, bit 5 selects the blank-substitute character (`'?'` or space), bit 6
+picks the receive protocol, bit 7 is a render option. And `0x055A` computes
+`0x60 | (port A & 0x1F)` into `0xA006` — **handler A's start-of-frame byte is the
+display address**, the same value the status frame carries as its last byte. The
+two protocols share one addressing scheme.
+
+**Next:** the `EOT` sub-modes and what `BS` returns; then the render path and the
+8 display attributes, which need the panel to interpret.
+
+---
+
 ## 2026-08-05 — The code page is IBM CP437
 
 **Did:** Rendered the whole glyph table to a PNG map (`make font-map`) and read

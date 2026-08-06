@@ -88,9 +88,19 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
 * Messages are **64 bytes at `0xE001`**; overflow is detected and NAKed rather
   than silently truncated. `CAN` clears the display, `DLE` resets the unit, and
   `BEL` + one byte selects one of 8 display effects.
-* **DIP switch port A bits 4:0 are the display address**, confirmed by sweeping
-  them in the simulator and watching the transmitted status frame
-  `CAN CAN RS NAK <0x60|addr>` follow.
+* **DIP switch port A bits 4:0 are the display address**, and **port C bit 5 is
+  the serial enable** — with it clear the unit runs standalone and never receives
+  anything at all.
+* **The command protocol is fully mapped and validated in emulation.** A unit is
+  selected with `GS <addr>` (`0x7F` broadcasts), then accepts a small
+  cursor-addressable terminal command set, and answers queries with real data:
+
+```
+GS '5' SUB           -> AK0052.139U1 + the unit's configuration block
+GS '5' TAB           -> '00'                     (cursor row, column)
+GS '5' STX HOLA ETX  -> ACK '5'                  (acknowledged, with address)
+GS '9' SUB           -> nothing                  (wrong address, stays silent)
+```
 * `0x4A`/`0x4E` at `0x03A0` are an **ISR/main-loop mailbox**, not framing bytes.
 * The firmware is **designed to run standalone**. Expansion-board memory is
   reached through a paged window at `0xE000` selected by I/O port `0xE7`, and all

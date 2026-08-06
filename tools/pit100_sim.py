@@ -10,10 +10,16 @@ Everything the model asserts about the hardware is documented in docs/io-map.md.
 Where the hardware is unknown the stub says so rather than inventing behaviour --
 see UNKNOWN_PORTS and the --xram flag.
 
+Port C bit 5 must be SET or the unit never receives anything -- the RST5.5
+handler returns immediately. Handler B additionally requires the unit to be
+addressed with GS first. Both traps are documented in docs/dip-switches.md.
+
 Examples:
     python3 tools/pit100_sim.py --boot
-    python3 tools/pit100_sim.py --port-a 0xBF --send '02 48 4F 4C 41 03' --show-buffer
-    python3 tools/pit100_sim.py --send-str 'HOLA' --start 0x02 --end 0x03 --trace-io
+    python3 tools/pit100_sim.py --port-a 0x45 --port-c 0xFF --xram board \
+        --send '1D 35 1A'                       # GS '5' SUB -> identify
+    python3 tools/pit100_sim.py --port-a 0x45 --port-c 0xFF --xram board \
+        --send '1D 7F 02 48 4F 4C 41 03'        # broadcast, STX HOLA ETX
 """
 
 import argparse

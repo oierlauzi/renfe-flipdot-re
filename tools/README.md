@@ -22,10 +22,18 @@ the panel.
 # boot and report where the firmware settles
 PYTHONPATH=tools python3 tools/pit100_sim.py --boot
 
-# hardwired 8E1 path (port C bit 5 clear), receive handler A (port A bit 6 clear)
-PYTHONPATH=tools python3 tools/pit100_sim.py --port-a 0xBF --port-c 0xDF \
-    --xram board --send '7F 48 4F 4C 41 03'
+# identify: address 5 on port A, command protocol (bit 6), serial enabled
+PYTHONPATH=tools python3 tools/pit100_sim.py --port-a 0x45 --port-c 0xFF \
+    --xram board --send '1D 35 1A'
 ```
+
+**Port C bit 5 must be set or the unit is deaf.** The RST5.5 handler returns
+immediately when it is clear, so no command produces any reply — see
+[../docs/dip-switches.md](../docs/dip-switches.md). Keep `--port-c 0xFF` unless
+you are deliberately testing standalone mode.
+
+Handler B also requires the unit to be **addressed first**: prefix commands with
+`GS <0x30|address>`, or `1D 7F` to broadcast.
 
 The `--xram` flag picks what answers at `0xE000`: `none`, a fitted expansion
 `board`, or `alias` (the 81C55 reachable there through incomplete address

@@ -111,22 +111,34 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
 - [x] **STX, ETX, CAN, RS, DLE, ACK, BEL, ENQ and GS decoded**, along with the
       64-byte buffer, the full reply frame and the ROM configuration block.
       → [docs/serial-protocol.md](docs/serial-protocol.md)
-- [ ] **The remaining ~19 handler-B commands**: `0x09` TAB, `0x0A` LF, `0x0B` VT,
-      `0x0C` FF, `0x0D` CR, `0x0E` SO, `0x0F` SI, `0x11` DC1, `0x12` DC2,
-      `0x13` DC3, `0x14` DC4, `0x17` ETB, `0x19` EM, `0x1A` SUB, `0x1B` ESC,
-      `0x04` EOT, `0x08` BS.
+- [x] **All handler-B commands decoded.** The buffer is a cursor-addressable
+      2-D grid of 64-column rows; VT/CR/LF/DC1-DC4/ETB/EM/CAN/FF are terminal
+      editing commands, and TAB/SO/SI/SUB/BS are queries that reply with real
+      data. → [docs/serial-protocol.md](docs/serial-protocol.md)
+- [x] **Addressing understood and validated**: `GS <addr>` selects a unit,
+      `0x7F` broadcasts, `RS` deselects, and until selected only EOT/VT/GS are
+      accepted. A wrong address leaves the unit silent.
+- [x] **Port C bit 5 is the serial enable**, not merely an init-path selector.
+      Clear = standalone with hardwired 9600 8E1 and reception disabled.
+- [ ] **`0x04` EOT sub-modes** — the parameter is an ASCII digit; `'3'` diverts
+      to `0x121A`. What are the others?
+- [ ] **`0x08` BS status report** — what does it actually return?
 - [ ] **What do the 8 display attribute values mean?** BEL's parameter selects
       one of 8 via `0xA014` bits 2:0. Cross-reference with handler A's
       `0x7C`/`0x7D`/`0x7F` and the durations at `0xA016`/`0xA018`.
-- [ ] **What are port A bits 7 and 5?**
+- [x] **Port A fully attributed**: bits 4:0 address, bit 5 blank-substitute
+      character, bit 6 protocol select, bit 7 a render option. The address also
+      forms handler A's start-of-frame byte as `0x60 | addr`, which is the same
+      value the status frame carries.
+- [ ] **Port A bit 7's exact render effect** (`0x0753`, `0x0831`).
 
 - [x] **Status frame explained**: `CAN CAN RS NAK <0x60|addr>`, with the
       address coming from port A. Two variants differing in bits 7:6 of the last
       byte — those flag bits are still unidentified.
-- [ ] Find why the emulated stack dips below `0xA000` (~120 writes to
-      `0x9FFD-0x9FFF`). Either a model artefact or a real clue about RAM size.
-- [ ] Attribute DIP switch **port A** — seven unknown bits, likeliest home of a
-      display address.
+- [ ] The stack reaches `0x9FFF` once per ~600k steps, entering at `0x2C80` —
+      a real deep-nesting path in the firmware, not runaway recursion in the
+      model. Three bytes past the RAM floor: sloppiness, or RAM extends below
+      `0xA000`. Needs the hardware to settle.
 - [ ] Trace the render path: frame buffer layout, the 97-iteration loop at
       `0x03CE`, and `0xA021` (the 16-vs-32 character count).
 - [x] **Code page identified: IBM CP437.** Every region matches — control
