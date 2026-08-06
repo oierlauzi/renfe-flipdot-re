@@ -383,10 +383,60 @@ One more detail fits. At `0x1290`, when the position counter completes a block o
 between blocks. **`C` is frozen at 1, so the gap is zero.** That knob only makes
 sense for a chain assembled from more than one 64-character block. **[C]**
 
-Still open: the split point. 16 flip-dot plus 48 LED is the natural reading, but
-the ROM never states a width for either, so the LED panel's character count is
-only bounded above, at 48. Sending a full 64-character message with the panel
-powered would show where the flip-dot line stops answering.
+### But we are guessing: three readings of positions 16-63 **[?]**
+
+Everything above this heading is what the firmware does. Everything below is
+speculation about hardware nobody has traced, and it should be read that way.
+
+This specimen probably came from a **double-sided** assembly
+([device.md](device.md#variants-of-this-generation-c-observed-in-service-by-the-owner)),
+and no second unit was recovered. The owner's objection to the 16-63 reading is
+worth keeping in front: **48 characters seems thin for a display meant to carry
+intermediate stations and service notices** on a suburban railway.
+
+| # | Guess | 16-63 would be | Would predict |
+| --- | --- | --- | --- |
+| 1 | The LED row sits on the character bus | the LED row | a 64-character message draws a response past position 15 |
+| 2 | The ribbon reaches the **far side's flip-dot row** | unused | the far side answers 0-15, in parallel with the near side |
+| 3 | The LED assembly **is** the `0xE7` expansion and reads the buffer itself | unanswered | nothing on the ribbon responds past 15 |
+
+On (2): the two faces of a back-to-back sign show the same content, so the far
+side would simply be the same bus continued, answering the same 0-15. That costs
+no addresses and involves the firmware not at all — which is why it sits
+comfortably with everything observed, and equally why it explains nothing about
+16-63.
+
+On (3): the buffer at `0xE001` lives in the window `0xE7` pages, so it is on the
+expansion board, and the LED assembly is the standing candidate for that expansion
+(see below). An LED assembly holding that RAM could read the same 64 characters
+and render them with its own controller, leaving the flip-dot chain never needing
+more than 0-15.
+
+The "48 is too few" objection may also be softer than it looks. This firmware
+**cannot scroll** — its effects are `BEL` attributes, not motion — so whatever
+scrolls the station list is upstream or on the LED assembly. A host can rewrite
+the line repeatedly instead; at 9600 baud a 64-character message is roughly 70 ms,
+and the differential update charges a frame only for positions that changed. Under
+that reading 48 characters would be a *window*, not a message-length limit. **[?]**
+
+**One test separates all three:** power the unit with the ribbon instrumented,
+send a 64-character message, and watch which addresses draw a response. Nothing
+past 15 responding rules out (1) outright.
+
+### One row of 64, and the row machinery is switched off **[C]**
+
+Worth stating because the station-wide variant stacks 2-4 rows and this ROM looks
+at first as if it supports that. `cmd_vt_position` really does compute
+`msg_buffer + 40h * row`, so the arithmetic for multiple 64-wide rows is present.
+But `check_buffer_bounds` clamps the write pointer at `msg_buffer + 40h` =
+`0xE041`, sets `cursor_row` to 1 and latches error `30h` — **row 1 is an overflow,
+not a place to put text.**
+
+So this build is a **single row of at most 64 positions**, and the row arithmetic
+is generic code carried for other members of the family. Likewise `cfg_buffer_len`
+(ROM `0x007B`, `40h`) has **no direct reference in the firmware**: it is reported
+to the host in the `SUB` identify block, while the code itself uses a literal
+`0040h` at `0x12DC` and `CPI 40h` at `0x0C26`.
 
 ### Port C bits 1:0 are the display attribute lines **[C]**
 

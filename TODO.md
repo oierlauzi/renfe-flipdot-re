@@ -189,19 +189,17 @@ third is a safety precondition.
       - Result — address group:
       - Result — clock and data:
       - Result — supply:
-- [ ] **Follow the character bus out of the enclosure — does it reach the LED
-      panel?** This is the one gap in an otherwise closed argument. The firmware
-      addresses **positions 0-63** on one bus (confirmed by instrumenting port
-      `0xE2` in the emulator), the flip-dot line is 16 of them, the `0xE8-0xED`
-      second-display path is dead in this build, and this unit had an LED panel.
-      That makes the LED panel positions **16-63 of the same 64-character
-      buffer** — but only if the ribbon that leaves the enclosure is the one that
-      reached it. Nobody has traced it. **[L]**
-      → [docs/flipdot-interface.md](docs/flipdot-interface.md#the-led-panel-is-probably-characters-16-63-of-the-same-buffer-l)
+- [ ] **Follow the character bus out of the enclosure — what does it reach?** The
+      firmware addresses **positions 0-63** on one bus (confirmed by instrumenting
+      port `0xE2` in the emulator) and the flip-dot line is 16 of them, so 48
+      addresses go somewhere unknown. Three guesses are on the table: the LED row,
+      the far side of a double-sided pair, or nothing at all.
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#but-we-are-guessing-three-readings-of-positions-16-63-)
       - Result:
-- [ ] **Where does the flip-dot line stop answering?** Send a 64-character message
-      to a powered unit. 16 flip-dot plus 48 LED is the natural split, but the ROM
-      states no width for either, so the LED panel's count is only bounded above.
+- [ ] **Instrument the ribbon and send a 64-character message.** Watch which
+      addresses draw a response. **This one test separates all three guesses**:
+      nothing responding past position 15 rules out the LED-on-the-bus reading
+      outright.
       - Result:
 - [ ] **Inspect the FRONT of the display modules for address switches or straps.**
       Only the rear has been seen. An encoded broadcast address means each module

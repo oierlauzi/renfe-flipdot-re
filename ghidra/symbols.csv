@@ -19,7 +19,7 @@ mem,0064,fw_version_string,data,"ASCII ""AK0052.139U1"""
 mem,0070,cfg_block,data,Build-time configuration constants 0x0070-0x008B. See docs/serial-protocol.md
 mem,0072,cfg_proto_enable,data,Nonzero enables the handler B ETX reply
 mem,007a,cfg_addr_mode,data,0xFF = address from sw_port_a; 0x00 = unaddressed
-mem,007b,cfg_buffer_len,data,Message buffer length; 0x40 = 64 bytes
+mem,007b,cfg_buffer_len,data,"Message buffer length reported in the SUB block; 0x40 = 64. No direct reference - the code uses a literal 0x0040"
 mem,0088,cfg_features,data,Feature bits; bit 1 appends the address to the ACK/NAK reply
 mem,008a,cfg_turnaround,data,"Turnaround: bit0 enable, bit1 4xSYN preamble, bit2 delay, bit3 RTS polarity"
 mem,00d2,report_prefix_tab,data,ROM byte string sent before the TAB reply; 0xFF terminated

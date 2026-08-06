@@ -125,12 +125,24 @@ to implement.
 **This device does not compute anything.** It has no arithmetic on the message
 content at all:
 
-* There is **no minutes-to-ASCII conversion** anywhere in the ROM. The only two
-  `ADI 0x30` instructions in the entire firmware are in the `TAB` cursor-position
-  report. Nothing formats a number into digits for display.
-* There is **no minute-scale timer** and no decrement of an ASCII digit.
+* Nothing formats **message content** into digits. No routine turns a number
+  into characters for the text line.
+* There is **no minute-scale timer** and nothing decrements a countdown.
 * So the **countdown is pushed from upstream**, one text update at a time. The
   sign does not tick down on its own; something re-sends the line every minute.
+
+**Correction, 2026-08-06.** An earlier version of this section said there was "no
+minutes-to-ASCII conversion anywhere in the ROM" and that the only two `ADI 0x30`
+instructions were in the `TAB` report. **That is wrong**, and it was wrong because
+it was argued from one instruction rather than from what the code does:
+`clock_read_time` ORs `0x30` into four digits to make ASCII, and
+`clock_inc_minute`/`clock_inc_hour` do ASCII digit arithmetic with mod-60 and
+mod-24 carries — see [io-map.md](io-map.md#0xc0-0xcf--a-clock-with-keys-c).
+
+The conclusion survives intact, but for a narrower reason: **that arithmetic is
+the wall clock, not the message.** The digits come from and go back to the clock
+board, land in display positions 0-3, and never touch the text a host sends.
+Nothing local computes an ETA.
 
 What *is* local to this unit:
 
@@ -145,7 +157,40 @@ including the digits, and re-send it as the ETA changes.
 
 ## Deployment
 
-RENFE Cercanías station platform signage. The unit also has an interface for an
-additional LED matrix panel (I/O `0xC0` and/or `0xE8` groups) which is not
-present in this specimen. The station-list scrolling and notice text belong to
-that panel or to the upstream controller, not to this board.
+RENFE Cercanías station platform signage. The station-list scrolling and notice
+text belong to the LED panel or to the upstream controller, not to this board.
+
+An earlier version of this section offered I/O `0xC0` as a possible LED matrix
+interface. **It is not** — `0xC0-0xCF` is a clock board, four `HHMM` digit
+registers plus a time-setting keypad
+([io-map.md](io-map.md#0xc0-0xcf--a-clock-with-keys-c)). The remaining candidates
+for the LED panel are the `0xE8-0xEF` port group and the upper half of the
+character bus; see
+[flipdot-interface.md](flipdot-interface.md#the-led-panel-is-probably-characters-16-63-of-the-same-buffer-l).
+
+## Variants of this generation **[C] observed in service, by the owner**
+
+Three distinct assemblies using this generation of display have been seen in
+service. They matter here because they constrain what the ribbon leaving this
+enclosure can plausibly reach.
+
+| Variant | Composition | Siting | Photo |
+| --- | --- | --- | --- |
+| **Single-sided platform** | 1 flip-dot row + 1 LED matrix row | Wall-mounted on a platform or at its entrance; shows trains calling at that platform | <https://maps.app.goo.gl/2x7p8cGFKuDc8iAQ8> |
+| **Double-sided platform** | Two of the above, back to back | Readable from both sides | <https://maps.app.goo.gl/L88dpQK7dEkBPZzP8> |
+| **Station-wide** | **2-4 stacked flip-dot rows** of **20 characters** + 1 LED row | Concourse; all platforms at once | <https://maps.app.goo.gl/Nm12rbAVFkfoDoA66> |
+
+The station-wide variant's **20-character rows** are the useful detail: this
+specimen's row is **16**, so row width is a per-variant property and not a
+constant of the design. It is consistent with how thoroughly the firmware
+parameterises the panel — 32 switch settings selecting 13 distinct drivers — and
+with `char_pos` being a flat counter that no code ever bounds against a width.
+
+### Provenance of this specimen **[?]**
+
+Deduced from the station it came from, the owner expects a **double-sided**
+assembly — but **no second unit was recovered**. Either it was taken first, or
+the deduction is wrong and this was a single-sided device. Unresolved, and it
+matters: it is one of three competing guesses about what the character bus reaches
+once it leaves the enclosure, in
+[flipdot-interface.md](flipdot-interface.md#but-we-are-guessing-three-readings-of-positions-16-63-).

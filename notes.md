@@ -108,6 +108,45 @@ reaches `render_pass_disp1` when `panel_family` is 0, and this unit selects
 correctly: nobody has traced the ribbon leaving the enclosure to the LED panel. It
 leaves; where it goes is still an inference.
 
+**Then the owner supplied field observations that made even [L] look confident.**
+Three variants of this generation exist in service — single-sided platform,
+double-sided platform, and a station-wide type with **2-4 stacked flip-dot rows of
+20 characters**, all now in `docs/device.md` with photographs. This specimen
+probably came from the double-sided type, though no second unit was recovered.
+
+That opens a second reading: the ribbon may drive **the far side's flip-dot row**,
+with the LED panels standalone. And a third: the LED assembly may *be* the `0xE7`
+expansion that holds the buffer RAM, reading the 64 characters and rendering them
+itself. Plus the owner's substantive objection — **48 characters is thin for
+intermediate stations and service notices**.
+
+I first argued against the double-sided reading by noting the firmware contains no
+mirroring loop, so a far side addressed 16-31 would sit blank. **The owner cut
+that down: back-to-back panels do not require software mirroring.** Correct — both
+faces show the same content, so the far side is just the same bus continued
+answering the same 0-15. It costs no addresses and involves the firmware not at
+all. My argument was against a design nobody would build.
+
+Rewrote the section under a heading that says we are guessing, with the three
+readings in a table and the one test that separates them: instrument the ribbon,
+send 64 characters, see which addresses draw a response.
+
+**Also [C], and useful for reading the variants:** this build is a **single row of
+at most 64 positions**. `cmd_vt_position` computes `msg_buffer + 40h * row`, so
+multi-row arithmetic is present, but `check_buffer_bounds` clamps at `0xE041` and
+latches error `30h` — row 1 is an overflow, not a place to put text. The row
+machinery is generic code carried for other members of the family, which is also
+where the 20-character rows live. And `cfg_buffer_len` (`0x007B`) turns out to
+have no direct reference at all: it is reported in the `SUB` block while the code
+uses a literal `0040h`.
+
+**And a correction to `device.md` that my own clock finding forced.** It claimed
+"no minutes-to-ASCII conversion anywhere in the ROM — the only two `ADI 0x30` are
+in the `TAB` report". `clock_read_time` ORs `0x30` into four digits, and the
+increment routines do ASCII carry arithmetic. The conclusion survives for a
+narrower reason: that arithmetic is the wall clock, never the message. Arguing
+from a single instruction mnemonic is what made the original claim wrong.
+
 A frozen constant fits the same picture. At `0x1290`, on completing a block of 64
 positions, the firmware inserts `C-1` extra address slots — a gap between blocks —
 and `C` is `1`, so the gap is zero. A knob that only makes sense for a chain built
