@@ -11,6 +11,35 @@ Run them from the repository root; they default to `original/firmware.bin`.
 | [extract_font.py](extract_font.py) | Render or export the 5x7 glyph table |
 | [emu8085.py](emu8085.py) | Intel 8085 CPU core; machine-agnostic, memory and I/O via callbacks |
 | [pit100_sim.py](pit100_sim.py) | Runs the real firmware against stub peripherals |
+| [pit100.py](pit100.py) | **Host-side driver**: the command protocol, ready for a serial port |
+
+## pit100.py — the driver
+
+The deliverable the project is aiming at, minus the physical layer. It implements
+the protocol from [../docs/serial-protocol.md](../docs/serial-protocol.md) and is
+tested against the emulator, so it can be developed and proven with no hardware:
+
+```sh
+PYTHONPATH=tools python3 tools/pit100.py --sim --address 5 --identify --text HOLA
+```
+
+```
+version : AK0052.139U1
+config  : 00 00 01 00 00 2f 30 00 01 00 ff 40 01 00 40 ...
+message : 'HOLA' -> ACK
+```
+
+Swap `SimTransport` for `SerialTransport` and the same code drives the real unit.
+
+It handles three things a naive implementation gets wrong:
+
+* **Filters the status frame.** The display transmits `CAN CAN RS NAK <addr>`
+  unprompted, forever, so replies arrive interleaved with it.
+* **Guards the font.** Refuses `$` and `%` (ROM `0x24`/`0x25` hold accented
+  capitals), and refuses uppercase `Á Í Ó Ú` which CP437 lacks — with `fold=True`
+  to drop those accents instead.
+* **Guards the buffer.** Rejects messages over 64 bytes rather than letting the
+  unit NAK with error `0x30`.
 
 ## pit100_sim.py
 

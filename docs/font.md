@@ -118,9 +118,28 @@ A 7-bit link physically cannot carry `0xA5`, the CP437 `Ñ` — so a duplicate b
 `0x80` is not a curiosity, it is a requirement. Two findings arrived at from
 opposite directions agreeing is worth more than either on its own. **[L]**
 
+### CP437's gap: uppercase accented vowels
+
+Worth knowing before writing station names, because they are usually uppercase.
+CP437 carries the *lowercase* accented vowels (`á í ó ú` at `0xA0-0xA3`) but of
+the uppercase ones only **`É` (0x90)**, plus `Ä Å Ö Ü Æ` and `Ñ (0xA5)`.
+
+**There is no `Á`, `Í`, `Ó` or `Ú`.** So `CHAMARTÍN` cannot be sent as written;
+it has to be `CHAMARTIN`, or use one of the two substitute glyphs. `Ñ` and `É`
+are the two that do work — fortunately the two Spanish most needs.
+
+This is very likely *why* `0x24` and `0x25` exist. `0x25` is a second `Ñ` for the
+7-bit link; `0x24` is plausibly one of the missing accented capitals, which would
+explain both substitutions as filling real gaps rather than being arbitrary.
+**[?]**
+
+`tools/pit100.py` refuses to encode a character with no glyph rather than
+silently sending the wrong one, and offers `fold=True` to drop the impossible
+accents.
+
 **Consequence for a controller:** do not send `$` or `%` expecting them to
-appear. Everything else in `0x20-0x7E` matches ASCII as far as the glyph map
-shows.
+appear, and fold or avoid uppercase `Á Í Ó Ú`. Everything else in `0x20-0x7E`
+matches ASCII as far as the glyph map shows.
 
 Two firmware references worth following if the table is ever indexed
 differently: `LXI HL,0x1C0D` (3 sites) and `LXI HL,0x1C5D` (3 sites, = table

@@ -159,9 +159,14 @@ class PIT100:
             self.status |= RXRDY
 
     def poll_interrupts(self):
-        """RxRDY drives RST5.5 -- see docs/serial-protocol.md."""
-        if self.status & RXRDY:
-            self.cpu.request(5.5)
+        """RxRDY drives RST5.5 -- see docs/serial-protocol.md.
+
+        RST5.5 is *level* sensitive on the 8085, so this must track RxRDY in both
+        directions. Latching it (request-only, never clear) makes the handler
+        re-enter indefinitely on stale data once the mask is lifted, which looks
+        exactly like a protocol timeout and is not one.
+        """
+        self.cpu.pending[5.5] = bool(self.status & RXRDY)
 
     # -------------------------------------------------------------------- run
     def run(self, max_steps, stop_pc=None):

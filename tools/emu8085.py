@@ -188,7 +188,13 @@ class CPU8085:
 
     # ------------------------------------------------------------- interrupts
     def request(self, which):
-        """Assert RST5.5 / RST6.5 / RST7.5. 7.5 is edge-latched on real silicon."""
+        """Assert an interrupt line.
+
+        RST7.5 is edge-latched on real silicon, so setting it here is enough and
+        it self-clears when serviced. RST5.5 and RST6.5 are **level** sensitive:
+        a machine model must drive `pending[5.5]` low again when its source
+        deasserts, rather than only ever calling this.
+        """
         self.pending[which] = True
 
     def _service_interrupts(self):

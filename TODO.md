@@ -279,10 +279,11 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
 - [x] **Status frame explained**: `CAN CAN RS NAK <0x60|addr>`, with the
       address coming from port A. Two variants differing in bits 7:6 of the last
       byte — those flag bits are still unidentified.
-- [ ] The stack reaches `0x9FFF` once per ~600k steps, entering at `0x2C80` —
-      a real deep-nesting path in the firmware, not runaway recursion in the
-      model. Three bytes past the RAM floor: sloppiness, or RAM extends below
-      `0xA000`. Needs the hardware to settle.
+- [x] ~~The stack reaching `0x9FFF`.~~ **Retracted — it was an emulator bug.**
+      `poll_interrupts` latched RST5.5 instead of tracking RxRDY as a level, so
+      the receive handler re-entered indefinitely on stale data. Fixed; the stack
+      now peaks at `0xA0C1`, using 50 of the 243 available bytes, with zero writes
+      outside mapped memory. There is nothing to explain.
 - [ ] Trace the render path: frame buffer layout, the 97-iteration loop at
       `0x03CE`, and `0xA021` (the 16-vs-32 character count).
 - [x] **Code page identified: IBM CP437.** Every region matches — control

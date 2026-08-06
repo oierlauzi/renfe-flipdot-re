@@ -20,6 +20,61 @@ Entry template:
 
 ---
 
+## 2026-08-06 — A host driver, and an emulator bug that faked a protocol timeout
+
+**Did:** Wrote `tools/pit100.py`, a host-side driver for the command protocol,
+and tested it against the emulator. It works end to end: select, identify, cursor
+query, message, ACK.
+
+```
+version : AK0052.139U1
+config  : 00 00 01 00 00 2f 30 00 01 00 ff 40 01 00 40 ...
+cursor  : row 0, col 0
+message : 'HOLA' -> ACK
+```
+
+**Nearly documented a protocol constraint that does not exist.** While building
+it, splitting `GS <addr>` and the following command into separate emulator runs
+made the command silently fail. Bisecting gave a suspiciously crisp figure — the
+selection survived 24.8 ms and was gone by 25.2 ms — and sweeping port B showed it
+did not scale with baud rate, which would have made the protocol unusable at 300
+baud. All of that was ready to write up as a finding.
+
+It was **my bug**. Instrumenting the RAM showed the *whole machine* resetting, not
+a flag expiring, and the receive handler being entered 73 times for three fed
+bytes. Cause: `poll_interrupts` called `cpu.request(5.5)` and nothing ever
+cleared `pending[5.5]`. **RST5.5 is level sensitive on the 8085**, so a model must
+drive it low again when RxRDY deasserts; latching it makes the handler re-enter
+forever on stale data, which looks exactly like a timeout.
+
+Fixed by assigning `pending[5.5] = bool(status & RXRDY)` each step, and documented
+the level-vs-edge distinction in `emu8085.request()`.
+
+**Two earlier findings re-checked against the fix:**
+
+* **Retracted:** the stack reaching `0x9FFF` at `0x2C80`. Same bug — runaway ISR
+  nesting. The stack now peaks at `0xA0C1`, 50 bytes of the 243 available, with
+  zero writes outside mapped memory. Nothing to explain, and the TODO item is
+  gone.
+* **Survives:** the absence of a power-on panel sweep. Still only eight
+  display-port writes in two million steps with no input, unaffected by the bug.
+  The hardware-sequencer hypothesis stands.
+
+The lesson worth keeping: an emulator finding needs a mechanism before it becomes
+a documented fact. The crispness of "24.8 ms" was what made it convincing, and
+crispness is exactly what a software artefact produces.
+
+**A real finding did come out of the driver work.** CP437 carries the *lowercase*
+accented vowels but of the uppercase ones only `É`, plus `Ä Å Ö Ü Æ` and `Ñ`.
+**There is no `Á`, `Í`, `Ó` or `Ú`** — so `CHAMARTÍN` cannot be sent as written,
+and station names are usually uppercase. `Ñ` and `É` happen to be the two Spanish
+most needs. This is plausibly *why* `0x24` and `0x25` carry substitute glyphs:
+`0x25` is a second `Ñ` for the 7-bit link, and `0x24` is likely one of the missing
+accented capitals. The driver refuses rather than sending a wrong glyph, with
+`fold=True` to drop impossible accents.
+
+---
+
 ## 2026-08-06 — The motherboard carries the Telenorma logo
 
 **Recorded (owner):** the mother PCB bears the Telenorma logo.

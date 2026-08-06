@@ -429,6 +429,16 @@ bytes.
 Anyone building a controller should read these out of *their* ROM rather than
 trusting this table — a different unit may well be configured differently.
 
+## Reference implementation
+
+[../tools/pit100.py](../tools/pit100.py) implements everything below and is
+exercised against the emulator, so the protocol described here is executable
+rather than merely documented:
+
+```sh
+PYTHONPATH=tools python3 tools/pit100.py --sim --address 5 --identify --text HOLA
+```
+
 ## Timing **[C]**
 
 With the clock chain known (6.144 MHz crystal → 3.072 MHz, 325.5 ns per cycle)
