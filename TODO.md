@@ -321,9 +321,12 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       character, bit 6 protocol select, bit 7 a render option. The address also
       forms handler A's start-of-frame byte as `0x60 | addr`, which is the same
       value the status frame carries.
-- [ ] **Port A bit 7's exact render effect** (`0x0753`, `0x0831`). Sweeping it
-      in the simulator changes nothing observable, so its effect is downstream of
-      hardware the model stubs.
+- [x] **Port A bit 7 decoded: blank or preserve the panel on reset.** Clear fills
+      the buffer with spaces and the shadow with blocks, so every character differs
+      and the panel repaints blank; set copies the buffer into the shadow, so
+      nothing differs and the dots keep their image. Exactly the option bistable
+      dots call for.
+      → [docs/dip-switches.md](docs/dip-switches.md#port-a-bit-7--blank-or-preserve-the-panel-on-reset-c)
 - [ ] **Which port C bits 4:0 value matches this panel?** They select the display
       type via a 32-way dispatch at `0x055A`; seven values have distinct
       handlers. → [docs/dip-switches.md](docs/dip-switches.md)

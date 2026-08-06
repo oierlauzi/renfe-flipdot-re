@@ -158,10 +158,30 @@ At `0x0664`: bit 5 set stores `0x3F` `'?'` into `0xA00B`, clear stores `0x20`
 [serial-protocol.md](serial-protocol.md). So this switch chooses whether the
 "blank" placeholder shows as `?` or as nothing.
 
-## Port A bit 7 — render option **[L]**
+## Port A bit 7 — blank or preserve the panel on reset **[C]**
 
-Tested at `0x0753` and `0x0831`, both on display paths (`0x0831` chooses whether
-to start from `0xE001`). Its exact effect needs the render path traced.
+Now decoded. At `0x0753` the two branches differ in what they leave the buffer and
+its shadow holding, which is what decides whether a repaint happens:
+
+| Bit 7 | Code | Buffer | Shadow | Mailbox | Result |
+| --- | --- | --- | --- | --- | --- |
+| **clear** | `0x075A` | `0x20` spaces | `0x23` blocks | `0x4A` | every character differs → **full repaint, panel blanks** |
+| **set** | `0x0773` | unchanged | **copied from the buffer** | `0x4E` | nothing differs → **no repaint, the dots keep their image** |
+
+`0x0831` is the same idea on the other path: bit 7 clear fills `0xE001` with 64
+spaces, bit 7 set skips it.
+
+So bit 7 is **"clear the display on reset" versus "preserve it"** — and that is a
+genuinely useful option for this technology rather than an arbitrary flag.
+Flip-dots are bistable: they hold their image with the power off, so a sign that
+reboots can either blank itself or carry on showing the last message it had. The
+switch picks which.
+
+Note this interacts with the power-on sweep, which is a *hardware* effect and
+happens either way — see
+[flipdot-interface.md](flipdot-interface.md#power-on-behaviour-the-panel-is-zeroed-c-observed).
+With bit 7 set the panel is swept and then left alone; with it clear it is swept
+and then written blank.
 
 ## Port A summary — fully attributed **[C]**
 
@@ -170,7 +190,7 @@ to start from `0xE001`). Its exact effect needs the render path traced.
 | 4:0 | **display address**, 32 values |
 | 5 | blank substitute: set = `'?'`, clear = space |
 | 6 | receive protocol: set = handler B, clear = handler A |
-| 7 | a render option, exact effect open **[L]** |
+| 7 | **reset behaviour**: set = preserve the displayed image, clear = blank the panel **[C]** |
 
 An address of **0** is special: `0x10B4` and `0x1304` test `port A & 0x1F` for
 zero and take an unaddressed path, and `RS` is ignored entirely at address 0.

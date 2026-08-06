@@ -577,6 +577,28 @@ bytes.
 Anyone building a controller should read these out of *their* ROM rather than
 trusting this table — a different unit may well be configured differently.
 
+### Options frozen into the code, not just into the block **[C]**
+
+The configuration block is not the only place customisation lives. The ROM also
+contains **three constant tests** — a value loaded and immediately compared with
+itself — which are what a compiled-out option looks like once it is in the image:
+
+| Site | Test | Effect |
+| --- | --- | --- |
+| `0x07E9` | `MVI A,0x01 / CPI 0x01 / JZ` | skips setting `0xA057` → **the second display is disabled** |
+| `0x1A0D` | `MVI A,0x00 / CPI 0x00 / JZ` | selects the turnaround-capable transmit path, orphaning the plain one at `0x1A46` |
+| `0x088A` | `MVI A,0x00 / CPI 0x00 / JZ` | skips a reply that would send the ROM string at `0x00DE`, which is empty here anyway |
+
+Found by scanning the whole image for the `MVI A,k / CPI k` pattern followed by a
+conditional; there are exactly three, all always-taken. Only the first changes
+anything substantial — see
+[io-map.md](io-map.md#the-second-buffer-pair-is-a-disabled-feature-c).
+
+**Why this matters beyond curiosity:** it means behaviour differences between
+units are not all discoverable from the configuration block. Another installation's
+ROM could have any of these three constants flipped, enabling a whole second
+display's worth of function. Compare images before assuming two units behave alike.
+
 ## Reference implementation
 
 [../tools/pit100.py](../tools/pit100.py) implements everything below and is

@@ -20,6 +20,97 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Port A bit 7, and three options frozen into the code
+
+**Did:** decoded port A bit 7's two branches, then — having noticed the same odd
+idiom twice — scanned the whole image for it.
+
+**Found — port A bit 7 is "blank or preserve the panel on reset".** The two
+branches at `0x0753` differ only in what they leave the buffer and shadow holding,
+which is what decides whether a repaint follows:
+
+* **clear:** buffer := spaces, shadow := blocks, mailbox `0x4A`. Every character
+  differs, so the panel repaints and **blanks**.
+* **set:** shadow := copy of the buffer, mailbox `0x4E`. Nothing differs, so
+  **nothing repaints** and the dots keep whatever image they were showing.
+
+Which is exactly the option bistable dots call for: a flip-dot sign holds its
+image with the power off, so on reboot you either blank it or carry on. Nice to
+find the firmware treating that as a deliberate choice.
+
+**Found — three constant tests, i.e. compiled-out options.** `MVI A,k` immediately
+followed by `CPI k` compares a value with itself. Scanning for that pattern plus a
+conditional gives exactly three sites, all always-taken:
+
+| Site | Effect |
+| --- | --- |
+| `0x07E9` | disables the second display (`0xA057` never set) |
+| `0x1A0D` | picks the turnaround-capable transmit path, orphaning `0x1A46` |
+| `0x088A` | skips a reply that would be empty in this build anyway |
+
+Only the first is substantial. But the general point is worth having: **this ROM's
+customisation is not confined to the configuration block at `0x0070`.** Another
+unit's image could have any of these flipped, so two units are not interchangeable
+just because their config blocks match. Compare images.
+
+**Method note.** I found the idiom by accident at `0x07E9`, then again at `0x088A`,
+and only then thought to search for it. Cheap to search, and it turned two isolated
+curiosities into a statement about the whole image. Worth doing that earlier —
+when a pattern shows up twice, scan for it before drawing conclusions from the
+two instances.
+
+**Concluded:** port A fully attributed with no `[L]` marks left. **[C]**
+
+**Next:** the matching disassembly in `src/`; `0x24`'s glyph identity.
+
+---
+
+## 2026-08-06 — 0xE084 is a second display, disabled at build time
+
+**Did:** cross-referenced every site touching `0xE084` instead of only the two
+that write it, which is what had produced the "attribute plane" guess.
+
+**Found:** the guess was wrong and the truth is tidier. `0x14A3` does this:
+
+```
+0x1498  LXI  H,0xE001      ; buffer 1
+0x149B  LXI  D,0xE043      ; shadow 1
+0x14A3  LDA  0xA057 / CPI 1 / JNZ ...
+0x14AB  LXI  H,0xE084      ; ...substituted wholesale
+0x14AE  LXI  D,0xE0C6
+```
+
+`0xE0C6 - 0xE084 = 0x42`, **the same stride as `0xE043 - 0xE001`**. So `0xE084` is
+a second message buffer with its own shadow, and `0xA057` selects which display the
+entire render path works on. The same substitution appears at `0x1542` and
+`0x1703`, and `FF`/`CAN` clear whichever pair is active.
+
+**And it can never be selected.** `0xA057`'s only writer sits behind
+
+```
+0x07E9  MVI  A,0x01
+0x07EB  CPI  0x01          ; against the value just loaded
+0x07ED  JZ   0x07FB        ; always taken
+```
+
+Confirmed by emulation across panel types and with the serial link disabled: the
+flag stays `0x00` and `0x07F2` never executes. A real test replaced by a constant
+is what disabling a feature at build time looks like, and it fits the ROM being a
+generic multi-display build — this unit does not get the second display.
+
+**Lesson, same shape as the one-hot mistake.** I had looked only at the sites that
+*wrote* `0xE084` (`FF`, `CAN`, `EOT`) and inferred purpose from the fill values.
+The sites that *read* it were what settled it. Writers tell you a region exists;
+readers tell you what it is for.
+
+**Concluded:** `0xE084`/`0xE0C6` = second buffer + shadow, inert in this build.
+**[C]** `EOT`'s block-write still lands there, invisibly — `block_write()` now says
+so instead of implying the bytes might appear.
+
+**Next:** port A bit 7; the matching disassembly in `src/`.
+
+---
+
 ## 2026-08-06 — The display attributes are hardware lines, not software effects
 
 **Did:** chased `0x199F` (called after every rendered character) and `0x09F3`
