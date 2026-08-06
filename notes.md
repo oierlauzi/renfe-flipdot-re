@@ -50,17 +50,26 @@ line including the digits, and re-send it whenever the ETA changes. The `min`
 sticker being physical confirms the layout is the *controller's* convention, not
 something this board knows about.
 
-**On the failed scope attempt:** four pins probed, no clean signal, an apparent
-AC component, no differential. This is **inconclusive rather than negative**. An
-isolated passive interface and a badly-referenced measurement produce identical
-results, and the ballast inside the case is a strong 50 Hz noise source. The one
-condition that would make it meaningful: whether the unit was powered, since the
-firmware transmits its status frame continuously and an RS-422 driver would have
-shown that plainly. Recorded the reasoning and a scope-free diode test in
-`hardware/connectors.md`.
+**On the scope attempt** (clarified by the owner): **transitions were visible**,
+but the signal was unclear with an AC component — not a null result, which is how
+it was first recorded here. Three consequences:
 
-**Next:** the diode test settles the electrical standard for the cost of a
-multimeter.
+* Something is actively driving those pins, and the only thing this unit emits
+  unprompted is its status frame. So **the pins showing transitions are the
+  transmit side**.
+* **The transmitter is not a bare passive switch.** A passive 20 mA loop
+  transmitter is an optocoupler output with no supply of its own and cannot make
+  voltage transitions into an open circuit. That weakens the plain
+  passive-current-loop theory.
+* Most likely cause of the unclear trace: the unit transmits *continuously*, so
+  at a slow timebase a non-stop serial stream looks exactly like a messy AC
+  waveform. Add an undefined reference across the opto isolation and the ballast
+  hum, and that fully accounts for it.
+
+**Next:** capture one frame with the ground clip on the other conductor of the
+same pair, single-shot triggered, and decode it against the known
+`18 18 1E 15 <addr>`. That is a known-answer test which settles baud, polarity and
+framing at once.
 
 ---
 

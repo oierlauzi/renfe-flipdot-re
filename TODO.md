@@ -63,13 +63,22 @@ third is a safety precondition.
 - [ ] **Read the series resistors feeding the 6N139 input.** Together with the
       supply voltage these give the expected drive current directly.
       - Result:
-- [x] ~~Scope the four pins.~~ Attempted 2026-08: no clean signal, apparent AC
-      component, no differential. **Inconclusive** — an isolated passive
-      interface and a badly-referenced measurement look identical. Analysis in
-      [hardware/connectors.md](hardware/connectors.md#why-the-scope-showed-nothing-useful).
-- [ ] **Was the unit powered during that scope attempt?** If yes the null result
-      leans towards a current loop, because the firmware transmits continuously
-      and an RS-422 driver would have shown it. If no, the result means nothing.
+- [x] ~~Scope the four pins.~~ Attempted 2026-08: **transitions visible**, signal
+      unclear with an AC component. The transitions are the unit's own status
+      frame, so the pins carrying them are the **transmit** side, and the
+      transmitter is not a bare passive switch.
+      → [hardware/connectors.md](hardware/connectors.md#attempt-1-oscilloscope-2026-08--transitions-present-signal-unclear)
+- [ ] **Which pins showed the transitions?** That identifies the TX pair outright.
+      - Result:
+- [ ] **Capture one frame cleanly.** Tube feed disconnected; probe ground clipped
+      to one conductor of the pair, probe on the other; DC coupled; edge trigger,
+      single shot; sweep the timebase from 200 µs/div to 20 ms/div.
+      - Result — peak-to-peak amplitude (gives the standard):
+      - Result — narrowest pulse width (gives the baud rate):
+      - Result — idle level (gives the polarity):
+- [ ] **Decode the captured frame against the known answer** `18 18 1E 15 <addr>`
+      where `<addr>` = `0x60 | (port A & 0x1F)`. A match confirms baud, polarity
+      and framing simultaneously.
       - Result:
 - [ ] **Identify the electrical standard — diode test, power OFF, no scope
       needed.** Multimeter in diode mode across each pair, both polarities:

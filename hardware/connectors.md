@@ -15,57 +15,81 @@ terminal block on daughter 1.
 | ? | yellow | ? | **[?]** |
 | — | grey (shield) | chassis / drain | **[?]** |
 
-### Attempt 1: oscilloscope, 2026-08 — inconclusive
+### Attempt 1: oscilloscope, 2026-08 — transitions present, signal unclear
 
-All four pins probed; no clean signal, an apparent AC component. Two channels
-subtracted across candidate pairs showed no differential signal either.
+All four pins probed. **Transitions were visible**, but the signal was not clean
+and appeared to carry an AC component. Two channels subtracted across candidate
+pairs did not resolve a clean differential either.
 
-**This is not evidence for or against any standard.** It is what a correct
-measurement of an *isolated, passive* interface looks like, and also what a
-badly-referenced measurement of any interface looks like. See below.
+**Transitions are a positive result, not a null one.** They mean something is
+actively driving that conductor, and the obvious candidate is the unit's own
+status frame: the firmware transmits `18 18 1E 15 <addr>` continuously, forever,
+with no prompting (see
+[../docs/serial-protocol.md](../docs/serial-protocol.md#the-transmitted-status-frame-c)).
 
-### Why the scope showed nothing useful
+That gives three immediate conclusions:
 
-Three independent reasons, any one of which is sufficient:
+1. **The unit is alive and transmitting**, and the pins that showed transitions
+   are the **transmit** side. Record which ones they were.
+2. **The transmit side is not a bare passive switch.** A passive 20 mA loop
+   transmitter is just an optocoupler output with no supply of its own; on an open
+   circuit it cannot produce voltage transitions. Either the transmitter is
+   *active* (supplies its own loop current), or the interface is voltage-mode
+   after all. This weakens the plain passive-current-loop theory.
+3. **The waveform is decodable.** We know exactly what it should say, which makes
+   any capture a known-answer test.
 
-1. **The interface is galvanically isolated.** U7 is a 6N139 optocoupler, so the
-   DB37 side has no defined potential relative to the display's chassis or 0 V.
-   A scope ground clip on the chassis therefore measures across an isolation
-   barrier with an undefined reference: the reading floats and picks up whatever
-   is around. Channel-subtract does not rescue this — a scope's A−B has poor
-   common-mode rejection compared with a real differential probe, and both inputs
-   may sit outside their common-mode range to begin with.
+### Why it looked unclean
 
-2. **A mains-hum explanation for the "AC component".** A floating conductor next
-   to mains wiring reads 50 Hz. The fluorescent **ballast is inside the
-   enclosure** ([psu.md](psu.md)), so if the tube feed was live there was a
-   substantial inductive noise source a few centimetres from the probe.
+Most likely causes, in order:
 
-3. **A passive current loop has no voltage to show.** This is the important one.
-   In a passive 20 mA loop the receiver is just an LED and a series resistor, and
-   the transmitter is just a switch (an optocoupler's output transistor). Neither
-   end generates a voltage — the loop current is supplied by the *other* end of
-   the link. With nothing connected, there is nothing to see, **even while the
-   unit is transmitting**.
+1. **Timebase too slow.** The unit transmits *continuously*. A non-stop serial
+   stream viewed at a slow timebase looks precisely like a messy AC waveform —
+   that alone could account for the "AC component". At 9600 baud a bit is 104 µs
+   and a 5-byte frame about 5 ms; at 300 baud a bit is 3.3 ms and the frame
+   ~170 ms. The switch-selected rate may be anywhere in that range, so sweep the
+   timebase rather than assuming.
+2. **No trigger on the frame.** Asynchronous data free-runs unless you trigger on
+   an edge and use single-shot capture. Untriggered, successive frames overlay
+   into a smear.
+3. **Reference undefined.** U7 is an optocoupler, so the DB37 side floats
+   relative to chassis. A ground clip on the chassis puts real transitions on top
+   of a wandering hum baseline. Channel-subtract does not fix this — a scope's
+   A−B has poor common-mode rejection compared with a differential probe.
+4. **Mains hum.** The fluorescent **ballast is inside the enclosure**
+   ([psu.md](psu.md)), so a live tube feed puts a strong 50 Hz inductive source
+   centimetres from the probe.
 
-### So does this point to a current loop?
+### Attempt 2: capture one frame properly
 
-**Weakly yes, and only under one condition.** The reasoning:
+The interface is isolated and the far end is disconnected, so you may legitimately
+**clip the probe ground to one conductor of the pair and probe the other**. That
+defines the reference and turns the floating signal into an ordinary
+single-ended waveform. (Safe here precisely *because* nothing else is connected —
+scope ground is mains earth, so never do this on a live installed link.)
 
-* An RS-422/485 transmitter is an active driver. If the unit was **powered** while
-  probing, its TX pair should have shown a steady idle differential of a few
-  volts and clean transitions, because the firmware transmits its status frame
-  continuously (`18 18 1E 15 <addr>` — see
-  [../docs/serial-protocol.md](../docs/serial-protocol.md)). Seeing nothing there
-  argues against an active differential driver.
-* A passive current-loop transmitter would show exactly nothing under the same
-  conditions.
+1. Disconnect the fluorescent tube feed to remove the hum source.
+2. Ground clip on one conductor of the pair that showed transitions, probe on the
+   other.
+3. DC coupling. Trigger on an edge, **single shot**.
+4. Sweep the timebase from ~200 µs/div down to ~20 ms/div until a repeating
+   5-byte burst separated by idle resolves.
 
-So *if the unit was powered and running*, the null result leans towards a current
-loop. **If it was unpowered, the measurement says nothing at all.** Record which
-it was — that single fact changes how much the result is worth.
+Then read three things off the capture:
 
-### Attempt 2: the decisive test, and it needs no scope
+| Measurement | Tells you |
+| --- | --- |
+| **Peak-to-peak amplitude** | ±2-5 V → RS-422/485. ±5-12 V → RS-232. 12-30 V swinging to near a diode drop → an active current loop. |
+| **Narrowest pulse width** | One bit time. Invert for the baud rate — which also settles the 81C55 TIMER IN question in [../docs/dip-switches.md](../docs/dip-switches.md). |
+| **Idle level** | Mark polarity, and hence whether the line is inverted. |
+
+Finally, **decode the frame by hand and check it against `18 18 1E 15 <addr>`**,
+where `<addr>` is `0x60 | (port A switches & 0x1F)`. Five bytes, LSB first, one
+start bit and the parity/stop configuration the port B switches select. If it
+matches, the baud rate, polarity and framing are all confirmed at once, and the
+receive direction can be attempted with confidence.
+
+### Attempt 3: the standard, without a scope
 
 Power **off**, multimeter in **diode mode**, across each pair, both polarities:
 
@@ -86,10 +110,9 @@ Supporting checks:
       anything on daughter 1 supplies current to the TX pair, or whether U14-U17
       are bare switches expecting an external supply.
 
-### Attempt 3: seeing actual traffic
+### Attempt 4: if the transmitter turns out to be a passive loop after all
 
-If it is a passive loop, you must **supply the loop current yourself** before
-anything is observable:
+Then you must **supply the loop current yourself** before anything is observable:
 
 1. Power the display. It transmits its status frame continuously.
 2. Put a current-limited source across the suspected TX pair — e.g. 24 V through
