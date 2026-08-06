@@ -20,6 +20,42 @@ Entry template:
 
 ---
 
+## 2026-08-06 — U19 is a third ULN2003A: 21 sinks, and no source drivers
+
+**Recorded (owner):** U19 on daughter 2 is also a ULN2003A. So the board carries
+**three** of them — U18a and U18b from TI, U19 from ST — for **21 Darlington
+sinks**.
+
+**Two consequences, one numerical and one topological.**
+
+*Numerical:* the 81C55's three ports give 8 + 8 + 6 = **22 output bits** against
+21 sinks. That near-match looks deliberate rather than coincidental — the ports
+probably drive the Darlington inputs close to one-for-one, leaving a single bit
+for a strobe or enable. Previously recorded as 14 sinks, which made the
+arithmetic look nothing like the port width.
+
+*Topological, and more interesting:* **the ULN2003A can only sink.** It pulls a
+line to ground and cannot source. A flip-dot needs current through its coil in
+both directions to set and reset, so sinks alone cannot flip anything. There are
+no source drivers on the board at all. Options:
+
+1. High-side drive lives **on the panel**, with the ribbon carrying only
+   low-side selects.
+2. **Two windings per dot** — a set coil and a reset coil, each returning to
+   ground through its own sink from a common +24 V. Needs only sinks, which is
+   exactly what the board has.
+3. A split supply with the coil common at a mid-rail.
+
+Option 2 is the tidiest fit for the parts actually present, but it stays **[?]**
+until the ribbon is traced. Whatever the scheme, 21 lines cannot address 560 dots
+directly, so the panel must carry its own decoding or shift registers.
+
+**Also worth noting:** the ULN2003A's built-in free-wheel clamp diodes (common
+cathode, pin 9) exist for inductive loads. Their presence is quiet confirmation
+that the panel is driven as coils.
+
+---
+
 ## 2026-08-05 — ESP32 added to the controller comparison
 
 **Did:** Worked the ESP32 into `docs/controller.md` alongside the Pi and Arduino.

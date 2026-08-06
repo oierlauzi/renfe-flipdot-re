@@ -18,7 +18,7 @@ package so they can be identified later; see
 | U8-U10 | ? | Mother | ? | unidentified |
 | U12-U17 | ? (DIP8) | D1 | — | unidentified; likely optocouplers |
 | U18a, U18b | ULN2003A | D2 | — | Darlington sinks, flip-dot drive |
-| U19 | ? (DIP16, ST) | D2 | ? | unidentified |
+| U19 | ULN2003A (ST) | D2 | — | Third Darlington array; 21 sinks in total |
 | U20 | ? (DIP40) | D2 | `0xE0-0xE5`? | unidentified; **81C55 candidate** |
 
 D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
@@ -192,16 +192,19 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Part number:** ULN2003AN
 - **PCB:** Daughter 2
 - **Datasheet:** [https://www.ti.com/lit/ds/symlink/uln2003a.pdf]
-- **Notes:** Second package. 14 Darlington sinks total across U18a/U18b —
-  see [../docs/flipdot-interface.md](../docs/flipdot-interface.md). Confirm the
+- **Notes:** Second package. With U19 also a ULN2003A there are **21 Darlington
+  sinks** on daughter 2 — see
+  [../docs/flipdot-interface.md](../docs/flipdot-interface.md). Confirm the
   designators against the silkscreen; one may actually be U21.
 
-## U19 — ?
+## U19 — 7 NPN Darlington Pairs
 - **Manufacturer:** STMicroelectronics
-- **Part number:**
+- **Part number:** ULN2003A
 - **PCB:** Daughter 2
-- **Datasheet:** []
-- **Notes:** DIP16 Package
+- **Datasheet:** [https://www.st.com/resource/en/datasheet/uln2001.pdf]
+- **Notes:** **Third** ULN2003A on daughter 2, bringing the total to **21
+  Darlington sinks**. A second-source part from a different manufacturer to
+  U18a/U18b, which is ordinary production practice.
 
 ## U20 — ?
 - **Manufacturer:**

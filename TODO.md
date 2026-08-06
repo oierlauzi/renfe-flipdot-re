@@ -143,7 +143,15 @@ third is a safety precondition.
       rests on this being an 81C55 — see
       [docs/io-map.md](docs/io-map.md#0xe0-0xef--display-interface-l).
       - Result:
-- [ ] **U8, U9 (DIP16), U10 (DIP20), U19 (DIP16, ST)** markings.
+- [x] ~~U19 marking.~~ It is a **third ULN2003A** (ST), so daughter 2 has 21
+      Darlington sinks against the 81C55's 22 output bits — near enough
+      one-for-one to look deliberate.
+- [ ] **U8, U9 (DIP16), U10 (DIP20)** markings — motherboard.
+      - Result:
+- [ ] **Where does the flip-dot high side come from?** ULN2003As can only sink,
+      but a dot needs current both ways. Either the panel carries high-side
+      drive, or each dot has separate set and reset windings returning through
+      their own sinks. → [docs/flipdot-interface.md](docs/flipdot-interface.md)
       - Result:
 - [ ] **Does RST7.5 fire?** Scope on 8085 pin 7. Settles whether the `0xC0`
       device is present or absent.

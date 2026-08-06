@@ -74,7 +74,8 @@ doing, because the precise value pins the design current.
 
 ## Daughter 2 — flip-dot interface
 
-Large ribbon connector to the flip-dot panel. Carries U18a/U18b (two ULN2003A
-Darlington arrays), U19 (DIP16, ST) and U20 (DIP40). U20 is the strong 81C55
-candidate on which the whole `0xE0` interpretation rests — see
+Large ribbon connector to the flip-dot panel. Carries **three ULN2003A Darlington
+arrays** — U18a and U18b (Texas Instruments) plus U19 (STMicroelectronics) — for
+**21 sinks in total**, and U20 (DIP40). U20 is the strong 81C55 candidate on which
+the whole `0xE0` interpretation rests — see
 [../docs/io-map.md](../docs/io-map.md).

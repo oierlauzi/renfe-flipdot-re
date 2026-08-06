@@ -8,15 +8,39 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 ## Signal chain
 
 ```
-81C55-class device @ I/O 0xE0        ULN2003A x2 (U18)
-  port A (0xE1) ─┐                   7 Darlington
-  port B (0xE2) ─┼─ daughter 2 ──▶  sinks each   ──▶ ribbon ──▶ panel coils
-  port C (0xE3) ─┘                                              (16 x 5 x 7)
+81C55-class device @ I/O 0xE0        ULN2003A x3 (U18a, U18b, U19)
+  port A (0xE1) ─┐                   7 Darlington sinks each
+  port B (0xE2) ─┼─ daughter 2 ──▶   = 21 sinks, with     ──▶ ribbon ──▶ panel
+  port C (0xE3) ─┘                   free-wheel diodes                  coils
+                                                                    (16 x 5 x 7)
 ```
 
-Two ULN2003A packages give 14 Darlington sinks. Seven of those plausibly drive
-the seven dot rows; the remainder, plus the third port, would drive the column
-select and the flip polarity. **[?]**
+The 81C55's three ports give 8 + 8 + 6 = **22 output bits**, against **21 sinks**.
+That near-match is unlikely to be coincidence: it suggests the ports drive the
+Darlington inputs almost one-for-one, with a single bit left over for a strobe or
+an enable.
+
+**Three** ULN2003A packages — U18a, U18b and U19 — give **21 Darlington sinks**.
+
+Two facts about that part constrain the topology more than the count does:
+
+* **The ULN2003A contains free-wheel clamp diodes** (common cathode on pin 9).
+  Those exist for inductive loads. Their presence is good confirmation the panel
+  is driven as **coils**, not as anything resistive.
+* **The ULN2003A can only sink.** It pulls a line towards ground; it cannot
+  source current. A flip-dot needs current through its coil in *both* directions
+  to set and to reset, so sinks alone cannot do the job. Something must supply
+  the high side. The candidates:
+  1. **High-side drive on the panel itself**, with the ribbon carrying only the
+     low-side selects.
+  2. **Two windings per dot** — a set coil and a reset coil, each returning to
+     ground through its own sink from a common +24 V. This needs only sinks, and
+     would explain why there are no source drivers on the board at all.
+  3. A split supply, with the coil common tied to a mid-rail.
+
+Option 2 is the tidiest fit for what is actually on the board, but it is **[?]**
+until the ribbon is traced. 21 lines cannot address 560 dots directly under any
+scheme, so the panel must carry its own decoding or shift registers.
 
 ## What the firmware does
 
