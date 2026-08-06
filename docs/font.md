@@ -192,35 +192,79 @@ Two firmware references worth following if the table is ever indexed
 differently: `LXI HL,0x1C0D` (3 sites) and `LXI HL,0x1C5D` (3 sites, = table
 base + 16 entries).
 
-## A second, undecoded character set at `0x2692` **[C] that it exists**
+## The second character set at `0x2692` — 3 x 5, decoded **[C]**
 
 The 5x7 table is not the only one. A **128-entry pointer table at `0x2692-0x2791`**,
 indexed by a 7-bit character code, points into **`0x2792-0x2914`**: 43 entries of
-**9 bytes each**, every one beginning `03h`. The region ends exactly where code
-resumes at `0x2915`, which is what makes the extent certain rather than guessed.
+**9 bytes each**. The region ends exactly where code resumes at `0x2915`.
 
-`alt_char_lookup` (`0x264F`) is the reader: mask the character to 7 bits, index the
-table, return the pointer.
+![Alternate glyph map](font-map-alt.png)
 
-**Which characters have data is the giveaway.** 86 of the 128 codes share the blank
-entry; the 42 that do not are exactly:
+Regenerate with `python3 tools/extract_font.py --alt --png docs/font-map-alt.png`.
+
+### Layout
+
+The consumer decodes the format, not the data. `alt_char_lookup` (`0x264F`) maps a
+character to its entry; `shift_out_port_a` (`0x2661`) then clocks **exactly 30
+bits, MSB first**, out of port A bit 7, and `clock_port_a` (`0x2680`) issues **10
+blank clocks** after it.
+
+| Property | Value |
+| --- | --- |
+| Entry | 9 bytes: a constant `03h`, then **two 4-byte groups** at offsets 1 and 5 |
+| Bits used | 30 of each group's 32 — which is why the last byte never uses bits 0-1 |
+| Within a group | **3 columns**, each occupying a **10-bit field** |
+| Glyph | the **top 5 bits** of each field — so the character is **3 wide x 5 tall** |
+
+```
+0x45 'E'  @0x284F   03 fb ea 58 84 fb ea 58 84
+          ###
+          #..
+          ##.
+          #..
+          ###
+```
+
+### It is **not** a 6x7 layout **[C]**
+
+Worth recording because variants of this display are reported to use 6x7 cells with
+a blank column between characters. **This ROM's alternate set does not match that.**
+
+Every 6x7 arrangement was tried — both bit orders, all window offsets within the 30
+bits, column- and row-major, each group alone and the two combined side by side or
+interleaved — and all render as noise. Template-matching `H L T E I O U` against
+canonical shapes across widths 3-10 and heights 4-12 scored **3 wide** highest by a
+clear margin, and the 3x5 reading then produces all 42 characters legibly, including
+the awkward ones: `K M N W` and the punctuation `: ; < = > ?`.
+
+So this ROM drives a **3 x 5** cell. A 6x7 variant would be a different panel type
+with its own table — consistent with the firmware treating panel type as a
+first-class variable throughout. This set belongs to types `0x10`/`0x12`, reached at
+`0x2915`, **not** to this unit's `0x11`, which uses the 5x7 table.
+
+### Which characters exist
+
+86 of the 128 codes share a blank entry. The 42 that do not are exactly:
 
 ```
 0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ
 ```
 
-Digits, the six punctuation codes that complete `0x30-0x3F`, and the 26 uppercase
-letters. That is a **reduced character set** — no lowercase, no accents, no `ñ` —
-which is what a simpler or coarser display would carry.
+Digits, the punctuation completing `0x30-0x3F`, and the uppercase letters. No
+lowercase, no accents — **not even `Ñ`**, which the 5x7 table goes out of its way to
+provide twice. Whatever this panel is, it was not expected to show Spanish place
+names with tildes.
 
-**The 9-byte layout is not decoded.** It is not the 5x7 scheme: bit 7 is used, and
-rendering the payload as 8 columns of 8 rows, or 8 rows of 8 bits, produces noise
-rather than letters. The constant `03h` header suggests a length or command byte
-rather than pure bitmap. Reached from the panel-type branches at `0x2915`, so it
-belongs to panel types `0x10`/`0x12` — **not** this unit's `0x11`. **[?]**
+### What is still open **[?]**
 
-Worth knowing mainly as a caution: **"the font" in this ROM is ambiguous.** Any
-statement about glyphs should say which table it means.
+* **The low 5 bits of each 10-bit column field.** They hold something close to a
+  second copy of the glyph, offset by a row. A pre-shifted copy for a display whose
+  characters are not aligned to the shift register would fit, but that is a guess.
+* **Group B.** The second 4-byte group differs from the first for 36 of the 42
+  characters. Both decode as valid-looking glyphs; which one the panel uses, and
+  when, is not established.
+* Why a character needs 80 clocked bits (2 x 30 data + 2 x 10 blank) to place a
+  3 x 5 glyph.
 
 ## Relation to the physical display
 

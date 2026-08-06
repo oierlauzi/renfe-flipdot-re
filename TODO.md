@@ -390,7 +390,12 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
 - [ ] **Name more of the 451 auto-generated labels.** The listing has 551 labels
       and 100 carry meaning. Nothing blocks this and it needs no hardware — each
       addition improves the listing on the next `make disasm`.
-- [ ] **Decode the 9-byte character set at `0x2792`.** 43 entries covering
-      `0-9 :;<=>? A-Z`, each starting `03h`, read by `alt_char_lookup` for panel
-      types `0x10`/`0x12`. Not the 5x7 layout — bit 7 is used and the obvious
-      orientations render as noise. → [docs/font.md](docs/font.md#a-second-undecoded-character-set-at-0x2692-c-that-it-exists)
+- [x] **Second character set decoded: 3 x 5.** Each 9-byte entry is `03h` plus two
+      30-bit groups; within a group the 3 columns occupy 10-bit fields and the glyph
+      is the top 5 bits of each. All 42 characters render legibly.
+      **Not a 6x7 layout** — every 6x7 arrangement renders as noise.
+      → [docs/font.md](docs/font.md#the-second-character-set-at-0x2692--3-x-5-decoded-c)
+- [ ] **What are the low 5 bits of each column field, and group B?** The spare bits
+      hold something close to a row-shifted copy of the glyph, and group B differs
+      from group A for 36 of 42 characters. Neither is explained. Nor is why 80
+      clocked bits are spent placing a 3 x 5 glyph. **[?]**

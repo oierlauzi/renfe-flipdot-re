@@ -20,6 +20,49 @@ Entry template:
 
 ---
 
+## 2026-08-06 — The second character set is 3 x 5, not 6 x 7
+
+**Prompted by the owner:** variants of this display are reported to use 6x7
+characters plus a blank column, so — are these glyphs consistent with that?
+
+**Answer: no.** They are **3 wide x 5 tall**.
+
+**Did:** read the consumer instead of guessing at the bitmap. `shift_out_port_a`
+clocks exactly **30 bits** MSB-first, then `clock_port_a` adds 10 blank ones. Within
+a 30-bit group the 3 columns occupy **10-bit fields**, and the glyph is the **top 5
+bits** of each field. Every one of the 42 characters then renders legibly, including
+`K M N W` and `: ; < = > ?`.
+
+**Two wrong turns, both mine, both caught by the owner.**
+
+1. I first read it as 6x5 and then as 6x10 interleaved, and talked myself into
+   "clearly readable" on ASCII renderings that were in fact sheared. Rendering the
+   PNG made it obvious in one look — the owner's "it's corrupted" was instant where
+   I had been squinting at `#` and `.` and pattern-matching wishfully. **Lesson: for
+   a "does this look like letters" question, render it properly and look; ASCII
+   eyeballing is too easy to fool.**
+2. My first automated check scored candidate layouts by left-right symmetry, which
+   is nearly useless on 3-wide glyphs and let the wrong answer through. Switching to
+   template matching against canonical `H L T E I O U` shapes across widths 3-10 and
+   heights 4-12 put 3-wide on top immediately.
+
+**Also of note:** every 6x7 arrangement — both bit orders, all window offsets,
+column- and row-major, each group alone and combined — renders as noise. So the
+6x7 variant is a *different panel type* with its own table, which is consistent with
+how thoroughly this firmware parameterises panel type.
+
+The set has no lowercase and no accents, **not even `Ñ`** — which the 5x7 table
+provides twice over. Whatever this panel is, it was not meant for Spanish place
+names.
+
+**Still open:** the low 5 bits of each column field hold something close to a
+row-shifted copy; group B differs from group A for 36 of 42 characters; and 80
+clocked bits are spent placing 15 dots. **[?]**
+
+**Concluded:** alternate set = 3 x 5, decoded and rendered. **[C]**
+
+---
+
 ## 2026-08-06 — Naming labels, a second character set, and a backslash
 
 **Did:** worked the unnamed labels in the generated listing, starting with the

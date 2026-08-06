@@ -5369,7 +5369,7 @@ alt_char_table:
 	db	92h,27h	; 278E  ..
 	db	92h,27h	; 2790  ..
 alt_char_data:
-	; 43 entries x 9 bytes, each starting 03h. Only 0-9 :;<=>? and A-Z differ from blank -- a reduced character set for another panel type. Layout not yet decoded  (387 bytes)
+	; 43 entries x 9 bytes: 03h, then two 30-bit groups of 3 columns in 10-bit fields. Glyph = top 5 bits of each field, so 3x5. Only 0-9 :;<=>? and A-Z are non-blank. See docs/font.md  (387 bytes)
 	db	03h,00h,00h,00h,00h,00h,00h,00h,00h	; 2792  .........
 	db	03h,73h,0EAh,0Fh,0BCh,0FBh,0F8h,37h,0B8h	; 279B  .s.....7.
 	db	03h,00h,7Eh,0F0h,00h,00h,7Eh,0F0h,00h	; 27A4  ..~...~..

@@ -19,6 +19,17 @@ GLYPH_BYTES = 5
 GLYPH_ROWS = 7
 GLYPH_COUNT = 256
 
+# The alternate character set used by panel types 0x10/0x12 -- a 128-entry
+# pointer table feeding 9-byte entries. Each entry holds two 30-bit groups (at
+# offsets 1 and 5) that the firmware clocks out 30 bits at a time. Within a
+# group each of the 3 columns occupies a 10-bit field, and the glyph is the top
+# 5 bits of each field. See docs/font.md.
+ALT_TABLE = 0x2692
+ALT_COLS = 3
+ALT_ROWS = 5
+ALT_FIELD = 10           # bits per column inside the 30-bit group
+ALT_COUNT = 128
+
 
 def load(path):
     with open(path, "rb") as fh:
@@ -31,16 +42,26 @@ def glyph(rom, code):
     return rom[off : off + GLYPH_BYTES]
 
 
+def alt_columns(rom, code, group=1):
+    """Return ALT_COLS column values for `code`; bit r = row r, ALT_ROWS deep."""
+    a = ALT_TABLE + 2 * code
+    ptr = rom[a] | (rom[a + 1] << 8)
+    bits = [(x >> (7 - i)) & 1
+            for x in rom[ptr + group:ptr + group + 4] for i in range(8)][:30]
+    return [sum(bits[c * ALT_FIELD + r] << r for r in range(ALT_ROWS))
+            for c in range(ALT_COLS)]
+
+
 BLOCK = ("▮", " ")   # easiest to read in a terminal
 ASCII = ("#", ".")   # survives whitespace-trimming editors and diffs
 
 
-def rows(cols, charset=BLOCK):
-    """Convert 5 column bytes into 7 row strings of 5 characters."""
+def rows(cols, charset=BLOCK, nrows=GLYPH_ROWS):
+    """Convert column values into row strings, one character per column."""
     on, off = charset
     return [
         "".join(on if (col >> r) & 1 else off for col in cols)
-        for r in range(GLYPH_ROWS)
+        for r in range(nrows)
     ]
 
 
@@ -63,7 +84,8 @@ PNG_FONT_CANDIDATES = (
 )
 
 
-def render_png(rom, codes, path, cols=16, supersample=4):
+def render_png(rom, codes, path, cols=16, supersample=4,
+               getter=glyph, ncols=GLYPH_BYTES, nrows=GLYPH_ROWS):
     """Render `codes` as a grid of flip-dot glyphs, `cols` per row.
 
     Drawn at `supersample`x and downscaled, so the discs anti-alias instead
@@ -76,8 +98,8 @@ def render_png(rom, codes, path, cols=16, supersample=4):
 
     dot, gap, pad, margin, header = 7, 3, 16, 26, 22
     pitch = dot + gap
-    cell_w = GLYPH_BYTES * pitch + pad
-    cell_h = GLYPH_ROWS * pitch + pad
+    cell_w = ncols * pitch + pad
+    cell_h = nrows * pitch + pad
     rows = -(-len(codes) // cols)
 
     width = margin * 2 + header + cols * cell_w
@@ -115,11 +137,11 @@ def render_png(rom, codes, path, cols=16, supersample=4):
         r, c = divmod(i, cols)
         ox = (grid_x + c * cell_w) * ss
         oy = (grid_y + r * cell_h) * ss
-        cols_bytes = glyph(rom, code)
+        cols_bytes = getter(rom, code)
         rad = dot / 2 * ss
         corner = rad * 0.3
         for col, byte in enumerate(cols_bytes):
-            for row in range(GLYPH_ROWS):
+            for row in range(nrows):
                 cx = ox + (col * pitch + pitch / 2) * ss
                 cy = oy + (row * pitch + pitch / 2) * ss
                 box = [cx - rad, cy - rad, cx + rad, cy + rad]
@@ -173,19 +195,29 @@ def main():
                     help="write a glyph-map PNG (flip-dot style) instead of printing text")
     ap.add_argument("--cols", type=int, default=16,
                     help="glyphs per row in --png output (default: 16)")
+    ap.add_argument("--alt", action="store_true",
+                    help="use the alternate 6x10 character set at 0x2692 "
+                         "(panel types 0x10/0x12) instead of the 5x7 table")
     args = ap.parse_args()
 
     charset = ASCII if args.ascii else BLOCK
 
     rom = load(args.rom)
     check(rom)
+    getter = alt_columns if args.alt else glyph
+    nrows = ALT_ROWS if args.alt else GLYPH_ROWS
 
     lo, _, hi = args.range.partition("-")
     lo, hi = int(lo, 0), int(hi or lo, 0)
-    codes = range(lo, min(hi, GLYPH_COUNT - 1) + 1)
+    limit = ALT_COUNT if args.alt else GLYPH_COUNT
+    if args.alt and args.range == "0x00-0xFF":
+        lo, hi = 0x20, 0x5F          # the range that actually has glyphs
+    codes = range(lo, min(hi, limit - 1) + 1)
 
     if args.png:
-        w, h = render_png(rom, list(codes), args.png, cols=args.cols)
+        kw = (dict(getter=alt_columns, ncols=ALT_COLS, nrows=ALT_ROWS)
+              if args.alt else {})
+        w, h = render_png(rom, list(codes), args.png, cols=args.cols, **kw)
         print(f"wrote {args.png} ({w}x{h}, {len(codes)} glyphs)")
         return
 
@@ -214,14 +246,18 @@ def main():
         return
 
     for code in codes:
-        cols = glyph(rom, code)
+        cols = getter(rom, code)
         blank = " (blank)" if not any(cols) else ""
-        print(
-            f"0x{code:02X} {label(code):>4}  @0x{FONT_BASE + code * GLYPH_BYTES:04X}"
-            f"  {' '.join(f'{b:02x}' for b in cols)}{blank}"
-        )
+        if args.alt:
+            ptr = rom[ALT_TABLE + 2 * code] | (rom[ALT_TABLE + 2 * code + 1] << 8)
+            where = f"@0x{ptr:04X}"
+            raw = " ".join(f"{b:02x}" for b in rom[ptr:ptr + 9])
+        else:
+            where = f"@0x{FONT_BASE + code * GLYPH_BYTES:04X}"
+            raw = " ".join(f"{b:02x}" for b in cols)
+        print(f"0x{code:02X} {label(code):>4}  {where}  {raw}{blank}")
         if not blank:
-            for row in rows(cols, charset):
+            for row in rows(cols, charset, nrows):
                 print(f"           {row}")
         print()
 

@@ -208,9 +208,9 @@ DATA_REGIONS = [
     (0x2692, 0x2792, "alt_char_table",
      "128 pointers indexed by a 7-bit character code; 86 share the blank", 2),
     (0x2792, 0x2915, "alt_char_data",
-     "43 entries x 9 bytes, each starting 03h. Only 0-9 :;<=>? and A-Z differ "
-     "from blank -- a reduced character set for another panel type. Layout "
-     "not yet decoded", 9),
+     "43 entries x 9 bytes: 03h, then two 30-bit groups of 3 columns in "
+     "10-bit fields. Glyph = top 5 bits of each field, so 3x5. Only 0-9 "
+     ":;<=>? and A-Z are non-blank. See docs/font.md", 9),
 ]
 
 
