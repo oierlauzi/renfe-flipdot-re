@@ -93,10 +93,28 @@ third is a safety precondition.
       the parts are a DC-DC converter, a hex Schmitt trigger and six probable
       optocouplers. That is a discrete opto-isolated interface, not RS-422.
       → [hardware/connectors.md](hardware/connectors.md#what-daughter-1s-parts-imply-l)
-- [ ] **Measure the DC-DC converter's output voltage.** This is now the highest-
+- [x] **The converter is genuinely isolated.** Four nets (`VI+`/`VI-`/`VO+`/`VO-`)
+      with no shared ground — a buck or linear regulator would expose three pins.
+      The doubled through-holes per pin are just current capacity and anchoring.
+      → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
+- [ ] **Photograph the converter's QA sticker legibly, then remove it.** It looks
+      handwritten, something like `30-01-9?` / `OK`, which would be the **only date
+      evidence on the board** — the chassis plate has a serial but no date. Once
+      peeled it is gone. The printed part number underneath should give the rated
+      output voltage without powering anything.
+      - Result — sticker text:
+      - Result — part number underneath:
+- [ ] **Measure the DC-DC converter's output voltage** (`VO+` to `VO-`). Highest-
       value single measurement on the board. ~24 V makes the ~1 kΩ resistors
       loop-current setting (~20 mA) and nearly closes the case for a current loop;
       5 V means they are ordinary opto drive and prove nothing.
+      - Result:
+- [ ] **Confirm `VO-` is not continuous with the display's 0 V / chassis.** Should
+      read open. If it beeps, the isolation is not where this analysis assumes.
+      - Result:
+- [ ] **Does a ~1 kΩ resistor run from `VO+` to a terminal screw or an opto pin?**
+      An isolated rail feeding the line through a current-setting resistor *is* an
+      active current loop. This is the measurement that closes the question.
       - Result:
 - [ ] **Measure the three ~1 kΩ resistors** with a meter, to remove the colour-band
       ambiguity (1.0 / 1.02 / 1.2 kΩ are all plausible readings).

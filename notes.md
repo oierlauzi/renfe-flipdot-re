@@ -62,6 +62,21 @@ matrix. Worth not assuming a simple two-signal link when tracing.
 flip, on the strength of the missing transceiver rather than the resistor values.
 Still **[?]** until the converter output voltage is known.
 
+**Converter pinout (owner):** `VI+`, `VI-`, `VO+`, `VO-`, each doubled into two
+connected through-holes. The doubling is ordinary brick practice — current and
+mechanical anchoring — and says nothing. **But four nets with no shared ground
+does say something [C]:** a buck or linear regulator must share a return between
+input and output and would expose three pins. Two independent pairs means the
+output floats galvanically with respect to the display's 0 V, confirming the
+module exists to power an isolated line side. That is the premise the whole
+current-loop reading rests on, and it now stands on its own rather than being
+assumed.
+
+Flagged before the sticker covering the part number is removed: photograph it
+first. It looks like a handwritten QA mark, `30-01-9?` with `OK`, which would be
+the **only date evidence on the board** — the chassis plate carries a serial but
+no date. Peeling it destroys that.
+
 ---
 
 ## 2026-08-05 — 6.144 MHz crystal: the baud ladder is now exact

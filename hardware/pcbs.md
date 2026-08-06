@@ -14,6 +14,36 @@ Carries the screw terminal blocks that the four DB37 conductors land on, and an
 **isolated DC-DC converter module** (marked `970593-960119980401`, with
 `VI+ / VI- / VO+ / VO-` silkscreen).
 
+### The DC-DC converter
+
+| Property | Value | Conf. |
+| --- | --- | --- |
+| Pins | `VI+`, `VI-`, `VO+`, `VO-`, each doubled into two connected through-holes | **[C]** |
+| Isolation | **Genuine** — see below | **[C]** |
+| Input voltage | *TODO* | |
+| Output voltage | *TODO* — **the highest-value measurement on the board** | |
+| Part number | Hidden under a handwritten sticker | |
+
+**Four nets and no shared ground is the important detail.** A non-isolated
+converter — a buck or a linear regulator — necessarily shares a common return
+between input and output, and would expose three pins, not four. Two independent
+pairs means the output is **galvanically floating with respect to the display's
+internal 0 V**. That confirms the module exists to power an isolated line side,
+which is the premise the whole current-loop reading rests on
+([connectors.md](connectors.md#what-daughter-1s-parts-imply-l)).
+
+The doubling of each pin into two through-holes is ordinary brick-converter
+practice — current capacity and mechanical anchoring. It carries no further
+information.
+
+**Before removing the sticker:** photograph it legibly first. It appears to be a
+handwritten QA mark reading something like `30-01-9?` with `OK`, which would make
+it the **only date evidence on the board** — the chassis plate gives a serial
+(`985412?`) but no date. Once it is peeled it is gone. Then photograph what is
+underneath: the printed part number should give the rated output voltage,
+current and isolation rating, corroborating the measurement without needing to
+power anything.
+
 ### Component inventory
 
 | Count | Part | Notes |

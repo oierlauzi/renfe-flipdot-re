@@ -148,9 +148,18 @@ isolation, and the visible transitions.
 
 #### What would settle it
 
-- [ ] **Measure the DC-DC converter's output voltage.** If the isolated rail is
-      ~24 V, the ~1 kΩ resistors are loop-current setting and the case is nearly
-      closed. If it is 5 V, they are not.
+- [ ] **Confirm `VO-` is *not* continuous with the display's 0 V / chassis**
+      (power off, continuity). It should read open. If it beeps, the isolation is
+      not where this analysis assumes it is and the reasoning needs revisiting.
+- [ ] **Trace `VI+`/`VI-` back**: to the 24 V rail, or to the 5 V logic rail?
+      That identifies which side of the converter is the display side.
+- [ ] **Measure the DC-DC converter's output voltage** (`VO+` to `VO-`). If the
+      isolated rail is ~24 V, the ~1 kΩ resistors are loop-current setting and the
+      case is nearly closed. If it is 5 V, they are not.
+- [ ] **Does a ~1 kΩ resistor run from `VO+` to a terminal-block screw or an
+      optocoupler pin?** This is the single measurement that closes the question:
+      an isolated rail feeding the line through a current-setting resistor *is* an
+      active current loop.
 - [ ] **Trace one ~1 kΩ resistor**: does it sit between a terminal-block screw and
       a 6N139/optocoupler pin?
 - [ ] **Measure the ~1 kΩ resistors** with a meter to remove the band ambiguity.
