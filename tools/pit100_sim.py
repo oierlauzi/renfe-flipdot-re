@@ -38,8 +38,12 @@ CPU_HZ = 3_072_000
 TXRDY, RXRDY, TXEMPTY, PE, OE, FE, SYNDET, DSR = (
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80)
 
-# Ports whose hardware is genuinely unidentified. Reads return 0xFF (floating
-# bus); every access is counted so the report can say what was touched.
+# Ports with no model here. Reads return 0xFF (floating bus); every access is
+# counted so the report can say what was touched.
+# 0xC0-0xCF is the clock board (see docs/io-map.md). 0xFF on 0xCD is exactly the
+# "board absent" case the firmware checks for, so clock_service returns at once
+# and the clock never overwrites the first four display positions -- the right
+# default until it is known whether this unit has one fitted.
 # 0xDE is an active-low hardware status input, accumulated into 0xA024 on every
 # RST7.5 tick and reported by the BS command. Reading 0xFF here inverts to 0x00,
 # i.e. "no faults", which is the right default for a stub.

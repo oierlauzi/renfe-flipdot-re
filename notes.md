@@ -20,6 +20,72 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Every label named, and the unit turns out to be a clock
+
+**Did:** Killed all 449 auto-generated `LXXXX` labels in `src/firmware.asm`, two
+ways at once.
+
+**1. Structural names for the bulk.** `tools/disasm.py` no longer falls back to
+`L1F3A`. Each unnamed label is now `<routine>_<role><n>` — the nearest preceding
+entry point (a `symbols.csv` name, or anything reached by `CALL`), plus a role
+read straight off the control flow: `loop` for a backward branch target, `ret`
+for a shared `POP`/`RET` epilogue, `ptr` for an address only `SHLD`/`LHLD`/`STA`/
+`LDA` reaches, `br` for a plain forward branch. **None of it claims meaning** —
+that is the point. It says where you are and how you got there, which is what
+`L1F3A` failed to do, and it compounds: naming one routine in `symbols.csv`
+renames its entire body on the next `make disasm`.
+
+**2. Real names for 74 things, by reading them.** All 41 unnamed `CALL` targets,
+the 13 per-family panel drivers `render_char` dispatches to, their four
+end-of-pass flush hooks, and the RAM cells that show up everywhere (`char_pos`,
+`panel_family`, `tick_wait_count`, ...). Result: **553 labels, 174 named**, zero
+`LXXXX`, still byte-identical.
+
+**Found — the display is also a station clock. [C]** Ports `0xC0-0xCF` were
+recorded as "unidentified, LED matrix interface (board absent), written once at
+init". **Every part of that was wrong**, including the plain factual claim: no
+init path touches them.
+
+`0xC5`-`0xC2` are four digit registers, validated **`0-2 / 0-9 / 0-5 / 0-9`** on
+both the way in and the way out. `clock_read_time` ORs `0x30` into each and stores
+the four ASCII characters at `HL` — and its caller passes `0xE001`, `msg_buffer`.
+It then writes `0x23` over the matching four shadow bytes to force a repaint.
+**The panel displays `HHMM` in characters 0-3.**
+
+`clock_inc_minute` carries at `'9'+1` and wraps the tens at `'6'`;
+`clock_inc_hour` does the same and forces `00` at 24. And the two agree about
+something subtle: `clock_read_time` blanks a leading `'0'` to `' '` (or `'?'` for
+panel families 3 and `0x0A`), and `clock_inc_hour`, 350 bytes away, tests the
+incremented tens digit against `0x21` and `0x40` — exactly `' '+1` and `'?'+1` —
+and maps both to `'1'`. Nothing but a blanked hours digit explains that pair of
+constants.
+
+**And `0xCD` is a keypad.** RST7.5 reads it every tick, masks `0xF4`, and on a
+change starts a 201-tick debounce; on expiry it posts `1` to `clock_cmd_mailbox`
+for `clock_service`, which dispatches: `0xD0` +1 minute, `0xE0` +1 hour, `0xC0`
+reset, `0x70`/`0xB0` latched modes. A **time-setting keypad**. That also explains
+why RST7.5 touching `0xCD` never looked like a display access — the previous
+entry had it down as evidence the `0xC0` device was mysteriously "present".
+
+**Also corrected:** panel family 0 is not "no driver, drives nothing".
+`render_pass_paged` routes it to `render_pass_disp1`, which paints display group 1
+on ports `0xE8-0xED`. It *does* return immediately when `IN 0xE7` reads `0xFF`, so
+the conclusion (family 0 moves no dots on this unit) survives — but for the
+expansion board being absent, not for the driver being missing.
+
+**Concluded:**
+* Structural label naming is worth more than it looks: it makes the listing
+  navigable *now* and turns each future name into a compound win. **[C]**
+* `0xC0-0xCF` is a clock board with a time-setting keypad. **[C]**
+* `0xC1`/`0xC0` are probably seconds, but the firmware only ever zeroes them, so
+  the ROM cannot say. **[?]**
+
+**Next:** whether this unit has the clock board fitted is a hardware question —
+`clock_service` bails on `IN 0xCD == 0xFF`, so an open bus disables the feature
+silently. Worth checking the ribbon for a keypad and four more digits.
+
+---
+
 ## 2026-08-06 — Designator corrections, and two designators I invented
 
 **Corrections from the owner, and the second one is a hallucination of mine.**

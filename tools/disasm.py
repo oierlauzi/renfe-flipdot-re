@@ -19,6 +19,7 @@ mnemonic to the same bytes -- only running AS does that. See `make verify`.
 """
 
 import argparse
+import bisect
 import csv
 import re
 import sys
@@ -131,8 +132,10 @@ def decode(rom, pc):
     hi = rom[pc + 2] if n >= 2 and pc + 2 < len(rom) else 0
     word = lo | (hi << 8)
     target = word if op in ADDR16 else None
+    # {w} is any 16-bit immediate, usually a constant -- name it only when the
+    # symbol table independently says that value is an address.
     text = (tmpl.replace("{a}", sym(word))
-                .replace("{w}", "0x%04x" % word)
+                .replace("{w}", sym(word) if word in MEM else "0x%04x" % word)
                 .replace("{b}", "0x%02x" % lo)
                 .replace("{p}", port(lo)))
     return text, 1 + n, target
@@ -237,6 +240,78 @@ def asl_hex(value, width=2):
     return ("0" + text if text[0].isalpha() else text) + "h"
 
 
+MEM_OPS = {0x22, 0x2A, 0x32, 0x3A}      # SHLD, LHLD, STA, LDA
+
+
+def ref_kind(op):
+    """How an instruction reaches its 16-bit operand."""
+    if op in CALLS:
+        return "call"
+    if op in MEM_OPS:
+        return "data"
+    return "jump"                        # JMP and the conditional jumps
+
+
+POPS = {0xC1, 0xD1, 0xE1, 0xF1}
+
+
+def is_epilogue(rom, addr):
+    """True when addr starts a run of POPs ending in RET, and nothing else."""
+    while rom[addr] in POPS:
+        addr += 1
+    return rom[addr] == 0xC9
+
+
+def name_labels(rom, labels, refs, boundaries):
+    """Fill in every label the symbol table does not name.
+
+    The generated name says where the label sits and how it is reached:
+    `<routine>_<role><n>`, where the routine is the nearest preceding entry
+    point -- a named symbol or a CALL target -- and the role is one of
+
+        ret   it sits on an epilogue -- POPs and a RET -- so it is a shared exit
+        loop  something branches back to it from a higher address
+        ptr   only SHLD/LHLD/STA/LDA refer to it, so it is data, not code
+        br    a plain forward branch target
+
+    None of that is a claim about meaning: it is read straight off the control
+    flow. Naming a routine in ghidra/symbols.csv renames everything inside it,
+    which is the point -- understanding one entry point pays off across its whole
+    body. The ordinals are per routine and per role, so adding a name reshuffles
+    the numbering below it; that churn is confined to the generated listing.
+    """
+    starts = sorted({a for a in boundaries if a in MEM}
+                    | {a for a, rs in refs.items()
+                       if a in boundaries and any(k == "call" for _, k in rs)}
+                    | {0x0000})
+    entry = {a: MEM.get(a) or f"sub_{a:04X}" for a in starts}
+
+    used = set(MEM.values())
+    counters = {}
+    for addr in sorted(a for a in labels if labels[a] is None):
+        if addr in entry:                            # an unnamed entry point
+            labels[addr] = entry[addr]
+            used.add(entry[addr])
+            continue
+        owner = starts[bisect.bisect_right(starts, addr) - 1]
+        kinds = {k for _, k in refs.get(addr, ())}
+        if is_epilogue(rom, addr):
+            role = "ret"
+        elif any(src > addr for src, _ in refs.get(addr, ())):
+            role = "loop"
+        elif kinds == {"data"}:
+            role = "ptr"
+        else:
+            role = "br"
+        counters[owner, role] = counters.get((owner, role), 0) + 1
+        name = f"{entry[owner]}_{role}{counters[owner, role]}"
+        if name in used:
+            raise SystemExit(f"generated label {name} collides with a name in "
+                             f"{SYMBOLS.name}")
+        labels[addr] = name
+        used.add(name)
+
+
 def build_listing(rom):
     """Return (lines, covered_bytes). Raises if coverage does not match the ROM."""
     data_starts = {s: (lbl, note, w) for s, _, lbl, note, w in DATA_REGIONS}
@@ -244,30 +319,31 @@ def build_listing(rom):
     for start, end, _, _, _ in DATA_REGIONS:
         in_data.update(range(start, end))
 
-    # Pass 1: instruction boundaries and referenced addresses.
-    boundaries, refs, pc = set(), set(), 0
+    # Pass 1: instruction boundaries, and every reference with its source.
+    boundaries, refs, pc = set(), {}, 0
     while pc < USED_END:
         if pc in in_data:
             pc += 1
             continue
         boundaries.add(pc)
+        op = rom[pc]
         _, n, target = decode(rom, pc)
         if target is not None:
-            refs.add(target)
+            refs.setdefault(target, []).append((pc, ref_kind(op)))
         # LXI operands are NOT added: most are constants, not addresses.
-        # `LXI H,01F4h` is the delay count 500, and minting an L01F4 label for it
-        # would invent a code reference that does not exist. LXI still *renders*
-        # as a label when the target is independently known -- see operand().
+        # `LXI H,01F4h` is the delay count 500, and minting a label for it would
+        # invent a code reference that does not exist. LXI still *renders* as a
+        # label when the target is independently known -- see operand().
         pc += n
 
     # A label may only sit where an instruction or a data region starts.
     placeable = boundaries | set(data_starts)
     labels = {}
-    for addr in sorted(refs | set(MEM) | set(data_starts)):
+    for addr in sorted(set(refs) | set(MEM) | set(data_starts)):
         if addr >= USED_END or addr not in placeable:
             continue
-        labels[addr] = MEM.get(addr) or data_starts.get(addr, (None,))[0] \
-            or f"L{addr:04X}"
+        labels[addr] = MEM.get(addr) or data_starts.get(addr, (None,))[0]
+    name_labels(rom, labels, refs, boundaries)
 
     def operand(addr):
         """Prefer a label inside the image, then an equate for RAM and I/O."""
@@ -286,6 +362,14 @@ def build_listing(rom):
         ";",
         f"; Covers 0000h-{USED_END - 1:04X}h. Everything above is erased 0FFh;",
         "; tools/rom_info.py asserts that separately.",
+        ";",
+        "; Names come from ghidra/symbols.csv. Anything it does not name is called",
+        "; <routine>_<role><n>, where the routine is the nearest preceding entry",
+        "; point and the role is read off the control flow: loop for a backward",
+        "; branch target, ret for a shared POP/RET epilogue, ptr for an address only",
+        "; SHLD/LHLD/STA/LDA reach, br for a plain forward branch. Those names carry",
+        "; no claim about meaning -- naming a routine in symbols.csv renames its",
+        "; whole body on the next `make disasm`.",
         "",
         "\tcpu\t8085",
         "\tpage\t0",

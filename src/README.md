@@ -7,7 +7,7 @@ reassembles to a file **byte-identical** to
 
 ```
 $ make verify
-   6670 lines source file
+   6245 lines source file
       0 errors
       0 warnings
 build/firmware.p==>>build/firmware.bin (12360 Bytes)
@@ -54,12 +54,35 @@ faithful decode, and the *interesting* work — naming things — accumulates in
 [../ghidra/symbols.csv](../ghidra/symbols.csv) and flows into the listing on the
 next `make disasm`.
 
-Current state: **551 labels, 100 of them real names** from `symbols.csv`, the rest
-auto-generated `LXXXX`. Every symbol added to that file turns one more `LXXXX`
-into something meaningful, so the listing improves as the analysis does. Data
+Current state: **553 labels, 174 of them real names** from `symbols.csv`. Data
 regions are declared in `DATA_REGIONS` in `tools/disasm.py`; getting one wrong
 costs readability, never correctness, because a mis-decoded stretch still
 reassembles to the same bytes.
+
+### How the other 379 labels are named
+
+They used to be `L1F3A` and friends, which told you nothing. Each is now
+`<routine>_<role><n>`:
+
+* **routine** — the nearest preceding entry point, meaning a name from
+  `symbols.csv` or an address something `CALL`s. So `cmd_eot_br3` is inside
+  `cmd_eot`, and you know that without scrolling.
+* **role** — read straight off the control flow, never guessed:
+
+  | role | meaning |
+  | --- | --- |
+  | `loop` | something branches back to it from a higher address |
+  | `ret` | it sits on a shared epilogue: `POP`s and a `RET` |
+  | `ptr` | only `SHLD`/`LHLD`/`STA`/`LDA` reach it, so it is data |
+  | `br` | a plain forward branch target |
+
+* **n** — an ordinal within that routine and role.
+
+The names make no claim about *meaning*; that still only comes from
+`symbols.csv`. What they do is make the listing navigable and turn every naming
+win into a compound one: name a routine there, and its whole body is renamed on
+the next `make disasm`. The ordinals renumber when that happens, but the churn is
+confined to the generated file.
 
 The generator refuses to emit anything unless the byte spans it accounts for
 reconstruct the ROM exactly — so a bug there fails loudly rather than producing a

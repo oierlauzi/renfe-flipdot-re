@@ -6,6 +6,14 @@
 ;
 ; Covers 0000h-3047h. Everything above is erased 0FFh;
 ; tools/rom_info.py asserts that separately.
+;
+; Names come from ghidra/symbols.csv. Anything it does not name is called
+; <routine>_<role><n>, where the routine is the nearest preceding entry
+; point and the role is read off the control flow: loop for a backward
+; branch target, ret for a shared POP/RET epilogue, ptr for an address only
+; SHLD/LHLD/STA/LDA reach, br for a plain forward branch. Those names carry
+; no claim about meaning -- naming a routine in symbols.csv renames its
+; whole body on the next `make disasm`.
 
 	cpu	8085
 	page	0
@@ -19,15 +27,15 @@ sw_port_b	equ	0A2h
 sw_port_c	equ	0A3h
 sw_timer_lo	equ	0A4h
 sw_timer_hi	equ	0A5h
-io_c0	equ	0C0h
-io_c1	equ	0C1h
-io_c2	equ	0C2h
-io_c3	equ	0C3h
-io_c4	equ	0C4h
-io_c5	equ	0C5h
-io_cd	equ	0CDh
-io_ce	equ	0CEh
-io_cf	equ	0CFh
+clock_reg_c0	equ	0C0h
+clock_reg_c1	equ	0C1h
+clock_min_units	equ	0C2h
+clock_min_tens	equ	0C3h
+clock_hour_units	equ	0C4h
+clock_hour_tens	equ	0C5h
+clock_cmd	equ	0CDh
+clock_ctrl_ce	equ	0CEh
+clock_ctrl_cf	equ	0CFh
 hw_status_in	equ	0DEh
 disp0_cmd	equ	0E0h
 disp0_port_a	equ	0E1h
@@ -50,17 +58,28 @@ uart_mode_word	equ	0A005h
 frame_start_char	equ	0A006h
 frame_end_char	equ	0A007h
 render_pass_sel	equ	0A008h
+panel_family	equ	0A009h
+char_pos	equ	0A00Ah
 blank_char	equ	0A00Bh
 rx_handler_sel	equ	0A00Ch
 rx_write_ptr	equ	0A00Eh
+render_ptr	equ	0A010h
 isr_mailbox	equ	0A012h
 attr_active	equ	0A013h
 display_attr	equ	0A014h
 attr_shadow	equ	0A015h
 effect_duration	equ	0A016h
 effect_duration2	equ	0A018h
+tick_wait_flags	equ	0A01Bh
+tick_wait_count	equ	0A01Ch
 watchdog_count	equ	0A01Eh
+panel_dirty	equ	0A022h
 refresh_mode	equ	0A023h
+hw_status_acc	equ	0A024h
+disp1_char_index	equ	0A025h
+clock_cmd_mailbox	equ	0A027h
+clock_key_shadow	equ	0A028h
+clock_digits	equ	0A02Ch
 state_vt	equ	0A039h
 msg_error	equ	0A03Ah
 rx_write_ptr_b	equ	0A03Bh
@@ -610,27 +629,27 @@ isr_rst55:
 	PUSH	H
 	IN	sw_port_c
 	ANI	20h
-	JZ	L02A3
+	JZ	isr_rst55_br3
 	MVI	A,01h
 	STA	in_isr_flag
 	MVI	A,4Eh
 	STA	isr_mailbox
 	LDA	rx_handler_sel
 	CPI	01h
-	JZ	L0287
+	JZ	isr_rst55_br1
 	CALL	rx_handler_a
-	JMP	L0295
-L0287:
+	JMP	isr_rst55_br2
+isr_rst55_br1:
 	CALL	rx_handler_b
 	LDA	0A07Bh
 	MOV	B,A
 	LDA	0A054h
 	XRA	B
 	STA	0A054h
-L0295:
+isr_rst55_br2:
 	SUB	A
 	STA	in_isr_flag
-L0299:
+isr_rst55_loop1:
 	POP	H
 	POP	D
 	POP	B
@@ -640,9 +659,9 @@ L0299:
 	POP	PSW
 	EI
 	RET
-L02A3:
-	CALL	L2C80
-	JMP	L0299
+isr_rst55_br3:
+	CALL	rx_handler_c
+	JMP	isr_rst55_loop1
 isr_rst75:
 	DI
 	PUSH	PSW
@@ -651,81 +670,81 @@ isr_rst75:
 	SIM
 	LDA	watchdog_count
 	CPI	00h
-	JZ	L02C0
+	JZ	isr_rst75_br1
 	CPI	01h
 	JZ	fatal_or_init
 	DCR	A
 	STA	watchdog_count
-L02C0:
-	CALL	L19FC
-	LXI	H,0A027h
+isr_rst75_br1:
+	CALL	hw_status_sample
+	LXI	H,clock_cmd_mailbox
 	MOV	A,M
 	INX	H
 	CPI	00h
-	JNZ	L02EF
-	IN	io_cd
+	JNZ	isr_rst75_br4
+	IN	clock_cmd
 	ANI	0F4h
 	CMP	M
-	JZ	L02DF
+	JZ	isr_rst75_br2
 	MOV	M,A
 	CPI	0F4h
-	JZ	L02EA
+	JZ	isr_rst75_br3
 	INX	H
 	MVI	M,0C9h
 	DCX	H
-L02DF:
+isr_rst75_br2:
 	INX	H
 	MOV	A,M
 	CPI	00h
-	JZ	L02EF
+	JZ	isr_rst75_br4
 	DCR	M
-	JNZ	L02EF
-L02EA:
+	JNZ	isr_rst75_br4
+isr_rst75_br3:
 	MVI	A,01h
-	STA	0A027h
-L02EF:
+	STA	clock_cmd_mailbox
+isr_rst75_br4:
 	LDA	attr_active
 	CPI	00h
-	JZ	L030F
+	JZ	isr_rst75_br6
 	LHLD	effect_duration
 	MOV	A,H
 	ORA	L
-	JZ	L0303
+	JZ	isr_rst75_br5
 	DCX	H
 	SHLD	effect_duration
-L0303:
+isr_rst75_br5:
 	LHLD	effect_duration2
 	MOV	A,H
 	ORA	L
-	JZ	L030F
+	JZ	isr_rst75_br6
 	DCX	H
 	SHLD	effect_duration2
-L030F:
-	LDA	0A01Bh
+isr_rst75_br6:
+	LDA	tick_wait_flags
 	CPI	00h
-	JZ	L0344
+	JZ	isr_rst75_br8
 	CPI	81h
-	JNZ	L0329
+	JNZ	isr_rst75_br7
 	LDA	0A01Ah
 	OUT	disp1_port_c
 	MVI	A,01h
-	STA	0A01Bh
-	JMP	L0344
-L0329:
-	LHLD	0A01Ch
+	STA	tick_wait_flags
+	JMP	isr_rst75_br8
+isr_rst75_br7:
+	LHLD	tick_wait_count
 	DCX	H
-	SHLD	0A01Ch
+	SHLD	tick_wait_count
 	MOV	A,H
 	ORA	L
-	JNZ	L0344
+	JNZ	isr_rst75_br8
 	SUB	A
-	STA	0A01Bh
+	STA	tick_wait_flags
 	IN	xram_page
 	CPI	0FFh
-	JZ	L0344
+	JZ	isr_rst75_br8
 	MVI	A,2Bh
 	OUT	disp1_port_c
-L0344:
+isr_rst75_br8:
 	MVI	A,40h
 	SIM
 	POP	H
@@ -742,7 +761,7 @@ init_stack:
 	CALL	init_display_ifaces
 	IN	sw_port_c
 	ANI	20h
-	JNZ	L0371
+	JNZ	init_stack_br1
 	SUB	A
 	STA	rx_handler_sel
 	MVI	A,20h
@@ -750,10 +769,10 @@ init_stack:
 	STA	0A080h
 	MVI	A,0A0h
 	STA	0A07Dh
-L0371:
+init_stack_br1:
 	LDA	rx_handler_sel
 	CPI	00h
-	CNZ	L07DA
+	CNZ	init_clear_state
 	MVI	A,1Ah
 	SIM
 	EI
@@ -761,18 +780,18 @@ L0371:
 	ANI	20h
 	JZ	main_loop
 	MVI	A,06h
-	STA	0A027h
+	STA	clock_cmd_mailbox
 	LDA	refresh_mode
 	CPI	00h
-	JNZ	L039A
-L0391:
+	JNZ	init_stack_loop3
+init_stack_loop1:
 	CALL	render_task
-	JMP	L0391
-L0397:
+	JMP	init_stack_loop1
+init_stack_loop2:
 	CALL	render_task
-L039A:
+init_stack_loop3:
 	CALL	attr_age
-	CALL	L2A62
+	CALL	clock_service
 poll_rx_state:
 	MVI	C,4Eh
 	LXI	H,isr_mailbox
@@ -782,8 +801,8 @@ poll_rx_state:
 	EI
 	MOV	A,B
 	CPI	4Ah
-	JZ	L0397
-	JMP	L039A
+	JZ	init_stack_loop2
+	JMP	init_stack_loop3
 main_loop:
 	CALL	attr_age
 	LDA	status_flags_b
@@ -796,19 +815,19 @@ main_loop:
 	LXI	H,state_vt
 	LDA	render_count
 	MOV	B,A
-L03CE:
+main_loop_loop1:
 	PUSH	H
 	PUSH	B
 	MVI	B,61h
 	MVI	C,03h
 	MOV	A,M
 	LHLD	rx_write_ptr
-	CALL	L08DA
+	CALL	rx_a_store_byte
 	POP	B
 	POP	H
 	INX	H
 	DCR	B
-	JNZ	L03CE
+	JNZ	main_loop_loop1
 	LDA	status_flags_b
 	ANI	1Fh
 	ORI	20h
@@ -876,71 +895,71 @@ clear_ram_f0:
 	LXI	H,0A000h
 	MVI	B,0F0h
 	SUB	A
-L045F:
+clear_ram_f0_loop1:
 	MOV	M,A
 	INX	H
 	DCR	B
-	JNZ	L045F
-	JMP	L055A
+	JNZ	clear_ram_f0_loop1
+	JMP	init_uart_from_switches_br2
 init_alt_path:
 	SUB	A
 clear_ram_80:
 	LXI	H,0A000h
 	MVI	B,80h
-L046E:
+clear_ram_80_loop1:
 	MOV	M,A
 	INX	H
 	DCR	B
-	JNZ	L046E
+	JNZ	clear_ram_80_loop1
 select_baud_rate:
 	IN	sw_port_b
 	ANI	0E0h
 	CPI	00h
-	JZ	L04D2
+	JZ	baud_9600_br5
 	CPI	20h
-	JZ	L04C5
+	JZ	baud_9600_br4
 	CPI	40h
-	JZ	L04B8
+	JZ	baud_9600_br3
 	CPI	60h
-	JZ	L04AB
+	JZ	baud_9600_br2
 	CPI	80h
-	JZ	L049E
+	JZ	baud_9600_br1
 baud_9600:
 	MVI	A,14h
 	STA	timer_preload_lo
 	MVI	A,40h
 	STA	timer_preload_hi
-	JMP	L04DC
-L049E:
+	JMP	baud_9600_br6
+baud_9600_br1:
 	MVI	A,28h
 	STA	timer_preload_lo
 	MVI	A,40h
 	STA	timer_preload_hi
-	JMP	L04DC
-L04AB:
+	JMP	baud_9600_br6
+baud_9600_br2:
 	MVI	A,50h
 	STA	timer_preload_lo
 	MVI	A,40h
 	STA	timer_preload_hi
-	JMP	L04DC
-L04B8:
+	JMP	baud_9600_br6
+baud_9600_br3:
 	MVI	A,0A0h
 	STA	timer_preload_lo
 	MVI	A,40h
 	STA	timer_preload_hi
-	JMP	L04DC
-L04C5:
+	JMP	baud_9600_br6
+baud_9600_br4:
 	MVI	A,40h
 	STA	timer_preload_lo
 	MVI	A,41h
 	STA	timer_preload_hi
-	JMP	L04DC
-L04D2:
+	JMP	baud_9600_br6
+baud_9600_br5:
 	MVI	A,80h
 	STA	timer_preload_lo
 	MVI	A,42h
 	STA	timer_preload_hi
-L04DC:
+baud_9600_br6:
 	LDA	timer_preload_lo
 	OUT	sw_timer_lo
 	LDA	timer_preload_hi
@@ -950,49 +969,49 @@ L04DC:
 	MVI	B,02h
 	IN	sw_port_b
 	ANI	10h
-	JZ	L04FA
+	JZ	baud_9600_br7
 	MVI	A,08h
 	ORA	B
 	MOV	B,A
-	JMP	L04FE
-L04FA:
+	JMP	baud_9600_br8
+baud_9600_br7:
 	MVI	A,0Ch
 	ORA	B
 	MOV	B,A
-L04FE:
+baud_9600_br8:
 	IN	sw_port_b
 	ANI	08h
-	JZ	L051C
+	JZ	baud_9600_br10
 	IN	sw_port_b
 	ANI	0Ch
 	CPI	08h
-	JZ	L0515
+	JZ	baud_9600_br9
 	MVI	A,30h
 	ORA	B
 	MOV	B,A
-	JMP	L0520
-L0515:
+	JMP	baud_9600_br11
+baud_9600_br9:
 	MVI	A,10h
 	ORA	B
 	MOV	B,A
-	JMP	L0520
-L051C:
+	JMP	baud_9600_br11
+baud_9600_br10:
 	MVI	A,00h
 	ORA	B
 	MOV	B,A
-L0520:
+baud_9600_br11:
 	IN	sw_port_b
 	ANI	02h
-	JZ	L052E
+	JZ	baud_9600_br12
 	MVI	A,0C0h
 	ORA	B
 	MOV	B,A
-	JMP	L0532
-L052E:
+	JMP	baud_9600_br13
+baud_9600_br12:
 	MVI	A,40h
 	ORA	B
 	MOV	B,A
-L0532:
+baud_9600_br13:
 	SUB	A
 init_uart_from_switches:
 	OUT	uart_ctrl
@@ -1007,14 +1026,14 @@ init_uart_from_switches:
 	OUT	uart_ctrl
 	IN	sw_port_b
 	ANI	01h
-	JZ	L0556
+	JZ	init_uart_from_switches_br1
 	MVI	A,01h
 	STA	render_pass_sel
-	JMP	L055A
-L0556:
+	JMP	init_uart_from_switches_br2
+init_uart_from_switches_br1:
 	SUB	A
 	STA	render_pass_sel
-L055A:
+init_uart_from_switches_br2:
 	IN	sw_port_a
 	ANI	1Fh
 	ORI	60h
@@ -1025,140 +1044,140 @@ L055A:
 	IN	sw_port_c
 	ANI	1Fh
 	CPI	1Fh
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	00h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	01h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	02h
-	JZ	L065F
+	JZ	init_uart_from_switches_br16
 	CPI	03h
-	JZ	L065A
+	JZ	init_uart_from_switches_br15
 	CPI	04h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	05h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	06h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	07h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	08h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	09h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	0Ah
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	0Bh
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	0Ch
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	0Dh
-	JZ	L0619
+	JZ	init_uart_from_switches_br5
 	CPI	0Eh
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	0Fh
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	10h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	11h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	12h
-	JZ	L0641
+	JZ	init_uart_from_switches_br10
 	CPI	13h
-	JZ	L0655
+	JZ	init_uart_from_switches_br14
 	CPI	14h
-	JZ	L0646
+	JZ	init_uart_from_switches_br11
 	CPI	15h
-	JZ	L064B
+	JZ	init_uart_from_switches_br12
 	CPI	16h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	17h
-	JZ	L0650
+	JZ	init_uart_from_switches_br13
 	CPI	18h
-	JZ	L061E
+	JZ	init_uart_from_switches_br6
 	CPI	19h
-	JZ	L060F
+	JZ	init_uart_from_switches_br3
 	CPI	1Ah
-	JZ	L0637
+	JZ	init_uart_from_switches_br8
 	CPI	1Bh
-	JZ	L062D
+	JZ	init_uart_from_switches_br7
 	CPI	1Ch
-	JZ	L0614
+	JZ	init_uart_from_switches_br4
 	CPI	1Dh
-	JZ	L0619
+	JZ	init_uart_from_switches_br5
 	CPI	1Eh
-	JZ	L063C
-L060F:
+	JZ	init_uart_from_switches_br9
+init_uart_from_switches_br3:
 	MVI	A,00h
-	JMP	L0661
-L0614:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br4:
 	MVI	A,02h
-	JMP	L0661
-L0619:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br5:
 	MVI	A,03h
-	JMP	L0661
-L061E:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br6:
 	MVI	A,04h
-	JMP	L0661
+	JMP	init_uart_from_switches_br17
 	MVI	A,05h
-	JMP	L0661
+	JMP	init_uart_from_switches_br17
 	MVI	A,06h
-	JMP	L0661
-L062D:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br7:
 	MVI	A,07h
-	JMP	L0661
+	JMP	init_uart_from_switches_br17
 	MVI	A,08h
-	JMP	L0661
-L0637:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br8:
 	MVI	A,09h
-	JMP	L0661
-L063C:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br9:
 	MVI	A,0Ah
-	JMP	L0661
-L0641:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br10:
 	MVI	A,00h
-	JMP	L0661
-L0646:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br11:
 	MVI	A,0Ch
-	JMP	L0661
-L064B:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br12:
 	MVI	A,0Dh
-	JMP	L0661
-L0650:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br13:
 	MVI	A,0Eh
-	JMP	L0661
-L0655:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br14:
 	MVI	A,10h
-	JMP	L0661
-L065A:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br15:
 	MVI	A,11h
-	JMP	L0661
-L065F:
+	JMP	init_uart_from_switches_br17
+init_uart_from_switches_br16:
 	MVI	A,12h
-L0661:
-	STA	0A009h
+init_uart_from_switches_br17:
+	STA	panel_family
 	IN	sw_port_a
 	ANI	20h
-	JZ	L0670
+	JZ	init_uart_from_switches_br18
 	MVI	A,3Fh
-	JMP	L0672
-L0670:
+	JMP	init_uart_from_switches_br19
+init_uart_from_switches_br18:
 	MVI	A,20h
-L0672:
+init_uart_from_switches_br19:
 	STA	blank_char
 select_rx_protocol:
 	IN	xram_page
 	CPI	0FFh
-	JNZ	L0683
+	JNZ	select_rx_protocol_br1
 	IN	sw_port_a
 	ANI	40h
-	JZ	L0688
-L0683:
+	JZ	select_rx_protocol_br2
+select_rx_protocol_br1:
 	MVI	A,01h
-	JMP	L0689
-L0688:
+	JMP	select_rx_protocol_br3
+select_rx_protocol_br2:
 	SUB	A
-L0689:
+select_rx_protocol_br3:
 	STA	rx_handler_sel
 	SUB	A
 	OUT	disp0_port_a
@@ -1167,73 +1186,73 @@ L0689:
 	STA	0A000h
 	STA	0A001h
 	STA	0A002h
-	LDA	0A009h
+	LDA	panel_family
 	CPI	00h
-	JZ	L072C
+	JZ	select_rx_protocol_br10
 	CPI	01h
-	JZ	L0707
+	JZ	select_rx_protocol_br5
 	CPI	02h
-	JZ	L0707
+	JZ	select_rx_protocol_br5
 	CPI	03h
-	JZ	L0707
+	JZ	select_rx_protocol_br5
 	CPI	04h
-	JZ	L0707
+	JZ	select_rx_protocol_br5
 	CPI	05h
-	JZ	L0707
+	JZ	select_rx_protocol_br5
 	CPI	06h
-	JZ	L0715
+	JZ	select_rx_protocol_br7
 	CPI	07h
-	JZ	L0715
+	JZ	select_rx_protocol_br7
 	CPI	08h
-	JZ	L071F
+	JZ	select_rx_protocol_br8
 	CPI	09h
-	JZ	L070B
+	JZ	select_rx_protocol_br6
 	CPI	0Ah
-	JZ	L0707
+	JZ	select_rx_protocol_br5
 	CPI	0Bh
-	JZ	L070B
+	JZ	select_rx_protocol_br6
 	CPI	10h
-	JZ	L06F6
+	JZ	select_rx_protocol_br4
 	CPI	11h
-	JZ	L06F6
+	JZ	select_rx_protocol_br4
 	CPI	12h
-	JZ	L06F6
+	JZ	select_rx_protocol_br4
 	MVI	A,0Dh
 	OUT	disp0_cmd
 	SUB	A
 	OUT	disp0_port_a
 	OUT	disp0_port_c
-	JMP	L072C
-L06F6:
+	JMP	select_rx_protocol_br10
+select_rx_protocol_br4:
 	MVI	A,80h
 	OUT	disp0_port_b
 	STA	0A001h
 	MVI	A,20h
 	OUT	disp0_port_c
 	STA	0A002h
-	JMP	L072C
-L0707:
+	JMP	select_rx_protocol_br10
+select_rx_protocol_br5:
 	SUB	A
-	JMP	L0727
-L070B:
+	JMP	select_rx_protocol_br9
+select_rx_protocol_br6:
 	MVI	A,0FFh
-	JMP	L0727
+	JMP	select_rx_protocol_br9
 	MVI	A,40h
-	JMP	L0727
-L0715:
+	JMP	select_rx_protocol_br9
+select_rx_protocol_br7:
 	MVI	A,80h
 	OUT	disp0_port_a
 	STA	0A000h
-	JMP	L072C
-L071F:
+	JMP	select_rx_protocol_br10
+select_rx_protocol_br8:
 	MVI	A,0F6h
 	STA	0A002h
 	OUT	disp0_port_c
 	SUB	A
-L0727:
+select_rx_protocol_br9:
 	STA	0A001h
 	OUT	disp0_port_b
-L072C:
+select_rx_protocol_br10:
 	LDA	frame_start_char
 	LXI	H,0E000h
 	CALL	xram_write
@@ -1249,8 +1268,8 @@ L072C:
 	LXI	D,shadow_buffer
 	IN	sw_port_a
 	ANI	80h
-	JNZ	L0773
-L075A:
+	JNZ	select_rx_protocol_loop2
+select_rx_protocol_loop1:
 	MVI	A,20h
 	CALL	xram_write
 	XCHG
@@ -1262,10 +1281,10 @@ L075A:
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L075A
+	JNZ	select_rx_protocol_loop1
 	MVI	A,4Ah
-	JMP	L0785
-L0773:
+	JMP	select_rx_protocol_br11
+select_rx_protocol_loop2:
 	CALL	xram_read
 	XCHG
 	CALL	xram_write
@@ -1275,13 +1294,13 @@ L0773:
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L0773
+	JNZ	select_rx_protocol_loop2
 	MVI	A,4Eh
-L0785:
+select_rx_protocol_br11:
 	STA	isr_mailbox
 	LDA	render_pass_sel
 	CPI	00h
-	JZ	L07A5
+	JZ	select_rx_protocol_br12
 	LDA	frame_end_char
 	LXI	H,0E03Bh
 	LXI	D,0E07Dh
@@ -1295,138 +1314,138 @@ L0785:
 	MOV	M,A
 	XCHG
 	MOV	M,A
-L07A5:
+select_rx_protocol_br12:
 	MVI	A,00h
 	STA	refresh_mode
 	CPI	0FFh
 	RZ
-	LDA	0A009h
+	LDA	panel_family
 	CPI	02h
-	JZ	L07D4
+	JZ	select_rx_protocol_br13
 	CPI	08h
-	JZ	L07D4
+	JZ	select_rx_protocol_br13
 	CPI	09h
-	JZ	L07D4
+	JZ	select_rx_protocol_br13
 	CPI	0Bh
-	JZ	L07D4
+	JZ	select_rx_protocol_br13
 	CPI	0Ch
-	JZ	L07D4
+	JZ	select_rx_protocol_br13
 	CPI	0Dh
-	JZ	L07D4
+	JZ	select_rx_protocol_br13
 	CPI	0Eh
-	JZ	L07D4
+	JZ	select_rx_protocol_br13
 	RET
-L07D4:
+select_rx_protocol_br13:
 	MVI	A,0FFh
 	STA	refresh_mode
 	RET
-L07DA:
+init_clear_state:
 	LXI	H,state_vt
 	MVI	B,37h
 	SUB	A
 	STA	0A00Dh
-L07E3:
+init_clear_state_loop1:
 	MOV	M,A
 	INX	H
 	DCR	B
-	JNZ	L07E3
+	JNZ	init_clear_state_loop1
 	MVI	A,01h
 	CPI	01h
-	JZ	L07FB
+	JZ	init_clear_state_br1
 	MVI	A,01h
 	STA	second_display_sel
 	LXI	H,font_5x7
 	SHLD	0A064h
-L07FB:
+init_clear_state_br1:
 	LDA	007Ah
 	CPI	00h
-	JZ	L080F
+	JZ	init_clear_state_br2
 	CPI	0FFh
-	JNZ	L0817
+	JNZ	init_clear_state_br3
 	IN	sw_port_a
 	ANI	1Fh
-	JNZ	L0817
-L080F:
+	JNZ	init_clear_state_br3
+init_clear_state_br2:
 	MVI	A,01h
 	STA	selected
 	STA	0A06Fh
-L0817:
+init_clear_state_br3:
 	CALL	sod_pulse
 	MVI	B,02h
 	CALL	delay_183ms
 	CALL	sod_pulse
 	IN	sw_port_b
 	ANI	01h
-	JZ	L0831
+	JZ	init_clear_state_br4
 	STA	alt_state
 	MVI	A,23h
 	STA	enq_param
-L0831:
+init_clear_state_br4:
 	IN	sw_port_a
 	ANI	80h
-	JNZ	L088A
+	JNZ	init_clear_state_br5
 	LXI	H,msg_buffer
 	LXI	B,tbl_0040
-L083E:
+init_clear_state_loop2:
 	MVI	A,20h
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L083E
+	JNZ	init_clear_state_loop2
 	LXI	H,shadow_buffer
 	LXI	B,tbl_0040
-L0850:
+init_clear_state_loop3:
 	MVI	A,23h
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L0850
+	JNZ	init_clear_state_loop3
 	CALL	sod_pulse
 	LDA	second_display_sel
 	CPI	01h
-	JNZ	L088A
+	JNZ	init_clear_state_br5
 	LXI	H,msg_buffer2
 	LXI	B,tbl_0040
-L086D:
+init_clear_state_loop4:
 	SUB	A
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L086D
+	JNZ	init_clear_state_loop4
 	LXI	H,shadow_buffer2
 	LXI	B,tbl_0040
-L087E:
+init_clear_state_loop5:
 	MVI	A,0FFh
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L087E
-L088A:
+	JNZ	init_clear_state_loop5
+init_clear_state_br5:
 	MVI	A,00h
 	CPI	00h
-	JZ	L089D
+	JZ	init_clear_state_br6
 	CALL	line_turnaround
 	LXI	H,00DEh
-	CALL	L1A74
+	CALL	send_ram_string
 	CALL	reply_cleanup
-L089D:
+init_clear_state_br6:
 	LXI	H,msg_buffer
 	SHLD	rx_write_ptr_b
 	LDA	008Ah
 	ANI	09h
 	CPI	01h
-	JZ	L08B1
+	JZ	init_clear_state_br7
 	MVI	A,37h
 	OUT	uart_ctrl
-L08B1:
+init_clear_state_br7:
 	MVI	A,03h
 	STA	frame_end_char
 	RET
@@ -1439,56 +1458,56 @@ rx_handler_a:
 	IN	uart_ctrl
 	ANI	78h
 	CPI	08h
-	JZ	L093F
+	JZ	rx_a_store_byte_br4
 	CPI	00h
-	JNZ	L094B
+	JNZ	rx_a_store_byte_br5
 	LDA	render_pass_sel
 	CPI	01h
-	JZ	L097B
+	JZ	rx_a_store_byte_br7
 	IN	uart_data
-L08DA:
+rx_a_store_byte:
 	MOV	D,A
 	CMP	B
-	JZ	L0915
+	JZ	rx_a_store_byte_loop2
 	CPI	7Dh
-	JZ	L09A3
+	JZ	rx_a_store_byte_br8
 	CPI	7Ch
-	JZ	L09D6
+	JZ	rx_a_store_byte_br12
 	CPI	7Fh
-	JZ	L09E1
-L08EE:
+	JZ	rx_a_store_byte_br13
+rx_a_store_byte_loop1:
 	CMP	C
-	JZ	L0924
+	JZ	rx_a_store_byte_br2
 	LDA	0A00Dh
 	CMP	C
 	RZ
 	MOV	A,D
 	ANI	80h
-	JNZ	L0910
+	JNZ	rx_a_store_byte_br1
 	MOV	A,D
 	ANI	60h
 	RZ
 	CPI	60h
-	JZ	L093A
+	JZ	rx_a_store_byte_br3
 	MOV	M,D
 	LDA	blank_char
 	CMP	D
-	JNZ	L0910
+	JNZ	rx_a_store_byte_br1
 	MVI	M,20h
-L0910:
+rx_a_store_byte_br1:
 	INX	H
 	SHLD	rx_write_ptr
 	RET
-L0915:
+rx_a_store_byte_loop2:
 	LXI	H,0E000h
 	STA	0A026h
-L091B:
+rx_a_store_byte_loop3:
 	STA	0A00Dh
 	MOV	M,A
 	INX	H
 	SHLD	rx_write_ptr
 	RET
-L0924:
+rx_a_store_byte_br2:
 	LDA	0A00Dh
 	CMP	C
 	RZ
@@ -1498,32 +1517,32 @@ L0924:
 	MVI	A,4Ah
 	STA	isr_mailbox
 	RET
-L0934:
+rx_a_store_byte_loop4:
 	LXI	H,0E03Ch
-	JMP	L091B
-L093A:
+	JMP	rx_a_store_byte_loop3
+rx_a_store_byte_br3:
 	MOV	A,C
 	STA	0A00Dh
 	RET
-L093F:
+rx_a_store_byte_br4:
 	IN	uart_data
 	MVI	A,17h
 	OUT	uart_ctrl
 	MVI	A,23h
 	MOV	D,A
-	JMP	L08EE
-L094B:
+	JMP	rx_a_store_byte_loop1
+rx_a_store_byte_br5:
 	LDA	frame_end_char
 	STA	0A00Dh
 	MOV	M,A
 	LDA	render_pass_sel
 	CPI	00h
 	MVI	A,4Eh
-	JZ	L0963
+	JZ	rx_a_store_byte_br6
 	MVI	A,11h
 	STA	0A026h
 	MVI	A,4Ah
-L0963:
+rx_a_store_byte_br6:
 	STA	isr_mailbox
 	SUB	A
 	OUT	uart_ctrl
@@ -1536,43 +1555,43 @@ L0963:
 	MVI	A,17h
 	OUT	uart_ctrl
 	RET
-L097B:
+rx_a_store_byte_br7:
 	IN	uart_data
 	MOV	D,A
 	CMP	B
-	JZ	L0915
+	JZ	rx_a_store_byte_loop2
 	INR	B
 	CMP	B
-	JZ	L0934
+	JZ	rx_a_store_byte_loop4
 	CPI	11h
-	JZ	L0AC7
+	JZ	attr_split_br3
 	CPI	12h
-	JZ	L0915
+	JZ	rx_a_store_byte_loop2
 	CPI	66h
-	JZ	L09A3
+	JZ	rx_a_store_byte_br8
 	CPI	65h
-	JZ	L09BF
+	JZ	rx_a_store_byte_br10
 	CPI	64h
-	JZ	L09C5
-	JMP	L08EE
-L09A3:
+	JZ	rx_a_store_byte_br11
+	JMP	rx_a_store_byte_loop1
+rx_a_store_byte_br8:
 	IN	sw_port_c
 	ANI	20h
-	JZ	L09B9
+	JZ	rx_a_store_byte_br9
 	LXI	H,0050h
-L09AD:
+rx_a_store_byte_loop5:
 	SHLD	effect_duration
 	LDA	display_attr
 	ORI	02h
 	STA	display_attr
 	RET
-L09B9:
+rx_a_store_byte_br9:
 	LXI	H,07D0h
-	JMP	L09AD
-L09BF:
+	JMP	rx_a_store_byte_loop5
+rx_a_store_byte_br10:
 	LXI	H,1F40h
-	JMP	L09AD
-L09C5:
+	JMP	rx_a_store_byte_loop5
+rx_a_store_byte_br11:
 	LXI	H,0028h
 	SHLD	effect_duration2
 	LDA	display_attr
@@ -1580,18 +1599,18 @@ L09C5:
 	ORI	01h
 	STA	display_attr
 	RET
-L09D6:
+rx_a_store_byte_br12:
 	LDA	display_attr
 	ANI	7Fh
 	ORI	05h
 	STA	display_attr
 	RET
-L09E1:
+rx_a_store_byte_br13:
 	LDA	display_attr
 	ANI	0FAh
 	ORI	80h
 	STA	display_attr
-	JMP	L09FC
+	JMP	attr_apply_br1
 	MVI	A,4Ah
 	STA	isr_mailbox
 attr_apply:
@@ -1600,7 +1619,7 @@ attr_apply:
 	LDA	display_attr
 	CMP	B
 	RZ
-L09FC:
+attr_apply_br1:
 	STA	attr_shadow
 	IN	sw_port_c
 	ANI	1Fh
@@ -1695,11 +1714,11 @@ attr_split:
 	MOV	B,A
 	MOV	A,C
 	ANI	01h
-	JZ	L0AB1
+	JZ	attr_split_br1
 	MOV	A,B
 	ORI	20h
 	MOV	B,A
-L0AB1:
+attr_split_br1:
 	MOV	A,B
 	OUT	disp0_port_c
 	IN	disp0_port_b
@@ -1707,15 +1726,15 @@ L0AB1:
 	MOV	B,A
 	MOV	A,C
 	ANI	02h
-	JZ	L0AC3
+	JZ	attr_split_br2
 	MOV	A,B
 	ORI	80h
 	MOV	B,A
-L0AC3:
+attr_split_br2:
 	MOV	A,B
 	OUT	disp0_port_b
 	RET
-L0AC7:
+attr_split_br3:
 	STA	0A026h
 	RET
 rx_handler_b:
@@ -1723,63 +1742,63 @@ rx_handler_b:
 	STA	0A07Bh
 	LDA	selected
 	CPI	00h
-	JNZ	L0B08
+	JNZ	rx_handler_b_br1
 	LDA	state_gs
 	CPI	00h
 	JNZ	param_gs_address
 	LDA	state_eot
 	CPI	00h
-	JNZ	L1115
+	JNZ	cmd_eot_br1
 	LDA	state_vt
 	CPI	00h
-	JNZ	L0CB7
+	JNZ	cmd_vt_position_br1
 	IN	uart_data
 	CPI	04h
 	JZ	cmd_eot
 	CPI	0Bh
 	JZ	cmd_vt_position
 	CPI	1Dh
-	JNZ	L0C70
+	JNZ	rx_b_return
 	MVI	A,01h
 	STA	state_gs
-	JMP	L0C70
-L0B08:
+	JMP	rx_b_return
+rx_handler_b_br1:
 	LDA	state_gs
 	CPI	00h
 	JNZ	param_gs_address
 	LDA	0A053h
 	CPI	00h
-	JNZ	L0FD0
+	JNZ	build_address_byte_br6
 	LDA	state_bel
 	CPI	00h
 	JNZ	param_bel_attr
 	LDA	state_vt
 	CPI	00h
-	JNZ	L0CB7
+	JNZ	cmd_vt_position_br1
 	LDA	state_enq
 	CPI	00h
 	JNZ	param_enq
 	LDA	state_esc
 	CPI	00h
-	JNZ	L0EA2
+	JNZ	cmd_esc_br1
 	LDA	state_eot
 	CPI	00h
-	JNZ	L1115
+	JNZ	cmd_eot_br1
 	IN	uart_ctrl
 	ANI	78h
 	STA	0A04Fh
 	CPI	08h
-	JZ	L0C77
+	JZ	rx_b_return_br1
 	CPI	00h
-	JNZ	L0C94
+	JNZ	rx_b_return_br4
 	IN	uart_data
 	STA	0A07Bh
-L0B56:
+rx_handler_b_loop1:
 	PUSH	PSW
 	LDA	0070h
 	CPI	01h
-	JZ	L1C00
-L0B5F:
+	JZ	send_buffer_until_ff_br1
+rx_handler_b_loop2:
 	POP	PSW
 	MOV	B,A
 	LDA	0079h
@@ -1788,13 +1807,13 @@ L0B5F:
 	MOV	A,B
 	ANI	0F0h
 	CPI	00h
-	JZ	L0D0E
+	JZ	cmd_vt_position_br3
 	CPI	10h
-	JZ	L0D0E
+	JZ	cmd_vt_position_br3
 rx_command_dispatch:
 	MOV	A,B
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	CPI	10h
 	JZ	fatal_or_init
 	CPI	0Ch
@@ -1826,9 +1845,9 @@ rx_command_dispatch:
 	CPI	0Fh
 	JZ	cmd_si_read_screen
 	CPI	1Ch
-	JZ	L0C70
+	JZ	rx_b_return
 	CPI	1Fh
-	JZ	L0C70
+	JZ	rx_b_return
 	CPI	1Ah
 	JZ	cmd_sub_identify
 	CPI	1Bh
@@ -1846,16 +1865,16 @@ rx_command_dispatch:
 	CPI	07h
 	JZ	cmd_bel
 	CPI	08h
-	JZ	L10E1
+	JZ	param_bel_attr_br1
 	CPI	1Eh
 	JZ	cmd_rs
 	ANI	0F0h
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	CPI	10h
-	JZ	L0C70
+	JZ	rx_b_return
 	MOV	A,B
-L0C10:
+rx_command_dispatch_loop1:
 	LHLD	rx_write_ptr_b
 	CALL	xram_write
 	MVI	A,4Ah
@@ -1867,17 +1886,17 @@ cmd_dc2_right:
 	INR	A
 	STA	cursor_col
 	CPI	40h
-	JNZ	L0C36
+	JNZ	cmd_dc2_right_loop1
 	SUB	A
 	STA	cursor_col
 	LDA	cursor_row
 	INR	A
 	STA	cursor_row
-L0C36:
+cmd_dc2_right_loop1:
 	SHLD	rx_write_ptr_b
 	LDA	state_vt
 	CPI	00h
-	JNZ	L0C70
+	JNZ	rx_b_return
 check_buffer_bounds:
 	LXI	H,msg_buffer
 	LXI	D,tbl_0040
@@ -1886,46 +1905,46 @@ check_buffer_bounds:
 	LHLD	rx_write_ptr_b
 	MOV	A,D
 	CMP	H
-	JC	L0C59
-	JNZ	L0C70
+	JC	check_buffer_bounds_br1
+	JNZ	rx_b_return
 	MOV	A,E
 	CMP	L
-	JNC	L0C70
-L0C59:
+	JNC	rx_b_return
+check_buffer_bounds_br1:
 	XCHG
 	SUB	A
 	STA	cursor_col
 	MVI	A,01h
 	STA	cursor_row
 	SHLD	rx_write_ptr_b
-L0C66:
+check_buffer_bounds_loop1:
 	MVI	A,01h
 	STA	0A04Fh
 	MVI	A,30h
 	STA	msg_error
-L0C70:
+rx_b_return:
 	RET
-L0C71:
+rx_b_return_loop1:
 	MVI	A,4Ah
 	STA	isr_mailbox
 	RET
-L0C77:
+rx_b_return_br1:
 	IN	uart_data
-L0C79:
+rx_b_return_loop2:
 	LDA	008Ah
 	ANI	01h
-	JZ	L0C86
+	JZ	rx_b_return_br2
 	MVI	A,17h
-	JMP	L0C88
-L0C86:
+	JMP	rx_b_return_br3
+rx_b_return_br2:
 	MVI	A,37h
-L0C88:
+rx_b_return_br3:
 	OUT	uart_ctrl
 	MVI	A,30h
 	STA	msg_error
 	MVI	A,23h
-	JMP	L0B56
-L0C94:
+	JMP	rx_handler_b_loop1
+rx_b_return_br4:
 	SUB	A
 	OUT	uart_ctrl
 	OUT	uart_ctrl
@@ -1934,24 +1953,24 @@ L0C94:
 	OUT	uart_ctrl
 	LDA	uart_mode_word
 	OUT	uart_ctrl
-	JMP	L0C79
+	JMP	rx_b_return_loop2
 cmd_vt_position:
 	MVI	A,01h
 	STA	state_vt
 	LDA	0A06Fh
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	JMP	check_buffer_bounds
-L0CB7:
+cmd_vt_position_br1:
 	CPI	01h
-	JNZ	L0CE9
+	JNZ	cmd_vt_position_br2
 	INR	A
 	STA	state_vt
 	IN	uart_data
 	STA	0A07Bh
 	LDA	0A06Fh
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	LDA	0A07Bh
 	ANI	7Fh
 	SUI	30h
@@ -1959,14 +1978,14 @@ L0CB7:
 	STA	cursor_row
 	LXI	H,msg_buffer
 	LXI	B,tbl_0040
-L0CDE:
+cmd_vt_position_loop1:
 	MOV	A,D
 	CPI	00h
-	JZ	L0C36
+	JZ	cmd_dc2_right_loop1
 	DAD	B
 	DCR	D
-	JMP	L0CDE
-L0CE9:
+	JMP	cmd_vt_position_loop1
+cmd_vt_position_br2:
 	SUB	A
 	STA	state_vt
 	LHLD	rx_write_ptr_b
@@ -1974,7 +1993,7 @@ L0CE9:
 	STA	0A07Bh
 	LDA	0A06Fh
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	LDA	0A07Bh
 	ANI	7Fh
 	SUI	30h
@@ -1982,8 +2001,8 @@ L0CE9:
 	MOV	C,A
 	MVI	B,00h
 	DAD	B
-	JMP	L0C36
-L0D0E:
+	JMP	cmd_dc2_right_loop1
+cmd_vt_position_br3:
 	LXI	H,tbl_halve
 	MVI	D,00h
 	MOV	E,B
@@ -1995,90 +2014,90 @@ L0D0E:
 cmd_cr:
 	LHLD	rx_write_ptr_b
 	LDA	cursor_col
-L0D21:
+cmd_cr_loop1:
 	CPI	00h
-	JZ	L0D2B
+	JZ	cmd_cr_br1
 	DCR	A
 	DCX	H
-	JMP	L0D21
-L0D2B:
+	JMP	cmd_cr_loop1
+cmd_cr_br1:
 	STA	cursor_col
-	JMP	L0C36
+	JMP	cmd_dc2_right_loop1
 cmd_lf:
 	LHLD	rx_write_ptr_b
 	LDA	cursor_col
-L0D37:
+cmd_lf_loop1:
 	CPI	40h
-	JZ	L0D41
+	JZ	cmd_lf_br1
 	INR	A
 	INX	H
-	JMP	L0D37
-L0D41:
+	JMP	cmd_lf_loop1
+cmd_lf_br1:
 	LDA	cursor_row
 	INR	A
 	CPI	01h
-	JZ	L0C66
+	JZ	check_buffer_bounds_loop1
 	STA	cursor_row
 	SUB	A
 	STA	cursor_col
-	JMP	L0C36
+	JMP	cmd_dc2_right_loop1
 cmd_dc1_up:
 	LHLD	rx_write_ptr_b
 	MVI	B,40h
-L0D59:
+cmd_dc1_up_loop1:
 	DCX	H
 	DCR	B
-	JNZ	L0D59
+	JNZ	cmd_dc1_up_loop1
 	LDA	cursor_row
 	CPI	00h
-	JZ	L0C66
+	JZ	check_buffer_bounds_loop1
 	DCR	A
 	STA	cursor_row
-	JMP	L0C36
+	JMP	cmd_dc2_right_loop1
 cmd_dc3_left:
 	LHLD	rx_write_ptr_b
 	DCX	H
 	LDA	cursor_col
 	CPI	00h
-	JZ	L0D80
+	JZ	cmd_dc3_left_br1
 	DCR	A
 	STA	cursor_col
-	JMP	L0C36
-L0D80:
+	JMP	cmd_dc2_right_loop1
+cmd_dc3_left_br1:
 	LDA	cursor_row
 	CPI	00h
-	JZ	L0C66
+	JZ	check_buffer_bounds_loop1
 	DCR	A
 	STA	cursor_row
 	MVI	A,3Fh
 	STA	cursor_col
-	JMP	L0C36
+	JMP	cmd_dc2_right_loop1
 cmd_dc4_down:
 	LHLD	rx_write_ptr_b
 	LXI	B,tbl_0040
 	DAD	B
 	LDA	cursor_row
 	CPI	00h
-	JZ	L0C66
+	JZ	check_buffer_bounds_loop1
 	INR	A
 	STA	cursor_row
-	JMP	L0C36
+	JMP	cmd_dc2_right_loop1
 cmd_etb_erase_eol:
 	LHLD	rx_write_ptr_b
 	LDA	cursor_row
 	CPI	01h
-	JZ	L0C66
+	JZ	check_buffer_bounds_loop1
 	LDA	cursor_col
 	MOV	B,A
-L0DB9:
+cmd_etb_erase_eol_loop1:
 	MOV	A,B
 	CPI	40h
-	JZ	L0C71
+	JZ	rx_b_return_loop1
 	MVI	A,20h
 	CALL	xram_write
 	INX	H
 	INR	B
-	JMP	L0DB9
+	JMP	cmd_etb_erase_eol_loop1
 cmd_em_erase_eos:
 	LHLD	rx_write_ptr_b
 	LDA	cursor_row
@@ -2087,22 +2106,22 @@ cmd_em_erase_eos:
 	MOV	B,A
 	LDA	cursor_col
 	MOV	C,A
-L0DD9:
+cmd_em_erase_eos_loop1:
 	MOV	A,C
 	CPI	40h
-	JZ	L0DE9
+	JZ	cmd_em_erase_eos_br1
 	MVI	A,20h
 	CALL	xram_write
 	INX	H
 	INR	C
-	JMP	L0DD9
-L0DE9:
+	JMP	cmd_em_erase_eos_loop1
+cmd_em_erase_eos_br1:
 	INR	B
 	MOV	A,B
 	CPI	01h
-	JZ	L0C71
+	JZ	rx_b_return_loop1
 	MVI	C,00h
-	JMP	L0DD9
+	JMP	cmd_em_erase_eos_loop1
 cmd_tab_report_cursor:
 	CALL	line_turnaround
 	LXI	H,report_prefix_tab
@@ -2116,7 +2135,7 @@ cmd_tab_report_cursor:
 	LXI	H,00DAh
 	CALL	send_rom_string
 	CALL	reply_cleanup
-	JMP	L0C70
+	JMP	rx_b_return
 cmd_so_read_char:
 	CALL	line_turnaround
 	LXI	H,00D3h
@@ -2129,7 +2148,7 @@ cmd_so_read_char:
 	LXI	H,00DBh
 	CALL	send_rom_string
 	CALL	reply_cleanup
-	JMP	L0C70
+	JMP	rx_b_return
 cmd_si_read_screen:
 	CALL	line_turnaround
 	LXI	H,00D4h
@@ -2148,33 +2167,33 @@ cmd_si_read_screen:
 	LXI	H,00DCh
 	CALL	send_rom_string
 	CALL	reply_cleanup
-	JMP	L0C70
+	JMP	rx_b_return
 cmd_sub_identify:
 	CALL	line_turnaround
 	LXI	H,report_prefix_sub
 	CALL	send_rom_string
 	LXI	H,fw_version_string
 	MVI	B,2Dh
-L0E77:
+cmd_sub_identify_loop1:
 	MOV	A,M
 	CALL	uart_send
 	INX	H
 	DCR	B
-	JNZ	L0E77
+	JNZ	cmd_sub_identify_loop1
 	LXI	H,00DDh
 	CALL	send_rom_string
 	CALL	reply_cleanup
-	JMP	L0C70
+	JMP	rx_b_return
 cmd_esc:
 	LDA	0077h
 	CPI	01h
-	JNZ	L0C70
+	JNZ	rx_b_return
 	LXI	H,0A046h
 	SHLD	0A04Dh
 	MVI	A,01h
 	STA	state_esc
-	JMP	L0C70
-L0EA2:
+	JMP	rx_b_return
+cmd_esc_br1:
 	IN	uart_data
 	STA	0A07Bh
 	ANI	7Fh
@@ -2186,75 +2205,75 @@ L0EA2:
 	INX	H
 	SHLD	0A04Dh
 	LXI	D,00DFh
-L0EBB:
+cmd_esc_loop1:
 	LXI	H,0A046h
 	PUSH	D
 	MVI	B,01h
-L0EC1:
+cmd_esc_loop2:
 	XCHG
 	MOV	A,M
 	XCHG
 	CPI	0FFh
-	JZ	L0EF2
+	JZ	cmd_esc_br3
 	CMP	M
-	JNZ	L0EFE
+	JNZ	cmd_esc_br4
 	INX	H
 	INX	D
 	DCR	B
-	JNZ	L0EC1
+	JNZ	cmd_esc_loop2
 	XCHG
 	MOV	C,M
-L0ED5:
+cmd_esc_loop3:
 	LXI	H,0A046h
 	MVI	B,07h
-L0EDA:
+cmd_esc_loop4:
 	MVI	M,00h
 	INX	H
 	DCR	B
-	JNZ	L0EDA
+	JNZ	cmd_esc_loop4
 	POP	D
 	LDA	0070h
 	CPI	01h
-	JZ	L0EEE
+	JZ	cmd_esc_br2
 	MOV	B,C
 	JMP	rx_command_dispatch
-L0EEE:
+cmd_esc_br2:
 	MOV	A,C
-	JMP	L0B56
-L0EF2:
+	JMP	rx_handler_b_loop1
+cmd_esc_br3:
 	LDA	state_esc
 	CPI	02h
-	JZ	L0F08
+	JZ	cmd_esc_br5
 	POP	D
-	JMP	L0C70
-L0EFE:
+	JMP	rx_b_return
+cmd_esc_br4:
 	POP	D
 	LXI	B,0006h
 	XCHG
 	DAD	B
 	XCHG
-	JMP	L0EBB
-L0F08:
+	JMP	cmd_esc_loop1
+cmd_esc_br5:
 	MVI	A,30h
 	STA	msg_error
 	MVI	A,02h
 	STA	0A04Fh
 	MVI	C,00h
-	JMP	L0ED5
+	JMP	cmd_esc_loop3
 cmd_stx:
 	MVI	A,01h
 	STA	msg_active
-L0F1C:
+cmd_stx_loop1:
 	LXI	H,msg_buffer
 	SUB	A
 	STA	cursor_row
 	STA	cursor_col
-	JMP	L0C36
+	JMP	cmd_dc2_right_loop1
 cmd_etx:
 	LDA	0088h
 	ANI	04h
-	JNZ	L0FC4
-L0F31:
+	JNZ	build_address_byte_br5
+cmd_etx_loop1:
 	SUB	A
 	STA	msg_active
 	LDA	0072h
@@ -2267,40 +2286,40 @@ L0F31:
 	LDA	msg_error
 	CPI	00h
 	MVI	C,06h
-	JZ	L0F54
+	JZ	cmd_etx_br1
 	MVI	C,15h
-L0F54:
+cmd_etx_br1:
 	MOV	A,C
 	CALL	uart_send
 	LDA	0088h
 	ANI	02h
-	JZ	L0F8C
+	JZ	build_address_byte_loop1
 	LDA	007Ah
 	MOV	C,A
 	CPI	0FFh
-	JNZ	L0F80
+	JNZ	build_address_byte_br2
 build_address_byte:
 	IN	sw_port_a
 	ANI	1Fh
 	MOV	C,A
 	ANI	10h
-	JZ	L0F7C
+	JZ	build_address_byte_br1
 	MOV	A,C
 	ANI	0Fh
 	ORI	40h
 	MOV	C,A
-	JMP	L0F80
-L0F7C:
+	JMP	build_address_byte_br2
+build_address_byte_br1:
 	MOV	A,C
 	ORI	30h
 	MOV	C,A
-L0F80:
+build_address_byte_br2:
 	MOV	A,C
 	CALL	uart_send
 	LDA	msg_error
 	CPI	00h
-	JNZ	L0FA5
-L0F8C:
+	JNZ	build_address_byte_br3
+build_address_byte_loop1:
 	CALL	reply_cleanup
 	SUB	A
 	STA	msg_error
@@ -2310,26 +2329,26 @@ L0F8C:
 	STA	0A052h
 	STA	0A054h
 	JMP	check_buffer_bounds
-L0FA5:
+build_address_byte_br3:
 	CALL	uart_send
 	CPI	30h
-	JNZ	L0FB0
-	JMP	L0F8C
-L0FB0:
+	JNZ	build_address_byte_br4
+	JMP	build_address_byte_loop1
+build_address_byte_br4:
 	CPI	32h
-	JZ	L0F8C
+	JZ	build_address_byte_loop1
 	LDA	err_param1
 	CALL	uart_send
 	LDA	err_param2
 	CALL	uart_send
-	JMP	L0F8C
-L0FC4:
+	JMP	build_address_byte_loop1
+build_address_byte_br5:
 	SUB	A
 	STA	0A07Bh
 	MVI	A,01h
 	STA	0A053h
-	JMP	L0C70
-L0FD0:
+	JMP	rx_b_return
+build_address_byte_br6:
 	SUB	A
 	STA	0A053h
 	STA	0A07Bh
@@ -2337,13 +2356,13 @@ L0FD0:
 	MOV	B,A
 	LDA	0A054h
 	CMP	B
-	JZ	L0F31
+	JZ	cmd_etx_loop1
 	MVI	A,30h
 	STA	msg_error
-	JMP	L0F31
+	JMP	cmd_etx_loop1
 cmd_ff_fill:
 	MVI	D,23h
-L0FEB:
+cmd_ff_fill_loop1:
 	LDA	second_display_sel
 	CPI	00h
 	JZ	clear_buffer
@@ -2351,24 +2370,24 @@ L0FEB:
 	STA	0A06Eh
 	MVI	D,0FFh
 	LXI	H,msg_buffer2
-	JMP	L1003
+	JMP	clear_buffer_loop1
 clear_buffer:
 	LXI	H,msg_buffer
-L1003:
+clear_buffer_loop1:
 	LXI	B,tbl_0040
 	MVI	A,02h
 	STA	0A045h
-L100B:
+clear_buffer_loop2:
 	MOV	A,D
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L100B
+	JNZ	clear_buffer_loop2
 	MVI	A,4Ah
 	STA	isr_mailbox
-	JMP	L0F1C
+	JMP	cmd_stx_loop1
 cmd_can:
 	MVI	D,20h
 	LDA	second_display_sel
@@ -2378,7 +2397,7 @@ cmd_can:
 	STA	0A06Eh
 	MVI	D,00h
 	LXI	H,msg_buffer2
-	JMP	L1003
+	JMP	clear_buffer_loop1
 cmd_enq:
 	MVI	A,01h
 	STA	state_enq
@@ -2387,9 +2406,9 @@ param_enq:
 	IN	uart_data
 	STA	0A07Bh
 	CPI	12h
-	JNZ	L1049
+	JNZ	param_enq_br1
 	MVI	A,23h
-L1049:
+param_enq_br1:
 	STA	enq_param
 	SUB	A
 	STA	state_enq
@@ -2411,48 +2430,48 @@ param_gs_address:
 	CPI	00h
 	JZ	select_unit
 	CPI	0FFh
-	JNZ	L108D
+	JNZ	param_gs_address_br2
 	IN	sw_port_a
 	MOV	C,A
 	ANI	10h
-	JZ	L1088
+	JZ	param_gs_address_br1
 	MOV	A,C
 	ANI	0Fh
 	ORI	40h
-	JMP	L108D
-L1088:
+	JMP	param_gs_address_br2
+param_gs_address_br1:
 	MOV	A,C
 	ANI	0Fh
 	ORI	30h
-L108D:
+param_gs_address_br2:
 	CMP	B
 	JZ	select_unit
-L1091:
+param_gs_address_loop1:
 	SUB	A
 	STA	state_gs
-	JMP	L0C70
+	JMP	rx_b_return
 select_unit:
 	MVI	A,01h
 	STA	selected
 	STA	0A06Fh
-	JMP	L1091
+	JMP	param_gs_address_loop1
 cmd_rs:
 	SUB	A
 	STA	0A07Bh
 	LDA	007Ah
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	CPI	0FFh
-	JNZ	L10BB
+	JNZ	cmd_rs_br1
 	IN	sw_port_a
 	ANI	1Fh
-	JZ	L0C70
-L10BB:
+	JZ	rx_b_return
+cmd_rs_br1:
 	SUB	A
 	STA	selected
 	STA	0A00Dh
 	STA	0A06Fh
-	JMP	L0C70
+	JMP	rx_b_return
 cmd_bel:
 	MVI	A,01h
 	STA	state_bel
@@ -2465,32 +2484,32 @@ param_bel_attr:
 	SUB	A
 	STA	state_bel
 	JMP	check_buffer_bounds
-L10E1:
+param_bel_attr_br1:
 	CALL	line_turnaround
 	MVI	A,08h
 	CALL	uart_send
 	LDA	008Bh
 	CPI	00h
-	JNZ	L1101
-	LDA	0A024h
+	JNZ	param_bel_attr_br2
+	LDA	hw_status_acc
 	CALL	uart_send
 	CALL	reply_cleanup
 	SUB	A
-	STA	0A024h
-	JMP	L0C70
-L1101:
+	STA	hw_status_acc
+	JMP	rx_b_return
+param_bel_attr_br2:
 	IN	hw_status_in
 	CMA
 	CALL	uart_send
 	CALL	reply_cleanup
-	JMP	L0C70
+	JMP	rx_b_return
 cmd_eot:
 	MVI	A,01h
 	STA	state_eot
 	JMP	check_buffer_bounds
-L1115:
+cmd_eot_br1:
 	CPI	01h
-	JNZ	L1165
+	JNZ	cmd_eot_br3
 	INR	A
 	STA	state_eot
 	IN	uart_data
@@ -2498,19 +2517,19 @@ L1115:
 	ANI	7Fh
 	STA	0A056h
 	CPI	33h
-	JZ	L121A
+	JZ	cmd_eot_br10
 	MOV	B,A
 	IN	xram_page
 	ANI	10h
-	JZ	L1139
+	JZ	cmd_eot_br2
 	SUB	A
 	STA	0A06Fh
-L1139:
+cmd_eot_br2:
 	MOV	A,B
 	CPI	32h
-	JZ	L0C70
+	JZ	rx_b_return
 	CPI	31h
-	JNZ	L1201
+	JNZ	cmd_eot_br9
 	LXI	H,tbl_0040
 	SHLD	0A05Bh
 	MVI	A,06h
@@ -2519,13 +2538,13 @@ L1139:
 	SHLD	0A06Ch
 	LDA	0A06Fh
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	MVI	A,02h
 	STA	0A045h
-	JMP	L0C70
-L1165:
+	JMP	rx_b_return
+cmd_eot_br3:
 	CPI	02h
-	JNZ	L118A
+	JNZ	cmd_eot_br4
 	INR	A
 	STA	state_eot
 	LHLD	0A06Ch
@@ -2535,13 +2554,13 @@ L1165:
 	SHLD	0A06Ch
 	LDA	0A06Fh
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	MVI	A,02h
 	STA	0A045h
-	JMP	L0C70
-L118A:
+	JMP	rx_b_return
+cmd_eot_br4:
 	CPI	03h
-	JNZ	L11A6
+	JNZ	cmd_eot_br5
 	INR	A
 	STA	state_eot
 	LHLD	0A06Ch
@@ -2551,10 +2570,10 @@ L118A:
 	LXI	B,msg_buffer2
 	DAD	B
 	SHLD	0A06Ch
-	JMP	L0C70
-L11A6:
+	JMP	rx_b_return
+cmd_eot_br5:
 	CPI	04h
-	JNZ	L11BE
+	JNZ	cmd_eot_br6
 	INR	A
 	STA	state_eot
 	LHLD	0A05Bh
@@ -2562,10 +2581,10 @@ L11A6:
 	STA	0A07Bh
 	MOV	H,A
 	SHLD	0A05Bh
-	JMP	L0C70
-L11BE:
+	JMP	rx_b_return
+cmd_eot_br6:
 	CPI	05h
-	JNZ	L11D6
+	JNZ	cmd_eot_br7
 	INR	A
 	STA	state_eot
 	LHLD	0A05Bh
@@ -2573,19 +2592,19 @@ L11BE:
 	STA	0A07Bh
 	MOV	L,A
 	SHLD	0A05Bh
-	JMP	L0C70
-L11D6:
+	JMP	rx_b_return
+cmd_eot_br7:
 	CPI	06h
-	JNZ	L1222
+	JNZ	cmd_eot_br11
 	LHLD	0A06Ch
 	IN	uart_data
 	STA	0A07Bh
 	LDA	0A06Fh
 	CPI	00h
-	JZ	L11F1
+	JZ	cmd_eot_br8
 	LDA	0A07Bh
 	CALL	xram_write
-L11F1:
+cmd_eot_br8:
 	INX	H
 	SHLD	0A06Ch
 	LHLD	0A05Bh
@@ -2593,23 +2612,23 @@ L11F1:
 	SHLD	0A05Bh
 	MOV	A,H
 	ORA	L
-	JNZ	L0C71
-L1201:
+	JNZ	rx_b_return_loop1
+cmd_eot_br9:
 	SUB	A
 	STA	state_eot
 	MVI	A,30h
 	STA	0A056h
 	LDA	selected
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	MVI	A,01h
 	STA	0A06Fh
 	JMP	cmd_stx
-L121A:
+cmd_eot_br10:
 	MVI	A,07h
 	STA	state_eot
-	JMP	L0C70
-L1222:
+	JMP	rx_b_return
+cmd_eot_br11:
 	SUB	A
 	STA	state_eot
 	MVI	A,30h
@@ -2618,77 +2637,77 @@ L1222:
 	STA	0A07Bh
 	LDA	0A06Fh
 	CPI	00h
-	JZ	L0C70
+	JZ	rx_b_return
 	LDA	0A07Bh
-	JMP	L0C10
+	JMP	rx_command_dispatch_loop1
 render_task:
 	LDA	rx_handler_sel
 	CPI	00h
-	JNZ	L12D0
+	JNZ	render_pass_paged_loop3
 	LDA	render_pass_sel
 	CPI	01h
 	JZ	render_pass_direct
 render_pass_paged:
-	LDA	0A009h
+	LDA	panel_family
 	CPI	00h
-	JZ	L1485
+	JZ	render_pass_disp1
 	CALL	clear_shadow
 	LXI	D,shadow_buffer
 	LXI	H,msg_buffer
 	SUB	A
-	STA	0A00Ah
-	STA	0A025h
-L1266:
+	STA	char_pos
+	STA	disp1_char_index
+render_pass_paged_loop1:
 	CALL	xram_read
 	XCHG
 	CALL	xram_compare
 	CNZ	render_char
 	XCHG
 	CALL	attr_age
-	LDA	0A025h
+	LDA	disp1_char_index
 	INR	A
-	STA	0A025h
-	LDA	0A00Ah
+	STA	disp1_char_index
+	LDA	char_pos
 	INR	A
 	MOV	B,A
 	LDA	rx_handler_sel
 	CPI	00h
-	JZ	L129E
-	LDA	0A025h
+	JZ	render_pass_paged_br2
+	LDA	disp1_char_index
 	CPI	40h
-	JNZ	L129E
+	JNZ	render_pass_paged_br2
 	MVI	C,01h
-L1292:
+render_pass_paged_loop2:
 	DCR	C
-	JZ	L129A
+	JZ	render_pass_paged_br1
 	INR	B
-	JMP	L1292
-L129A:
+	JMP	render_pass_paged_loop2
+render_pass_paged_br1:
 	SUB	A
-	STA	0A025h
-L129E:
+	STA	disp1_char_index
+render_pass_paged_br2:
 	MOV	A,B
-	STA	0A00Ah
+	STA	char_pos
 	INX	H
 	INX	D
 	LDA	frame_end_char
 	CALL	xram_compare
-	JNZ	L1266
-	LDA	0A009h
+	JNZ	render_pass_paged_loop1
+	LDA	panel_family
 	CPI	0Ah
-	CZ	L2146
+	CZ	panel_0a_flush
 	CPI	0Ch
-	CZ	L25A8
+	CZ	panel_0c_flush
 	CPI	0Dh
-	CZ	L25B1
+	CZ	panel_0d_flush
 	CPI	0Eh
-	CZ	L25C3
+	CZ	panel_0e_flush
 	CPI	08h
-	JNZ	L131B
+	JNZ	render_interlock_loop1
 	MVI	A,36h
 	OUT	disp0_port_c
-	JMP	L131B
-L12D0:
+	JMP	render_interlock_loop1
+render_pass_paged_loop3:
 	SUB	A
 	STA	0A045h
 	MVI	A,03h
@@ -2720,7 +2739,7 @@ render_interlock:
 	MVI	A,01h
 	STA	0A045h
 	JMP	render_pass_paged
-L131B:
+render_interlock_loop1:
 	LDA	refresh_mode
 	CPI	0FFh
 	RZ
@@ -2732,16 +2751,16 @@ L131B:
 	JZ	render_pass_paged
 	LDA	alt_state
 	CPI	01h
-	JNZ	L133E
+	JNZ	render_interlock_br1
 	MVI	A,02h
-L1338:
+render_interlock_loop2:
 	CALL	alt_fill_step
-	JMP	L12D0
-L133E:
+	JMP	render_pass_paged_loop3
+render_interlock_br1:
 	CPI	02h
-	JNZ	L12D0
+	JNZ	render_pass_paged_loop3
 	MVI	A,01h
-	JMP	L1338
+	JMP	render_interlock_loop2
 alt_fill_step:
 	STA	alt_state
 	PUSH	PSW
@@ -2749,94 +2768,94 @@ alt_fill_step:
 	CALL	delay_183ms
 	IN	sw_port_b
 	ANI	01h
-	JZ	L135D
+	JZ	alt_fill_step_br1
 	MVI	A,23h
 	STA	enq_param
-L135D:
+alt_fill_step_br1:
 	POP	PSW
 	CPI	01h
 	JNZ	cmd_can
 	LDA	enq_param
 	MOV	D,A
-	JMP	L0FEB
+	JMP	cmd_ff_fill_loop1
 render_char:
 	CALL	xram_write
-	LDA	0A009h
+	LDA	panel_family
 	CPI	01h
-	JZ	L216A
+	JZ	panel_0103_draw
 	CPI	02h
-	JZ	L21B0
+	JZ	panel_02_draw
 	CPI	03h
-	JZ	L216A
+	JZ	panel_0103_draw
 	CPI	04h
-	JZ	L24BB
+	JZ	panel_0405_draw
 	CPI	05h
-	JZ	L24BB
+	JZ	panel_0405_draw
 	CPI	06h
-	JZ	L2281
+	JZ	panel_0607_draw
 	CPI	07h
-	JZ	L2281
+	JZ	panel_0607_draw
 	CPI	08h
-	JZ	L21F6
+	JZ	panel_08_draw
 	CPI	09h
-	JZ	L2304
+	JZ	panel_09_draw
 	CPI	0Ah
-	JZ	L210D
+	JZ	panel_0a_draw
 	CPI	0Bh
-	JZ	L2303
+	JZ	panel_0b_draw
 	CPI	0Ch
-	JZ	L25A2
+	JZ	panel_0c_draw
 	CPI	0Dh
-	JZ	L25AB
+	JZ	panel_0d_draw
 	CPI	0Eh
-	JZ	L25B4
+	JZ	panel_0e_draw
 	CPI	10h
-	JZ	L2915
+	JZ	panel_1012_draw
 	CPI	11h
-	JZ	L29D7
+	JZ	panel_11_draw
 	CPI	12h
-	JZ	L2915
+	JZ	panel_1012_draw
 	RET
 clear_shadow:
-	LDA	0A009h
+	LDA	panel_family
 	CPI	08h
-	JZ	L13E1
+	JZ	clear_shadow_br1
 	CPI	12h
 	RZ
 	IN	sw_port_c
 	ANI	20h
-	JZ	L13E5
+	JZ	clear_shadow_br2
 	LDA	refresh_mode
 	CPI	0FFh
-	JZ	L13E5
+	JZ	clear_shadow_br2
 	RET
-L13E1:
+clear_shadow_br1:
 	MVI	A,36h
 	OUT	disp0_port_c
-L13E5:
+clear_shadow_br2:
 	LXI	H,shadow_buffer
 	LXI	B,tbl_0040
-L13EB:
+clear_shadow_loop1:
 	SUB	A
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L13EB
+	JNZ	clear_shadow_loop1
 	RET
 render_pass_direct:
 	CALL	clear_shadow
 	LXI	D,shadow_buffer
 	LXI	H,msg_buffer
-	CALL	L2A62
+	CALL	clock_service
 	SUB	A
 	STA	0A021h
-	STA	0A00Ah
+	STA	char_pos
 	CALL	render_loop_direct
 	LXI	D,0E07Fh
 	LXI	H,0E03Dh
-	LDA	0A009h
+	LDA	panel_family
 	CPI	03h
 	CZ	clear_char_pos
 	CPI	08h
@@ -2863,23 +2882,23 @@ render_loop_direct:
 	CNZ	render_char
 	XCHG
 	CALL	attr_age
-	LDA	0A00Ah
+	LDA	char_pos
 	INR	A
-	STA	0A00Ah
+	STA	char_pos
 	INX	H
 	INX	D
 	LDA	frame_end_char
 	CMP	M
 	JNZ	render_loop_direct
-	LDA	0A009h
+	LDA	panel_family
 	CPI	0Ah
-	CZ	L2146
+	CZ	panel_0a_flush
 	CPI	0Ch
-	CZ	L25A8
+	CZ	panel_0c_flush
 	CPI	0Dh
-	CZ	L25B1
+	CZ	panel_0d_flush
 	CPI	0Eh
-	CZ	L25C3
+	CZ	panel_0e_flush
 	CPI	08h
 	RNZ
 	MVI	A,36h
@@ -2888,43 +2907,43 @@ render_loop_direct:
 clear_char_pos:
 	PUSH	PSW
 	SUB	A
-	STA	0A00Ah
+	STA	char_pos
 	POP	PSW
 	RET
-L1485:
+render_pass_disp1:
 	IN	xram_page
 	CPI	0FFh
 	RZ
 	LDA	second_display_sel
 	CPI	01h
-	CZ	L1703
+	CZ	packed_buffer_init
 	LXI	H,reset
-	SHLD	0A010h
+	SHLD	render_ptr
 	LXI	H,msg_buffer
 	LXI	D,shadow_buffer
 	MVI	A,01h
 	STA	0A058h
 	LDA	second_display_sel
 	CPI	01h
-	JNZ	L14B1
+	JNZ	render_pass_disp1_loop1
 	LXI	H,msg_buffer2
 	LXI	D,shadow_buffer2
-L14B1:
+render_pass_disp1_loop1:
 	MVI	B,01h
 	PUSH	H
 	PUSH	D
-L14B5:
+render_pass_disp1_loop2:
 	CALL	xram_read
 	XCHG
 	CALL	xram_compare
 	XCHG
-	JZ	L14C8
+	JZ	render_pass_disp1_br1
 	MVI	A,01h
-	STA	0A022h
-	JMP	L14D8
-L14C8:
+	STA	panel_dirty
+	JMP	render_pass_disp1_br2
+render_pass_disp1_br1:
 	DCR	B
-	JZ	L14D8
+	JZ	render_pass_disp1_br2
 	PUSH	B
 	LXI	B,tbl_0040
 	DAD	B
@@ -2932,183 +2951,183 @@ L14C8:
 	DAD	B
 	XCHG
 	POP	B
-	JMP	L14B5
-L14D8:
+	JMP	render_pass_disp1_loop2
+render_pass_disp1_br2:
 	LDA	0A045h
 	CPI	00h
-	JZ	L14ED
+	JZ	render_pass_disp1_br3
 	CPI	02h
-	JZ	L1517
-L14E5:
+	JZ	render_pass_disp1_br5
+render_pass_disp1_loop3:
 	LDA	selected
 	CPI	00h
-	JNZ	L14E5
-L14ED:
-	LDA	0A022h
+	JNZ	render_pass_disp1_loop3
+render_pass_disp1_br3:
+	LDA	panel_dirty
 	CPI	00h
-	CNZ	L1520
-	CZ	L15D2
+	CNZ	disp1_paint
+	CZ	disp1_idle_clocks
 	SUB	A
-	STA	0A022h
-	LHLD	0A010h
+	STA	panel_dirty
+	LHLD	render_ptr
 	INX	H
 	LXI	B,tbl_0040
 	MOV	A,H
 	CMP	B
-	JNZ	L150D
+	JNZ	render_pass_disp1_br4
 	MOV	A,L
 	CMP	C
-	JZ	L1517
-L150D:
-	SHLD	0A010h
+	JZ	render_pass_disp1_br5
+render_pass_disp1_br4:
+	SHLD	render_ptr
 	POP	D
 	POP	H
 	INX	H
 	INX	D
-	JMP	L14B1
-L1517:
+	JMP	render_pass_disp1_loop1
+render_pass_disp1_br5:
 	POP	D
 	POP	H
 	MVI	A,03h
 	OUT	disp1_port_c
-	JMP	L131B
-L1520:
+	JMP	render_interlock_loop1
+disp1_paint:
 	PUSH	PSW
 	PUSH	H
 	PUSH	D
 	PUSH	B
 	SUB	A
-	STA	0A00Ah
+	STA	char_pos
 	MVI	E,01h
-	LHLD	0A010h
+	LHLD	render_ptr
 	CALL	init_disp1
-L1530:
+disp1_paint_loop1:
 	SUB	A
-	STA	0A025h
-	LHLD	0A010h
-	CALL	L15FF
+	STA	disp1_char_index
+	LHLD	render_ptr
+	CALL	disp1_frame_start
 	MOV	B,H
 	MOV	C,L
 	LXI	D,msg_buffer
 	LXI	H,shadow_buffer
 	LDA	second_display_sel
 	CPI	01h
-	JNZ	L1550
+	JNZ	disp1_paint_br1
 	LXI	D,msg_buffer2
 	LXI	H,shadow_buffer2
-L1550:
+disp1_paint_br1:
 	DAD	B
 	XCHG
 	DAD	B
-	LDA	0A00Ah
+	LDA	char_pos
 	CPI	00h
-	JZ	L155C
+	JZ	disp1_paint_loop2
 	XCHG
-L155C:
+disp1_paint_loop2:
 	CALL	xram_read
 	MOV	B,A
-	LDA	0A00Ah
+	LDA	char_pos
 	CPI	00h
-	JNZ	L156E
+	JNZ	disp1_paint_br2
 	XCHG
 	MOV	A,B
 	CALL	xram_write
 	XCHG
-L156E:
+disp1_paint_br2:
 	PUSH	H
 	PUSH	D
 	MOV	E,B
 	LDA	second_display_sel
 	CPI	00h
-	JNZ	L15CB
+	JNZ	disp1_paint_br4
 	MVI	D,00h
 	MOV	H,D
 	MOV	L,E
 	MVI	B,04h
-L157F:
+disp1_paint_loop3:
 	DAD	D
 	DCR	B
-	JNZ	L157F
+	JNZ	disp1_paint_loop3
 	LXI	D,font_5x7
 	DAD	D
-	LDA	0A00Ah
+	LDA	char_pos
 	MOV	C,A
 	DAD	B
-	CALL	L1630
-L1590:
+	CALL	disp1_send_m
+disp1_paint_loop4:
 	POP	D
 	POP	H
-	LDA	0A025h
+	LDA	disp1_char_index
 	INR	A
-	STA	0A025h
+	STA	disp1_char_index
 	CPI	01h
-	JZ	L15A8
+	JZ	disp1_paint_br3
 	LXI	B,tbl_0040
 	DAD	B
 	XCHG
 	DAD	B
 	XCHG
-	JMP	L155C
-L15A8:
-	CALL	L1675
+	JMP	disp1_paint_loop2
+disp1_paint_br3:
+	CALL	disp1_frame_end
 	LDA	second_display_sel
 	CPI	00h
-	JNZ	L15C6
-	LDA	0A00Ah
+	JNZ	disp1_paint_ret1
+	LDA	char_pos
 	INR	A
-	STA	0A00Ah
+	STA	char_pos
 	CPI	05h
-	JNZ	L1530
+	JNZ	disp1_paint_loop1
 	MVI	E,00h
 	MVI	L,0FFh
 	CALL	init_disp1
-L15C6:
+disp1_paint_ret1:
 	POP	B
 	POP	D
 	POP	H
 	POP	PSW
 	RET
-L15CB:
+disp1_paint_br4:
 	MOV	A,B
-	CALL	L1631
-	JMP	L1590
-L15D2:
+	CALL	disp1_send
+	JMP	disp1_paint_loop4
+disp1_idle_clocks:
 	PUSH	PSW
 	PUSH	B
 	IN	xram_page
 	ANI	0Fh
 	CPI	05h
-	JZ	L15E5
+	JZ	disp1_idle_clocks_br1
 	CPI	06h
-	JZ	L15E5
+	JZ	disp1_idle_clocks_br1
 	POP	B
 	POP	PSW
 	RET
-L15E5:
+disp1_idle_clocks_br1:
 	MVI	B,0Ah
 	SUB	A
-	STA	0A00Ah
+	STA	char_pos
 	LDA	second_display_sel
 	CPI	00h
-	JZ	L15F5
+	JZ	disp1_idle_clocks_loop1
 	MVI	B,02h
-L15F5:
-	CALL	L16B5
+disp1_idle_clocks_loop1:
+	CALL	disp1_clock_pulse
 	DCR	B
-	JNZ	L15F5
+	JNZ	disp1_idle_clocks_loop1
 	POP	B
 	POP	PSW
 	RET
-L15FF:
+disp1_frame_start:
 	PUSH	H
 	MVI	C,2Bh
 	LDA	0A058h
 	CPI	01h
-	JNZ	L1610
+	JNZ	disp1_frame_start_br1
 	SUB	A
 	STA	0A058h
 	MVI	C,2Ah
-L1610:
+disp1_frame_start_br1:
 	MOV	A,C
 	OUT	disp1_port_c
 	ANI	2Dh
@@ -3118,54 +3137,54 @@ L1610:
 	ORI	05h
 	STA	0A01Ah
 	LXI	H,0005h
-	SHLD	0A01Ch
-	LDA	0A01Bh
+	SHLD	tick_wait_count
+	LDA	tick_wait_flags
 	ORI	81h
-	STA	0A01Bh
+	STA	tick_wait_flags
 	POP	H
 	RET
-L1630:
+disp1_send_m:
 	MOV	A,M
-L1631:
+disp1_send:
 	CMA
 	OUT	disp1_port_a
 	IN	xram_page
 	ANI	0Fh
 	CPI	06h
-	JZ	L166E
+	JZ	disp1_strobe_b_br1
 	CPI	02h
-	JZ	L166E
-	LDA	0A025h
-L1645:
+	JZ	disp1_strobe_b_br1
+	LDA	disp1_char_index
+disp1_strobe_b:
 	CMA
 	ANI	7Fh
 	OUT	disp1_port_b
 	ORI	80h
-	CALL	L1B4D
+	CALL	delay_nop
 	OUT	disp1_port_b
 	ANI	7Fh
 	NOP
 	OUT	disp1_port_b
-	CALL	L1B4D
+	CALL	delay_nop
 	SUB	A
 	OUT	disp1_port_b
 	RET
 	PUSH	H
 	LXI	H,0001h
-	SHLD	0A01Ch
-	LDA	0A01Bh
+	SHLD	tick_wait_count
+	LDA	tick_wait_flags
 	ORI	01h
-	STA	0A01Bh
+	STA	tick_wait_flags
 	POP	H
 	RET
-L166E:
-	LDA	0A025h
+disp1_strobe_b_br1:
+	LDA	disp1_char_index
 	ADD	A
-	JMP	L1645
-L1675:
-	LDA	0A01Bh
+	JMP	disp1_strobe_b
+disp1_frame_end:
+	LDA	tick_wait_flags
 	ANI	01h
-	JNZ	L1675
+	JNZ	disp1_frame_end
 	MVI	A,2Bh
 	OUT	disp1_port_c
 	CALL	delay_90us
@@ -3178,38 +3197,38 @@ L1675:
 	STA	0A01Ah
 	PUSH	H
 	LXI	H,0005h
-	SHLD	0A01Ch
+	SHLD	tick_wait_count
 	MVI	A,81h
-	STA	0A01Bh
+	STA	tick_wait_flags
 	POP	H
-L16A1:
-	LDA	0A01Bh
+disp1_frame_end_loop1:
+	LDA	tick_wait_flags
 	ANI	01h
-	JNZ	L16A1
+	JNZ	disp1_frame_end_loop1
 	LDA	0A01Ah
 	ANI	2Fh
 	OUT	disp1_port_c
 	MVI	A,0Bh
 	OUT	disp1_port_c
 	RET
-L16B5:
+disp1_clock_pulse:
 	MVI	C,0Bh
 	LDA	0A058h
 	CPI	01h
-	JNZ	L16C5
+	JNZ	disp1_clock_pulse_br1
 	SUB	A
 	STA	0A058h
 	MVI	C,0Ah
-L16C5:
+disp1_clock_pulse_br1:
 	MOV	A,C
 	OUT	disp1_port_c
 	ANI	09h
 	OUT	disp1_port_c
 	ORI	02h
 	OUT	disp1_port_c
-	LDA	0A00Ah
+	LDA	char_pos
 	INR	A
-	STA	0A00Ah
+	STA	char_pos
 	MVI	A,0Bh
 	OUT	disp1_port_c
 	RET
@@ -3225,43 +3244,43 @@ init_disp1:
 	MVI	D,01h
 	MOV	A,E
 	STA	0A058h
-L16F1:
+init_disp1_loop1:
 	MOV	A,L
 	ORI	80h
 	OUT	disp1_port_a
 	MOV	A,D
-	CALL	L1645
+	CALL	disp1_strobe_b
 	INR	D
 	INR	D
 	INR	C
 	MOV	A,C
 	CMP	B
-	JNZ	L16F1
+	JNZ	init_disp1_loop1
 	RET
-L1703:
+packed_buffer_init:
 	LDA	0A06Eh
 	CPI	00h
-	JNZ	L18DD
+	JNZ	packed_pack_mode3_br1
 	LXI	H,msg_buffer2
-	SHLD	0A010h
+	SHLD	render_ptr
 	SHLD	0A068h
 	LXI	H,msg_buffer
 	LXI	D,shadow_buffer
 	MVI	C,40h
-L171C:
+packed_buffer_init_loop1:
 	MVI	B,01h
 	SUB	A
 	STA	0A063h
 	PUSH	H
 	PUSH	D
-L1724:
+packed_buffer_init_loop2:
 	CALL	xram_read
 	XCHG
 	CALL	xram_compare
-	CNZ	L177F
+	CNZ	packed_store_glyph
 	XCHG
 	DCR	B
-	JZ	L1761
+	JZ	packed_buffer_init_br3
 	PUSH	B
 	LXI	B,tbl_0040
 	DAD	B
@@ -3274,41 +3293,41 @@ L1724:
 	DAD	B
 	LDA	0A063h
 	CPI	03h
-	JNZ	L174C
+	JNZ	packed_buffer_init_br1
 	DAD	B
-L174C:
+packed_buffer_init_br1:
 	SHLD	0A068h
 	POP	H
 	POP	B
 	LDA	0A063h
 	INR	A
 	CPI	04h
-	JNZ	L175B
+	JNZ	packed_buffer_init_br2
 	SUB	A
-L175B:
+packed_buffer_init_br2:
 	STA	0A063h
-	JMP	L1724
-L1761:
+	JMP	packed_buffer_init_loop2
+packed_buffer_init_br3:
 	DCR	C
-	JZ	L177C
-	LHLD	0A010h
+	JZ	packed_buffer_init_ret1
+	LHLD	render_ptr
 	MVI	A,07h
-L176A:
+packed_buffer_init_loop3:
 	INX	H
 	DCR	A
-	JNZ	L176A
-	SHLD	0A010h
+	JNZ	packed_buffer_init_loop3
+	SHLD	render_ptr
 	SHLD	0A068h
 	POP	D
 	POP	H
 	INX	H
 	INX	D
-	JMP	L171C
-L177C:
+	JMP	packed_buffer_init_loop1
+packed_buffer_init_ret1:
 	POP	D
 	POP	H
 	RET
-L177F:
+packed_store_glyph:
 	CALL	xram_write
 	PUSH	H
 	PUSH	D
@@ -3325,13 +3344,13 @@ L177F:
 	DAD	D
 	LDA	0A063h
 	CPI	00h
-	JNZ	L17BA
-L179A:
+	JNZ	packed_store_glyph_br1
+packed_store_glyph_loop1:
 	MVI	B,05h
 	XCHG
 	LHLD	0A068h
 	XCHG
-L17A1:
+packed_store_glyph_loop2:
 	MOV	A,M
 	XCHG
 	CALL	xram_write
@@ -3339,7 +3358,7 @@ L17A1:
 	INX	H
 	INX	D
 	DCR	B
-	JNZ	L17A1
+	JNZ	packed_store_glyph_loop2
 	XCHG
 	SUB	A
 	CALL	xram_write
@@ -3349,13 +3368,13 @@ L17A1:
 	POP	D
 	POP	H
 	RET
-L17BA:
+packed_store_glyph_br1:
 	CPI	01h
-	JNZ	L17DB
+	JNZ	packed_store_glyph_br2
 	LXI	D,0A05Eh
-	CALL	L1824
+	CALL	packed_pack_mode1
 	MVI	B,05h
-L17C7:
+packed_store_glyph_loop3:
 	MOV	A,M
 	RLC
 	RLC
@@ -3366,16 +3385,16 @@ L17C7:
 	INX	H
 	INX	D
 	DCR	B
-	JNZ	L17C7
+	JNZ	packed_store_glyph_loop3
 	LXI	H,0A05Eh
-	JMP	L179A
-L17DB:
+	JMP	packed_store_glyph_loop1
+packed_store_glyph_br2:
 	CPI	02h
-	JNZ	L1801
+	JNZ	packed_store_glyph_br3
 	LXI	D,0A05Eh
-	CALL	L1855
+	CALL	packed_pack_mode2
 	MVI	B,05h
-L17E8:
+packed_store_glyph_loop4:
 	MOV	A,M
 	RLC
 	RLC
@@ -3391,14 +3410,14 @@ L17E8:
 	INX	H
 	INX	D
 	DCR	B
-	JNZ	L17E8
+	JNZ	packed_store_glyph_loop4
 	LXI	H,0A05Eh
-	JMP	L179A
-L1801:
+	JMP	packed_store_glyph_loop1
+packed_store_glyph_br3:
 	LXI	D,0A05Eh
-	CALL	L1893
+	CALL	packed_pack_mode3
 	MVI	B,05h
-L1809:
+packed_store_glyph_loop5:
 	MOV	A,M
 	RLC
 	RLC
@@ -3416,10 +3435,10 @@ L1809:
 	INX	H
 	INX	D
 	DCR	B
-	JNZ	L1809
+	JNZ	packed_store_glyph_loop5
 	LXI	H,0A05Eh
-	JMP	L179A
-L1824:
+	JMP	packed_store_glyph_loop1
+packed_pack_mode1:
 	PUSH	H
 	LHLD	0A068h
 	SHLD	0A06Ah
@@ -3428,7 +3447,7 @@ L1824:
 	PUSH	D
 	LXI	D,tbl_0040
 	MVI	B,05h
-L1833:
+packed_pack_mode1_loop1:
 	MOV	A,M
 	RLC
 	RLC
@@ -3447,11 +3466,11 @@ L1833:
 	POP	H
 	INX	H
 	DCR	B
-	JNZ	L1833
+	JNZ	packed_pack_mode1_loop1
 	POP	D
 	POP	H
 	RET
-L1855:
+packed_pack_mode2:
 	PUSH	H
 	LHLD	0A068h
 	SHLD	0A06Ah
@@ -3459,7 +3478,7 @@ L1855:
 	PUSH	H
 	PUSH	D
 	MVI	B,05h
-L1861:
+packed_pack_mode2_loop1:
 	MOV	A,M
 	RLC
 	RLC
@@ -3489,17 +3508,17 @@ L1861:
 	INX	H
 	INX	D
 	DCR	B
-	JNZ	L1861
+	JNZ	packed_pack_mode2_loop1
 	POP	D
 	POP	H
 	RET
-L1893:
+packed_pack_mode3:
 	PUSH	H
 	PUSH	D
 	LHLD	0A068h
 	SHLD	0A06Ah
 	MVI	B,05h
-L189D:
+packed_pack_mode3_loop1:
 	CALL	xram_read
 	ANI	07h
 	XCHG
@@ -3508,14 +3527,14 @@ L189D:
 	INX	H
 	INX	D
 	DCR	B
-	JNZ	L189D
+	JNZ	packed_pack_mode3_loop1
 	POP	D
 	POP	H
 	PUSH	H
 	PUSH	D
 	LXI	D,tbl_0040
 	MVI	B,05h
-L18B4:
+packed_pack_mode3_loop2:
 	MOV	A,M
 	RRC
 	RRC
@@ -3532,7 +3551,7 @@ L18B4:
 	POP	H
 	INX	H
 	DCR	B
-	JNZ	L18B4
+	JNZ	packed_pack_mode3_loop2
 	LHLD	0A06Ah
 	DAD	D
 	SUB	A
@@ -3542,69 +3561,69 @@ L18B4:
 	POP	D
 	POP	H
 	RET
-L18DD:
+packed_pack_mode3_br1:
 	MVI	D,20h
 	CPI	01h
-	JZ	L18E6
+	JZ	packed_pack_mode3_br2
 	MVI	D,23h
-L18E6:
+packed_pack_mode3_br2:
 	SUB	A
 	STA	0A06Eh
 	LXI	H,msg_buffer
 	LXI	B,tbl_0040
-L18F0:
+packed_pack_mode3_loop3:
 	MOV	A,D
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L18F0
+	JNZ	packed_pack_mode3_loop3
 	LXI	H,shadow_buffer
 	LXI	B,tbl_0040
-L1901:
+packed_pack_mode3_loop4:
 	MOV	A,D
 	CALL	xram_write
 	INX	H
 	DCX	B
 	MOV	A,B
 	ORA	C
-	JNZ	L1901
+	JNZ	packed_pack_mode3_loop4
 	RET
 delay_76us:
 	PUSH	PSW
 	MVI	A,0Eh
-L1910:
+delay_76us_loop1:
 	DCR	A
-	JNZ	L1910
+	JNZ	delay_76us_loop1
 	POP	PSW
 	RET
 wait_ticks_800:
 	PUSH	H
 	PUSH	PSW
 	LXI	H,0320h
-L191B:
-	SHLD	0A01Ch
-	LDA	0A01Bh
+wait_ticks_800_loop1:
+	SHLD	tick_wait_count
+	LDA	tick_wait_flags
 	ORI	01h
-	STA	0A01Bh
-L1926:
-	LDA	0A01Bh
+	STA	tick_wait_flags
+wait_ticks_800_loop2:
+	LDA	tick_wait_flags
 	ANI	01h
-	JNZ	L1926
+	JNZ	wait_ticks_800_loop2
 	POP	PSW
 	POP	H
 	RET
-L1931:
+wait_ticks_500:
 	PUSH	H
 	PUSH	PSW
 	LXI	H,01F4h
-	JMP	L191B
+	JMP	wait_ticks_800_loop1
 wait_ticks_panel:
 	PUSH	H
 	PUSH	PSW
 	LXI	H,0028h
-	LDA	0A009h
+	LDA	panel_family
 	CPI	05h
 	JZ	wait_ticks
 	CPI	04h
@@ -3615,14 +3634,14 @@ wait_ticks_panel:
 	JZ	wait_ticks
 	LXI	H,0014h
 wait_ticks:
-	SHLD	0A01Ch
-	LDA	0A01Bh
+	SHLD	tick_wait_count
+	LDA	tick_wait_flags
 	ORI	01h
-	STA	0A01Bh
-L1963:
-	LDA	0A01Bh
+	STA	tick_wait_flags
+wait_ticks_loop1:
+	LDA	tick_wait_flags
 	ANI	01h
-	JNZ	L1963
+	JNZ	wait_ticks_loop1
 	POP	PSW
 	POP	H
 	RET
@@ -3630,16 +3649,16 @@ wait_ticks_short:
 	PUSH	H
 	PUSH	PSW
 	LXI	H,0002h
-	LDA	0A009h
+	LDA	panel_family
 	CPI	12h
 	JNZ	wait_ticks
 	LXI	H,0054h
 	JMP	wait_ticks
-L1981:
+wait_ticks_5:
 	PUSH	H
 	PUSH	PSW
 	LXI	H,0005h
-	LDA	0A009h
+	LDA	panel_family
 	CPI	12h
 	JNZ	wait_ticks
 	LXI	H,0038h
@@ -3660,65 +3679,65 @@ attr_age:
 	PUSH	PSW
 	LDA	rx_handler_sel
 	CPI	00h
-	JNZ	L19F6
+	JNZ	attr_age_br5
 	LDA	display_attr
 	CPI	00h
-	JZ	L19E6
+	JZ	attr_age_br3
 	CPI	80h
-	JZ	L19F6
+	JZ	attr_age_br5
 	MOV	B,A
 	ANI	05h
 	CPI	01h
-	JNZ	L19CB
+	JNZ	attr_age_br1
 	LHLD	effect_duration2
 	MOV	A,H
 	ORA	L
-	JNZ	L19CB
+	JNZ	attr_age_br1
 	MOV	A,B
 	ANI	0FEh
 	MOV	B,A
-L19CB:
+attr_age_br1:
 	MOV	A,B
 	ANI	02h
-	JZ	L19DD
+	JZ	attr_age_br2
 	LHLD	effect_duration
 	MOV	A,H
 	ORA	L
-	JNZ	L19DD
+	JNZ	attr_age_br2
 	MOV	A,B
 	ANI	0FDh
 	MOV	B,A
-L19DD:
+attr_age_br2:
 	MOV	A,B
 	STA	display_attr
 	PUSH	PSW
 	CALL	attr_apply
 	POP	PSW
-L19E6:
+attr_age_br3:
 	MVI	B,00h
 	ANI	03h
-	JZ	L19EE
+	JZ	attr_age_br4
 	INR	B
-L19EE:
+attr_age_br4:
 	MOV	A,B
 	STA	attr_active
-L19F2:
+attr_age_ret1:
 	POP	PSW
 	POP	B
 	POP	H
 	RET
-L19F6:
+attr_age_br5:
 	CALL	attr_apply
-	JMP	L19F2
-L19FC:
+	JMP	attr_age_ret1
+hw_status_sample:
 	PUSH	PSW
 	PUSH	B
 	IN	hw_status_in
 	CMA
 	MOV	B,A
-	LDA	0A024h
+	LDA	hw_status_acc
 	ORA	B
-	STA	0A024h
+	STA	hw_status_acc
 	POP	B
 	POP	PSW
 	RET
@@ -3726,11 +3745,11 @@ uart_send:
 	PUSH	PSW
 	MVI	A,00h
 	CPI	00h
-	JZ	L1A19
+	JZ	uart_send_br1
 	POP	PSW
-	CALL	L1A46
+	CALL	uart_send_hex
 	RET
-L1A19:
+uart_send_br1:
 	POP	PSW
 uart_send_gapped:
 	PUSH	PSW
@@ -3738,31 +3757,31 @@ uart_send_gapped:
 	MVI	C,00h
 	MOV	A,C
 	CPI	00h
-	JZ	L1A2B
-L1A24:
+	JZ	uart_send_gapped_br1
+uart_send_gapped_loop1:
 	CALL	delay_90us
 	DCR	C
-	JNZ	L1A24
-L1A2B:
+	JNZ	uart_send_gapped_loop1
+uart_send_gapped_br1:
 	MVI	C,00h
 	MOV	A,C
 	CPI	00h
-	JZ	L1A3A
-L1A33:
+	JZ	uart_send_gapped_br2
+uart_send_gapped_loop2:
 	CALL	delay_90us
 	DCR	C
-	JNZ	L1A33
-L1A3A:
+	JNZ	uart_send_gapped_loop2
+uart_send_gapped_br2:
 	POP	B
-L1A3B:
+uart_send_gapped_loop3:
 	IN	uart_ctrl
 	ANI	01h
-	JZ	L1A3B
+	JZ	uart_send_gapped_loop3
 	POP	PSW
 uart_send_raw:
 	OUT	uart_data
 	RET
-L1A46:
+uart_send_hex:
 	PUSH	PSW
 	RRC
 	RRC
@@ -3792,17 +3811,17 @@ send_rom_string:
 	CALL	uart_send
 	INX	H
 	JMP	send_rom_string
-L1A74:
+send_ram_string:
 	MOV	A,M
 	CPI	0FFh
 	RZ
 	CALL	uart_send_gapped
 	INX	H
-	JMP	L1A74
+	JMP	send_ram_string
 line_turnaround:
 	IN	sw_port_c
 	ANI	20h
-	JZ	L1AC7
+	JZ	line_turnaround_br4
 	LDA	0072h
 	CPI	00h
 	RZ
@@ -3812,34 +3831,34 @@ line_turnaround:
 	RZ
 	MOV	A,B
 	ANI	08h
-	JZ	L1AA0
+	JZ	line_turnaround_br1
 	MVI	A,17h
 	OUT	uart_ctrl
-	JMP	L1AA4
-L1AA0:
+	JMP	line_turnaround_br2
+line_turnaround_br1:
 	MVI	A,37h
 	OUT	uart_ctrl
-L1AA4:
+line_turnaround_br2:
 	MOV	A,B
 	ANI	02h
-	JZ	L1AB9
+	JZ	line_turnaround_br3
 	MVI	A,16h
 	CALL	uart_send
 	CALL	uart_send
 	CALL	uart_send
 	CALL	uart_send
 	RET
-L1AB9:
+line_turnaround_br3:
 	MOV	A,B
 	ANI	04h
 	RZ
 	MVI	C,28h
-L1ABF:
+line_turnaround_loop1:
 	CALL	delay_90us
 	DCR	C
-	JNZ	L1ABF
+	JNZ	line_turnaround_loop1
 	RET
-L1AC7:
+line_turnaround_br4:
 	DI
 	MVI	A,0Bh
 	SIM
@@ -3847,14 +3866,14 @@ L1AC7:
 	MVI	A,17h
 	OUT	uart_ctrl
 	MVI	C,02h
-	JMP	L1ABF
-L1AD5:
+	JMP	line_turnaround_loop1
+line_turnaround_loop2:
 	MVI	A,07h
 	STA	watchdog_count
-L1ADA:
+line_turnaround_loop3:
 	IN	uart_ctrl
 	ANI	04h
-	JZ	L1ADA
+	JZ	line_turnaround_loop3
 	SUB	A
 	STA	watchdog_count
 	IN	uart_data
@@ -3871,7 +3890,7 @@ L1ADA:
 reply_cleanup:
 	IN	sw_port_c
 	ANI	20h
-	JZ	L1AD5
+	JZ	line_turnaround_loop2
 	LDA	0072h
 	CPI	00h
 	RZ
@@ -3881,61 +3900,61 @@ reply_cleanup:
 	RZ
 	MOV	A,B
 	ANI	02h
-	JZ	L1B34
+	JZ	reply_cleanup_br2
 	MVI	A,16h
 	CALL	uart_send
 	CALL	uart_send
 	CALL	uart_send
 	CALL	uart_send
-L1B1D:
+reply_cleanup_loop1:
 	IN	uart_ctrl
 	ANI	04h
-	JZ	L1B1D
-L1B24:
+	JZ	reply_cleanup_loop1
+reply_cleanup_loop2:
 	MOV	A,B
 	ANI	08h
-	JZ	L1B2F
+	JZ	reply_cleanup_br1
 	MVI	A,37h
 	OUT	uart_ctrl
 	RET
-L1B2F:
+reply_cleanup_br1:
 	MVI	A,17h
 	OUT	uart_ctrl
 	RET
-L1B34:
+reply_cleanup_br2:
 	MOV	A,B
 	ANI	04h
-	JZ	L1B1D
-L1B3A:
+	JZ	reply_cleanup_loop1
+reply_cleanup_loop3:
 	IN	uart_ctrl
 	ANI	04h
-	JZ	L1B3A
+	JZ	reply_cleanup_loop3
 	MVI	C,28h
-L1B43:
+reply_cleanup_loop4:
 	CALL	delay_90us
 	DCR	C
-	JNZ	L1B43
-	JMP	L1B24
-L1B4D:
+	JNZ	reply_cleanup_loop4
+	JMP	reply_cleanup_loop2
+delay_nop:
 	NOP
 	RET
 delay_90us:
 	PUSH	PSW
 	MVI	A,11h
-L1B52:
+delay_90us_loop1:
 	DCR	A
-	JNZ	L1B52
+	JNZ	delay_90us_loop1
 	POP	PSW
 	RET
 delay_183ms:
 	MVI	C,0C8h
-L1B5A:
+delay_183ms_loop1:
 	MVI	A,0C8h
-L1B5C:
+delay_183ms_loop2:
 	DCR	A
-	JNZ	L1B5C
+	JNZ	delay_183ms_loop2
 	DCR	C
-	JNZ	L1B5A
+	JNZ	delay_183ms_loop1
 	DCR	B
 	JNZ	delay_183ms
 	RET
@@ -3943,20 +3962,20 @@ xram_read:
 	PUSH	H
 	IN	xram_page
 	CPI	0FFh
-	JZ	L1B82
+	JZ	xram_read_br1
 	LDA	in_isr_flag
 	CPI	01h
-	JZ	L1B85
+	JZ	xram_read_br2
 	MOV	A,H
 	STA	xram_saved_page
 	OUT	xram_page
 	ORI	0E0h
 	MOV	H,A
-L1B82:
+xram_read_br1:
 	MOV	A,M
 	POP	H
 	RET
-L1B85:
+xram_read_br2:
 	MOV	A,H
 	OUT	xram_page
 	ORI	0E0h
@@ -3973,21 +3992,21 @@ xram_write:
 	PUSH	PSW
 	IN	xram_page
 	CPI	0FFh
-	JZ	L1BAF
+	JZ	xram_write_br1
 	LDA	in_isr_flag
 	CPI	01h
-	JZ	L1BB3
+	JZ	xram_write_br2
 	MOV	A,H
 	STA	xram_saved_page
 	OUT	xram_page
 	ORI	0E0h
 	MOV	H,A
-L1BAF:
+xram_write_br1:
 	POP	PSW
 	MOV	M,A
 	POP	H
 	RET
-L1BB3:
+xram_write_br2:
 	MOV	A,H
 	OUT	xram_page
 	ORI	0E0h
@@ -4005,21 +4024,21 @@ xram_compare:
 	PUSH	PSW
 	IN	xram_page
 	CPI	0FFh
-	JZ	L1BDE
+	JZ	xram_compare_br1
 	LDA	in_isr_flag
 	CPI	01h
-	JZ	L1BE2
+	JZ	xram_compare_br2
 	MOV	A,H
 	STA	xram_saved_page
 	OUT	xram_page
 	ORI	0E0h
 	MOV	H,A
-L1BDE:
+xram_compare_br1:
 	POP	PSW
 	CMP	M
 	POP	H
 	RET
-L1BE2:
+xram_compare_br2:
 	MOV	A,H
 	OUT	xram_page
 	ORI	0E0h
@@ -4039,14 +4058,14 @@ send_buffer_until_ff:
 	CALL	uart_send
 	INX	H
 	JMP	send_buffer_until_ff
-L1C00:
+send_buffer_until_ff_br1:
 	POP	PSW
 	PUSH	PSW
 	POP	PSW
 	MVI	A,00h
 	PUSH	PSW
-	JMP	L0B5F
-	JMP	L0B5F
+	JMP	rx_handler_b_loop2
+	JMP	rx_handler_b_loop2
 	NOP
 font_5x7:
 	; 256 glyphs x 5 columns, one per line -- see docs/font.md  (1280 bytes)
@@ -4306,7 +4325,7 @@ font_5x7:
 	db	32h,29h,26h,00h,00h	; 20FE  2)&..
 	db	00h,3Ch,3Ch,3Ch,00h	; 2103  .<<<.
 	db	00h,00h,00h,00h,00h	; 2108  .....
-L210D:
+panel_0a_draw:
 	PUSH	D
 	PUSH	H
 	CALL	xram_read
@@ -4315,10 +4334,10 @@ L210D:
 	MVI	C,10h
 	LDA	0A021h
 	CPI	01h
-	JNZ	L2121
+	JNZ	panel_0a_draw_br1
 	MVI	C,20h
-L2121:
-	LDA	0A00Ah
+panel_0a_draw_br1:
+	LDA	char_pos
 	CMA
 	ANI	0Fh
 	OUT	disp0_port_b
@@ -4335,53 +4354,53 @@ L2121:
 	ANI	0Fh
 	OUT	disp0_port_b
 	MVI	A,01h
-	STA	0A022h
+	STA	panel_dirty
 	POP	H
 	POP	D
 	RET
-L2146:
+panel_0a_flush:
 	PUSH	PSW
-	LDA	0A022h
+	LDA	panel_dirty
 	CPI	00h
-	JZ	L2168
+	JZ	panel_0a_flush_ret1
 	SUB	A
-	STA	0A022h
+	STA	panel_dirty
 	MVI	C,40h
 	LDA	0A021h
 	CPI	00h
-	JZ	L215F
+	JZ	panel_0a_flush_br1
 	MVI	C,80h
-L215F:
+panel_0a_flush_br1:
 	MOV	A,C
 	OUT	disp0_port_b
-	CALL	L1931
+	CALL	wait_ticks_500
 	SUB	A
 	OUT	disp0_port_b
-L2168:
+panel_0a_flush_ret1:
 	POP	PSW
 	RET
-L216A:
+panel_0103_draw:
 	PUSH	D
 	PUSH	H
 	CALL	xram_read
 	CPI	20h
-	JNZ	L2181
+	JNZ	panel_0103_draw_br1
 	IN	sw_port_c
 	ANI	1Fh
 	CPI	0Dh
 	MVI	A,20h
-	JNZ	L2181
+	JNZ	panel_0103_draw_br1
 	MVI	A,3Fh
-L2181:
+panel_0103_draw_br1:
 	CMA
 	OUT	disp0_port_a
 	MVI	C,80h
 	LDA	0A021h
 	CPI	01h
-	JNZ	L2190
+	JNZ	panel_0103_draw_br2
 	MVI	C,40h
-L2190:
-	LDA	0A00Ah
+panel_0103_draw_br2:
+	LDA	char_pos
 	CMA
 	ANI	3Fh
 	OUT	disp0_port_b
@@ -4400,15 +4419,15 @@ L2190:
 	POP	H
 	POP	D
 	RET
-L21B0:
+panel_02_draw:
 	PUSH	D
 	PUSH	H
 	MVI	C,08h
-	LDA	0A00Ah
+	LDA	char_pos
 	CMP	C
-	JNZ	L21F3
+	JNZ	panel_02_draw_ret1
 	LXI	H,shadow_buffer
-L21BE:
+panel_02_draw_loop1:
 	CALL	xram_read
 	CMA
 	OUT	disp0_port_a
@@ -4428,31 +4447,31 @@ L21BE:
 	ANI	80h
 	OUT	disp0_port_b
 	DCR	C
-	JZ	L21E6
+	JZ	panel_02_draw_br1
 	INX	H
-	JMP	L21BE
-L21E6:
+	JMP	panel_02_draw_loop1
+panel_02_draw_br1:
 	CALL	delay_76us
 	ORI	20h
 	OUT	disp0_port_b
 	CALL	wait_ticks_800
 	SUB	A
 	OUT	disp0_port_b
-L21F3:
+panel_02_draw_ret1:
 	POP	H
 	POP	D
 	RET
-L21F6:
+panel_08_draw:
 	PUSH	D
 	PUSH	H
 	CALL	xram_read
 	MOV	B,A
-L21FC:
+panel_08_draw_loop1:
 	LXI	H,1C5Dh
 	MVI	A,10h
-L2201:
+panel_08_draw_loop2:
 	CMP	B
-	JZ	L2215
+	JZ	panel_08_draw_br1
 	INX	H
 	INX	H
 	INX	H
@@ -4460,58 +4479,58 @@ L2201:
 	INX	H
 	INR	A
 	CPI	80h
-	JNZ	L2201
+	JNZ	panel_08_draw_loop2
 	MVI	B,23h
-	JMP	L21FC
-L2215:
+	JMP	panel_08_draw_loop1
+panel_08_draw_br1:
 	MVI	E,01h
-	LDA	0A00Ah
+	LDA	char_pos
 	CPI	00h
-	JNZ	L2226
+	JNZ	panel_08_draw_br2
 	MVI	E,00h
 	MVI	D,35h
-	JMP	L222F
-L2226:
+	JMP	panel_08_draw_br3
+panel_08_draw_br2:
 	CPI	00h
-	JNZ	L2236
+	JNZ	panel_08_draw_br4
 	MVI	E,00h
 	MVI	D,2Eh
-L222F:
+panel_08_draw_br3:
 	MOV	A,D
 	STA	0A002h
-	JMP	L2240
-L2236:
+	JMP	panel_08_draw_br5
+panel_08_draw_br4:
 	LDA	0A002h
 	ANI	2Eh
 	ORI	12h
 	STA	0A002h
-L2240:
+panel_08_draw_br5:
 	MVI	C,05h
-L2242:
+panel_08_draw_loop3:
 	MOV	A,E
 	CPI	00h
-	JZ	L224D
+	JZ	panel_08_draw_br6
 	MVI	A,3Fh
 	STA	0A002h
-L224D:
+panel_08_draw_br6:
 	MOV	A,M
 	ANI	7Fh
 	OUT	disp0_port_a
 	LDA	0A002h
 	OUT	disp0_port_c
 	MVI	B,14h
-L2259:
+panel_08_draw_loop4:
 	NOP
 	DCR	B
-	JNZ	L2259
+	JNZ	panel_08_draw_loop4
 	LDA	0A002h
 	ANI	1Bh
 	OUT	disp0_port_c
 	MVI	B,14h
-L2267:
+panel_08_draw_loop5:
 	NOP
 	DCR	B
-	JNZ	L2267
+	JNZ	panel_08_draw_loop5
 	LDA	0A002h
 	ANI	2Bh
 	ORI	12h
@@ -4520,21 +4539,21 @@ L2267:
 	INX	H
 	INR	E
 	DCR	C
-	JNZ	L2242
+	JNZ	panel_08_draw_loop3
 	POP	H
 	POP	D
 	RET
-L2281:
+panel_0607_draw:
 	PUSH	D
 	PUSH	H
 	CALL	xram_read
 	MOV	B,A
-L2287:
+panel_0607_draw_loop1:
 	LXI	H,1C5Dh
 	MVI	A,10h
-L228C:
+panel_0607_draw_loop2:
 	CMP	B
-	JZ	L22A0
+	JZ	panel_0607_draw_br1
 	INX	H
 	INX	H
 	INX	H
@@ -4542,30 +4561,30 @@ L228C:
 	INX	H
 	INR	A
 	CPI	80h
-	JNZ	L228C
+	JNZ	panel_0607_draw_loop2
 	MVI	B,23h
-	JMP	L2287
-L22A0:
+	JMP	panel_0607_draw_loop1
+panel_0607_draw_br1:
 	MVI	D,01h
 	MVI	C,05h
-L22A4:
+panel_0607_draw_loop3:
 	MVI	E,00h
-	CALL	L22BB
+	CALL	panel_0607_send
 	MOV	A,M
 	ORI	80h
 	MOV	E,A
-	CALL	L22BB
+	CALL	panel_0607_send
 	MOV	A,D
 	RLC
 	MOV	D,A
 	INX	H
 	DCR	C
-	JNZ	L22A4
+	JNZ	panel_0607_draw_loop3
 	POP	H
 	POP	D
 	RET
-L22BB:
-	LDA	0A00Ah
+panel_0607_send:
+	LDA	char_pos
 	CMA
 	ANI	7Fh
 	MOV	B,A
@@ -4591,26 +4610,26 @@ L22BB:
 	ORI	7Fh
 	OUT	disp0_port_b
 	MVI	A,0Ah
-L22EF:
+panel_0607_send_loop1:
 	CALL	delay_76us
 	DCR	A
-	JNZ	L22EF
+	JNZ	panel_0607_send_loop1
 	RET
 delay_230us:
 	PUSH	PSW
 	MVI	A,03h
-L22FA:
+delay_230us_loop1:
 	CALL	delay_76us
 	DCR	A
-	JNZ	L22FA
+	JNZ	delay_230us_loop1
 	POP	PSW
 	RET
-L2303:
+panel_0b_draw:
 	RET
-L2304:
-	CALL	L2378
+panel_09_draw:
+	CALL	panel_09_select
 	MVI	C,03h
-L2309:
+panel_09_draw_loop1:
 	XCHG
 	CALL	xram_read
 	MOV	B,A
@@ -4619,22 +4638,22 @@ L2309:
 	CALL	xram_write
 	LDA	frame_end_char
 	CMP	B
-	JNZ	L231E
+	JNZ	panel_09_draw_br1
 	MVI	B,20h
 	DCX	D
 	DCX	H
-L231E:
-	CALL	L2330
+panel_09_draw_br1:
+	CALL	font_select
 	INX	D
 	INX	H
 	DCR	C
-	JNZ	L2309
+	JNZ	panel_09_draw_loop1
 	DCX	D
 	DCX	H
-	CALL	L23A4
-	CALL	L239B
+	CALL	panel_09_strobe
+	CALL	panel_09_deselect
 	RET
-L2330:
+font_select:
 	PUSH	D
 	PUSH	H
 	PUSH	B
@@ -4645,15 +4664,15 @@ L2330:
 	MVI	E,01h
 	MOV	A,B
 	CPI	20h
-	JZ	L2345
+	JZ	font_select_br1
 	MVI	E,00h
-L2345:
-	CALL	L23B2
-	JMP	L2374
+font_select_br1:
+	CALL	shift_bits_port_a
+	JMP	font_4x7_emit_ret1
 font_4x7_lookup:
 	LXI	H,font_4x7
 	MVI	A,20h
-L2350:
+font_4x7_lookup_loop1:
 	CMP	B
 	JZ	font_4x7_emit
 	INX	H
@@ -4662,58 +4681,58 @@ L2350:
 	INX	H
 	INR	A
 	CPI	5Bh
-	JNZ	L2350
+	JNZ	font_4x7_lookup_loop1
 	MVI	B,23h
 	JMP	font_4x7_lookup
 font_4x7_emit:
 	MVI	B,04h
-L2365:
+font_4x7_emit_loop1:
 	MOV	A,M
 	ANI	7Fh
 	CMA
 	MOV	E,A
 	MVI	D,07h
-	CALL	L23B2
+	CALL	shift_bits_port_a
 	INX	H
 	DCR	B
-	JNZ	L2365
-L2374:
+	JNZ	font_4x7_emit_loop1
+font_4x7_emit_ret1:
 	POP	B
 	POP	H
 	POP	D
 	RET
-L2378:
+panel_09_select:
 	PUSH	B
-	LDA	0A00Ah
+	LDA	char_pos
 	MOV	B,A
 	CPI	08h
-	JNC	L239A
+	JNC	panel_09_select_br2
 	MVI	C,0FEh
-L2384:
+panel_09_select_loop1:
 	MOV	A,B
 	CPI	00h
-	JZ	L2391
+	JZ	panel_09_select_br1
 	MOV	A,C
 	RLC
 	MOV	C,A
 	DCR	B
-	JMP	L2384
-L2391:
+	JMP	panel_09_select_loop1
+panel_09_select_br1:
 	MVI	A,0Fh
 	OUT	disp0_port_a
 	MOV	A,C
 	OUT	disp0_port_b
 	POP	B
 	RET
-L239A:
+panel_09_select_br2:
 	POP	B
-L239B:
+panel_09_deselect:
 	MVI	A,07h
 	OUT	disp0_port_a
 	MVI	A,0FFh
 	OUT	disp0_port_b
 	RET
-L23A4:
+panel_09_strobe:
 	IN	disp0_port_a
 	ANI	0FBh
 	OUT	disp0_port_a
@@ -4721,7 +4740,7 @@ L23A4:
 	ORI	04h
 	OUT	disp0_port_a
 	RET
-L23B2:
+shift_bits_port_a:
 	MOV	A,E
 	ANI	01h
 	MOV	C,A
@@ -4739,7 +4758,7 @@ L23B2:
 	RRC
 	MOV	E,A
 	DCR	D
-	JNZ	L23B2
+	JNZ	shift_bits_port_a
 	RET
 font_4x7:
 	; 59 glyphs x 4 columns x 7 rows, codes 0x20-0x5A, columns stored right to left. Found via the linear search at 0x234B -- see docs/font.md  (236 bytes)
@@ -4802,17 +4821,17 @@ font_4x7:
 	db	63h,1Ch,1Ch,63h	; 24AF  c..c
 	db	03h,7Ch,03h,00h	; 24B3  .|..
 	db	43h,4Dh,59h,61h	; 24B7  CMYa
-L24BB:
+panel_0405_draw:
 	PUSH	D
 	PUSH	H
 	CALL	xram_read
 	MOV	B,A
-L24C1:
+panel_0405_draw_loop1:
 	LXI	H,1C5Dh
 	MVI	A,10h
-L24C6:
+panel_0405_draw_loop2:
 	CMP	B
-	JZ	L24DA
+	JZ	panel_0405_draw_br1
 	INX	H
 	INX	H
 	INX	H
@@ -4820,23 +4839,23 @@ L24C6:
 	INX	H
 	INR	A
 	CPI	80h
-	JNZ	L24C6
+	JNZ	panel_0405_draw_loop2
 	MVI	B,23h
-	JMP	L24C1
-L24DA:
-	LDA	0A009h
+	JMP	panel_0405_draw_loop1
+panel_0405_draw_br1:
+	LDA	panel_family
 	CPI	05h
-	JZ	L2523
+	JZ	panel_05_send_glyph
 	MVI	D,01h
 	MVI	C,05h
-L24E6:
+panel_0405_draw_loop3:
 	MOV	A,M
 	ANI	7Fh
 	OUT	disp0_port_a
 	IN	disp0_port_c
 	ORA	D
 	OUT	disp0_port_c
-	LDA	0A00Ah
+	LDA	char_pos
 	CMA
 	ANI	3Fh
 	MOV	B,A
@@ -4864,60 +4883,60 @@ L24E6:
 	OUT	disp0_port_b
 	INX	H
 	DCR	C
-	JNZ	L24E6
+	JNZ	panel_0405_draw_loop3
 	POP	H
 	POP	D
 	RET
-L2523:
-	SHLD	0A010h
+panel_05_send_glyph:
+	SHLD	render_ptr
 	MVI	D,01h
-	CALL	L2545
+	CALL	panel_05_col0
 	MVI	D,04h
-	CALL	L254B
+	CALL	panel_05_col2
 	MVI	D,10h
-	CALL	L2553
+	CALL	panel_05_col4
 	MVI	D,02h
-	CALL	L2560
+	CALL	panel_05_col1
 	MVI	D,08h
-	CALL	L2567
+	CALL	panel_05_col3
 	SUB	A
 	OUT	disp0_port_b
 	POP	H
 	POP	D
 	RET
-L2545:
-	LHLD	0A010h
-	JMP	L255A
-L254B:
-	LHLD	0A010h
+panel_05_col0:
+	LHLD	render_ptr
+	JMP	panel_05_col4_br1
+panel_05_col2:
+	LHLD	render_ptr
 	INX	H
 	INX	H
-	JMP	L255A
-L2553:
-	LHLD	0A010h
+	JMP	panel_05_col4_br1
+panel_05_col4:
+	LHLD	render_ptr
 	INX	H
 	INX	H
 	INX	H
 	INX	H
-L255A:
+panel_05_col4_br1:
 	MOV	A,M
 	XRI	55h
-	JMP	L256E
-L2560:
-	LHLD	0A010h
+	JMP	panel_05_col3_br2
+panel_05_col1:
+	LHLD	render_ptr
 	INX	H
-	JMP	L256D
-L2567:
-	LHLD	0A010h
+	JMP	panel_05_col3_br1
+panel_05_col3:
+	LHLD	render_ptr
 	INX	H
 	INX	H
 	INX	H
-L256D:
+panel_05_col3_br1:
 	MOV	A,M
-L256E:
+panel_05_col3_br2:
 	ANI	7Fh
 	MOV	E,A
-	LDA	0A00Ah
+	LDA	char_pos
 	CMA
 	ANI	7Fh
 	OUT	disp0_port_b
@@ -4938,57 +4957,57 @@ L256E:
 delay_1_5ms:
 	PUSH	PSW
 	MVI	A,14h
-L2599:
+delay_1_5ms_loop1:
 	CALL	delay_76us
 	DCR	A
-	JNZ	L2599
+	JNZ	delay_1_5ms_loop1
 	POP	PSW
 	RET
-L25A2:
+panel_0c_draw:
 	MVI	A,01h
-	STA	0A022h
+	STA	panel_dirty
 	RET
-L25A8:
+panel_0c_flush:
 	PUSH	PSW
 	POP	PSW
 	RET
-L25AB:
+panel_0d_draw:
 	MVI	A,01h
-	STA	0A022h
+	STA	panel_dirty
 	RET
-L25B1:
+panel_0d_flush:
 	PUSH	PSW
 	POP	PSW
 	RET
-L25B4:
+panel_0e_draw:
 	SHLD	0A081h
-	LDA	0A00Ah
+	LDA	char_pos
 	STA	0A083h
 	MVI	A,01h
-	STA	0A022h
+	STA	panel_dirty
 	RET
-L25C3:
+panel_0e_flush:
 	PUSH	PSW
-	LDA	0A022h
+	LDA	panel_dirty
 	CPI	00h
-	JNZ	L25CE
+	JNZ	panel_0e_flush_br1
 	POP	PSW
 	RET
-L25CE:
+panel_0e_flush_br1:
 	SUB	A
-	STA	0A022h
+	STA	panel_dirty
 	LHLD	0A081h
 	LDA	0A083h
 	INR	A
 	MOV	B,A
 	ANI	01h
-	JZ	L25E1
+	JZ	panel_0e_flush_br2
 	INR	B
 	INX	H
-L25E1:
+panel_0e_flush_br2:
 	MOV	A,B
 	STA	0A083h
-L25E5:
+panel_0e_flush_loop1:
 	PUSH	H
 	DCX	H
 	CALL	alt_char_lookup
@@ -5030,23 +5049,23 @@ L25E5:
 	DCR	A
 	STA	0A083h
 	CPI	00h
-	JZ	L2636
+	JZ	panel_0e_flush_br3
 	CPI	0FFh
-	JZ	L2636
-	JMP	L25E5
-L2636:
+	JZ	panel_0e_flush_br3
+	JMP	panel_0e_flush_loop1
+panel_0e_flush_br3:
 	LDA	render_pass_sel
 	CPI	00h
-	JZ	L2646
+	JZ	panel_0e_flush_br4
 	LDA	0A021h
 	CPI	00h
-	JZ	L264D
-L2646:
+	JZ	panel_0e_flush_ret1
+panel_0e_flush_br4:
 	MVI	A,02h
 	OUT	disp0_port_a
 	SUB	A
 	OUT	disp0_port_a
-L264D:
+panel_0e_flush_ret1:
 	POP	PSW
 	RET
 alt_char_lookup:
@@ -5064,10 +5083,10 @@ alt_char_lookup:
 	RET
 shift_out_port_a:
 	MVI	B,1Eh
-L2663:
+shift_out_port_a_loop1:
 	MVI	C,08h
 	MOV	E,M
-L2666:
+shift_out_port_a_loop2:
 	MOV	A,E
 	ANI	80h
 	OUT	disp0_port_a
@@ -5081,20 +5100,20 @@ L2666:
 	RLC
 	MOV	E,A
 	DCR	C
-	JNZ	L2666
+	JNZ	shift_out_port_a_loop2
 	INX	H
-	JMP	L2663
+	JMP	shift_out_port_a_loop1
 clock_port_a:
 	MVI	B,0Ah
 	SUB	A
 	OUT	disp0_port_a
-L2685:
+clock_port_a_loop1:
 	ORI	01h
 	OUT	disp0_port_a
 	ANI	80h
 	OUT	disp0_port_a
 	DCR	B
-	JNZ	L2685
+	JNZ	clock_port_a_loop1
 	RET
 alt_char_table:
 	; 128 pointers indexed by a 7-bit character code; 86 share the blank  (256 bytes)
@@ -5271,17 +5290,17 @@ alt_char_data:
 	db	03h,0DBh,0C8h,0Fh,0BCh,0FBh,0C0h,4Fh,0ACh	; 28FA  .......O.
 	db	03h,0C0h,0CEh,0CEh,0Ch,61h,0E6h,0C6h,0Ch	; 2903  .....a...
 	db	03h,9Bh,6Ah,1Ch,8Ch,9Bh,7Ah,38h,84h	; 290C  ..j...z8.
-L2915:
+panel_1012_draw:
 	PUSH	D
 	PUSH	H
 	CALL	xram_read
 	MOV	B,A
-L291B:
+panel_1012_draw_loop1:
 	LXI	H,font_5x7
 	MVI	A,00h
-L2920:
+panel_1012_draw_loop2:
 	CMP	B
-	JZ	L2934
+	JZ	panel_1012_draw_br1
 	INX	H
 	INX	H
 	INX	H
@@ -5289,11 +5308,11 @@ L2920:
 	INX	H
 	INR	A
 	CPI	0FFh
-	JNZ	L2920
+	JNZ	panel_1012_draw_loop2
 	MVI	B,00h
-	JMP	L291B
-L2934:
-	LDA	0A00Ah
+	JMP	panel_1012_draw_loop1
+panel_1012_draw_br1:
+	LDA	char_pos
 	CMA
 	ORI	80h
 	OUT	disp0_port_b
@@ -5304,7 +5323,7 @@ L2934:
 	CALL	delay_76us
 	CALL	delay_76us
 	MVI	B,05h
-L294C:
+panel_1012_draw_loop3:
 	IN	disp0_port_c
 	ANI	0F7h
 	ORI	10h
@@ -5315,9 +5334,9 @@ L294C:
 	CALL	delay_76us
 	ORI	20h
 	OUT	disp0_port_c
-	LDA	0A009h
+	LDA	panel_family
 	CPI	12h
-	JNZ	L297D
+	JNZ	panel_1012_draw_br2
 	MOV	A,M
 	OUT	disp0_port_a
 	CALL	delay_76us
@@ -5327,18 +5346,18 @@ L294C:
 	SUB	A
 	OUT	disp0_port_a
 	CALL	delay_76us
-L297D:
+panel_1012_draw_br2:
 	IN	disp0_port_b
 	ANI	7Fh
 	OUT	disp0_port_b
-	CALL	L1981
+	CALL	wait_ticks_5
 	ORI	80h
 	OUT	disp0_port_b
 	CALL	delay_76us
-	LDA	0A009h
+	LDA	panel_family
 	CPI	12h
-	JNZ	L29A6
-	LDA	0A00Ah
+	JNZ	panel_1012_draw_br3
+	LDA	char_pos
 	CMA
 	ORI	80h
 	OUT	disp0_port_b
@@ -5346,7 +5365,7 @@ L297D:
 	ORI	08h
 	OUT	disp0_port_c
 	CALL	delay_76us
-L29A6:
+panel_1012_draw_br3:
 	IN	disp0_port_c
 	ORI	10h
 	OUT	disp0_port_c
@@ -5363,7 +5382,7 @@ L29A6:
 	CALL	delay_76us
 	INX	H
 	DCR	B
-	JNZ	L294C
+	JNZ	panel_1012_draw_loop3
 	IN	disp0_port_c
 	ANI	23h
 	OUT	disp0_port_c
@@ -5372,17 +5391,17 @@ L29A6:
 	POP	H
 	POP	D
 	RET
-L29D7:
+panel_11_draw:
 	PUSH	D
 	PUSH	H
 	CALL	xram_read
 	MOV	B,A
-L29DD:
+panel_11_draw_loop1:
 	LXI	H,font_5x7
 	MVI	A,00h
-L29E2:
+panel_11_draw_loop2:
 	CMP	B
-	JZ	L29F6
+	JZ	panel_11_draw_br1
 	INX	H
 	INX	H
 	INX	H
@@ -5390,11 +5409,11 @@ L29E2:
 	INX	H
 	INR	A
 	CPI	0FFh
-	JNZ	L29E2
+	JNZ	panel_11_draw_loop2
 	MVI	B,00h
-	JMP	L29DD
-L29F6:
-	LDA	0A00Ah
+	JMP	panel_11_draw_loop1
+panel_11_draw_br1:
+	LDA	char_pos
 	CMA
 	ORI	80h
 	OUT	disp0_port_b
@@ -5403,14 +5422,14 @@ L29F6:
 	ANI	03h
 	ORI	20h
 	OUT	disp0_port_c
-L2A08:
+panel_11_draw_loop3:
 	IN	disp0_port_c
 	ORI	10h
 	OUT	disp0_port_c
 	ANI	2Fh
 	OUT	disp0_port_c
 	DCR	B
-	JNZ	L2A08
+	JNZ	panel_11_draw_loop3
 	IN	disp0_port_c
 	ANI	03h
 	MOV	C,A
@@ -5420,7 +5439,7 @@ L2A08:
 	ANI	2Fh
 	OUT	disp0_port_c
 	MVI	B,05h
-L2A27:
+panel_11_draw_loop4:
 	MVI	E,07h
 	MOV	A,M
 	RLC
@@ -5429,7 +5448,7 @@ L2A27:
 	RLC
 	RLC
 	MOV	D,A
-L2A30:
+panel_11_draw_loop5:
 	MOV	A,D
 	CMA
 	ANI	20h
@@ -5443,10 +5462,10 @@ L2A30:
 	RRC
 	MOV	D,A
 	DCR	E
-	JNZ	L2A30
+	JNZ	panel_11_draw_loop5
 	INX	H
 	DCR	B
-	JNZ	L2A27
+	JNZ	panel_11_draw_loop4
 	IN	disp0_port_c
 	ANI	03h
 	ORI	20h
@@ -5460,14 +5479,14 @@ L2A30:
 	POP	H
 	POP	D
 	RET
-L2A62:
+clock_service:
 	PUSH	B
 	PUSH	PSW
 	PUSH	H
-	IN	io_cd
+	IN	clock_cmd
 	CPI	0FFh
-	JZ	L2A89
-	LXI	H,0A027h
+	JZ	clock_service_ret1
+	LXI	H,clock_cmd_mailbox
 	MVI	C,00h
 	DI
 	MOV	A,M
@@ -5476,293 +5495,293 @@ L2A62:
 	MOV	B,M
 	EI
 	CPI	00h
-	JNZ	L2B5E
+	JNZ	clock_dispatch
 	LDA	0A026h
 	CPI	11h
-	JZ	L2B09
+	JZ	clock_show_time
 	CPI	12h
-	JZ	L2B2C
-L2A89:
+	JZ	clock_show_time_gated
+clock_service_ret1:
 	POP	H
 	POP	PSW
 	POP	B
 	RET
-io_cd_command:
+clock_read_time:
 	MVI	A,05h
-	OUT	io_cd
-L2A91:
-	IN	io_cd
+	OUT	clock_cmd
+clock_read_time_loop1:
+	IN	clock_cmd
 	ANI	0Ah
-	JNZ	L2A91
-	IN	io_c5
+	JNZ	clock_read_time_loop1
+	IN	clock_hour_tens
 	ANI	03h
 	ORI	30h
 	MOV	M,A
 	CPI	30h
-	JNZ	L2AB5
+	JNZ	clock_read_time_br1
 	MVI	M,3Fh
-	LDA	0A009h
+	LDA	panel_family
 	CPI	03h
-	JZ	L2AB5
+	JZ	clock_read_time_br1
 	CPI	0Ah
-	JZ	L2AB5
+	JZ	clock_read_time_br1
 	MVI	M,20h
-L2AB5:
+clock_read_time_br1:
 	INX	H
-	IN	io_c4
+	IN	clock_hour_units
 	ANI	0Fh
 	ORI	30h
 	MOV	M,A
 	INX	H
-	IN	io_c3
+	IN	clock_min_tens
 	ANI	07h
 	ORI	30h
 	MOV	M,A
 	INX	H
-	IN	io_c2
+	IN	clock_min_units
 	ANI	0Fh
 	ORI	30h
 	MOV	M,A
 	RET
-L2ACE:
+clock_wait_ready:
 	MVI	A,05h
-	OUT	io_cd
-L2AD2:
-	IN	io_cd
+	OUT	clock_cmd
+clock_wait_ready_loop1:
+	IN	clock_cmd
 	ANI	0Ah
-	JNZ	L2AD2
-L2AD9:
+	JNZ	clock_wait_ready_loop1
+clock_write_time:
 	MOV	A,M
 	ANI	03h
 	CPI	03h
-	JC	L2AE2
+	JC	clock_write_time_br1
 	SUB	A
-L2AE2:
-	OUT	io_c5
+clock_write_time_br1:
+	OUT	clock_hour_tens
 	INX	H
 	MOV	A,M
 	ANI	0Fh
 	CPI	0Ah
-	JC	L2AEE
+	JC	clock_write_time_br2
 	SUB	A
-L2AEE:
-	OUT	io_c4
+clock_write_time_br2:
+	OUT	clock_hour_units
 	INX	H
 	MOV	A,M
 	ANI	07h
 	CPI	06h
-	JC	L2AFA
+	JC	clock_write_time_br3
 	SUB	A
-L2AFA:
-	OUT	io_c3
+clock_write_time_br3:
+	OUT	clock_min_tens
 	INX	H
 	MOV	A,M
 	ANI	0Fh
 	CPI	0Ah
-	JC	L2B06
+	JC	clock_write_time_br4
 	SUB	A
-L2B06:
-	OUT	io_c2
+clock_write_time_br4:
+	OUT	clock_min_units
 	RET
-L2B09:
+clock_show_time:
 	LXI	H,msg_buffer
-	CALL	io_cd_command
-L2B0F:
+	CALL	clock_read_time
+clock_show_time_loop1:
 	MVI	A,00h
-	OUT	io_cd
+	OUT	clock_cmd
 	STA	0A026h
 	LXI	H,shadow_buffer
 	MVI	B,04h
 	MVI	A,23h
-L2B1D:
+clock_show_time_loop2:
 	MOV	M,A
 	INX	H
 	DCR	B
-	JNZ	L2B1D
+	JNZ	clock_show_time_loop2
 	MVI	A,4Ah
 	STA	isr_mailbox
 	POP	H
 	POP	PSW
 	POP	B
 	RET
-L2B2C:
+clock_show_time_gated:
 	LDA	0A00Dh
 	CPI	03h
-	JNZ	L2A89
+	JNZ	clock_service_ret1
 	LXI	H,msg_buffer
-	CALL	L2ACE
-	JMP	L2B0F
-L2B3D:
+	CALL	clock_wait_ready
+	JMP	clock_show_time_loop1
+clock_cmd_done:
 	MVI	A,00h
-	OUT	io_cd
+	OUT	clock_cmd
 	LDA	render_pass_sel
 	CPI	01h
-	JNZ	L2A89
+	JNZ	clock_service_ret1
 	LDA	0A026h
 	CPI	11h
-	JZ	L2B09
+	JZ	clock_show_time
 	CPI	12h
-	JZ	L2B09
+	JZ	clock_show_time
 	CPI	00h
-	JZ	L2B09
-	JMP	L2A89
-L2B5E:
+	JZ	clock_show_time
+	JMP	clock_service_ret1
+clock_dispatch:
 	CPI	01h
-	JZ	L2B7F
+	JZ	clock_key_dispatch
 	CPI	02h
-	JZ	L2BB6
+	JZ	clock_cmd_0c
 	CPI	03h
-	JZ	L2BD2
+	JZ	clock_reset
 	CPI	04h
-	JZ	L2C19
+	JZ	clock_inc_minute
 	CPI	05h
-	JZ	L2C3E
+	JZ	clock_inc_hour
 	CPI	06h
-	JZ	L2C07
-	JMP	L2A89
-L2B7F:
+	JZ	clock_ctrl_0a
+	JMP	clock_service_ret1
+clock_key_dispatch:
 	MOV	A,B
 	ANI	0F0h
 	CPI	70h
-	JZ	L2BBD
+	JZ	clock_cmd_0c_br1
 	CPI	0B0h
-	JZ	L2BCD
+	JZ	clock_key_latch_mode_br1
 	CPI	0D0h
-	JZ	L2C19
+	JZ	clock_inc_minute
 	CPI	0E0h
-	JZ	L2C3E
+	JZ	clock_inc_hour
 	CPI	0C0h
-	JZ	L2BD2
+	JZ	clock_reset
 	MOV	A,B
 	ANI	04h
-	JZ	L2BB1
+	JZ	clock_key_latch_bit2_br1
 	MVI	B,01h
-L2BA3:
+clock_key_latch_bit2:
 	LDA	0A02Ah
 	CMP	B
-	JZ	L2A89
+	JZ	clock_service_ret1
 	MOV	A,B
 	STA	0A02Ah
-	JMP	L2B3D
-L2BB1:
+	JMP	clock_cmd_done
+clock_key_latch_bit2_br1:
 	MVI	B,02h
-	JMP	L2BA3
-L2BB6:
+	JMP	clock_key_latch_bit2
+clock_cmd_0c:
 	MVI	A,0Ch
-	OUT	io_cd
-	JMP	L2B3D
-L2BBD:
+	OUT	clock_cmd
+	JMP	clock_cmd_done
+clock_cmd_0c_br1:
 	MVI	B,01h
-L2BBF:
+clock_key_latch_mode:
 	LDA	0A02Bh
 	CMP	B
-	JZ	L2A89
+	JZ	clock_service_ret1
 	MOV	A,B
 	STA	0A02Bh
-	JMP	L2BB6
-L2BCD:
+	JMP	clock_cmd_0c
+clock_key_latch_mode_br1:
 	MVI	B,02h
-	JMP	L2BBF
-L2BD2:
+	JMP	clock_key_latch_mode
+clock_reset:
 	MVI	A,05h
-	OUT	io_cd
-L2BD6:
-	IN	io_cd
+	OUT	clock_cmd
+clock_reset_loop1:
+	IN	clock_cmd
 	ANI	0Ah
-	JNZ	L2BD6
+	JNZ	clock_reset_loop1
 	MVI	A,01h
-	OUT	io_cf
+	OUT	clock_ctrl_cf
 	MVI	A,05h
-	OUT	io_cf
+	OUT	clock_ctrl_cf
 	MVI	A,04h
-	OUT	io_cf
+	OUT	clock_ctrl_cf
 	MVI	A,0Ah
-	OUT	io_ce
+	OUT	clock_ctrl_ce
 	MVI	C,04h
-	LXI	H,0A02Ch
-L2BF2:
+	LXI	H,clock_digits
+clock_reset_loop2:
 	MVI	M,00h
 	INX	H
 	DCR	C
-	JNZ	L2BF2
-	LXI	H,0A02Ch
-	CALL	L2ACE
+	JNZ	clock_reset_loop2
+	LXI	H,clock_digits
+	CALL	clock_wait_ready
 	SUB	A
-	OUT	io_c1
-	OUT	io_c0
-	JMP	L2B3D
-L2C07:
+	OUT	clock_reg_c1
+	OUT	clock_reg_c0
+	JMP	clock_cmd_done
+clock_ctrl_0a:
 	MVI	A,05h
-	OUT	io_cd
-L2C0B:
-	IN	io_cd
+	OUT	clock_cmd
+clock_ctrl_0a_loop1:
+	IN	clock_cmd
 	ANI	0Ah
-	JNZ	L2C0B
+	JNZ	clock_ctrl_0a_loop1
 	MVI	A,0Ah
-	OUT	io_ce
-	JMP	L2B3D
-L2C19:
-	LXI	H,0A02Ch
-	CALL	io_cd_command
+	OUT	clock_ctrl_ce
+	JMP	clock_cmd_done
+clock_inc_minute:
+	LXI	H,clock_digits
+	CALL	clock_read_time
 	LXI	H,0A02Fh
 	INR	M
 	MOV	A,M
 	CPI	3Ah
-	JNZ	L2C35
+	JNZ	clock_store_time
 	MVI	M,30h
 	DCX	H
 	INR	M
 	MOV	A,M
 	CPI	36h
-	JNZ	L2C35
+	JNZ	clock_store_time
 	MVI	M,30h
-L2C35:
-	LXI	H,0A02Ch
-	CALL	L2AD9
-	JMP	L2B3D
-L2C3E:
-	LXI	H,0A02Ch
-	CALL	io_cd_command
+clock_store_time:
+	LXI	H,clock_digits
+	CALL	clock_write_time
+	JMP	clock_cmd_done
+clock_inc_hour:
+	LXI	H,clock_digits
+	CALL	clock_read_time
 	LXI	H,0A02Dh
 	INR	M
 	MOV	A,M
 	CPI	34h
-	JZ	L2C71
+	JZ	clock_inc_hour_br2
 	CPI	3Ah
-	JNZ	L2C35
+	JNZ	clock_store_time
 	MVI	M,30h
 	DCX	H
 	INR	M
 	MOV	A,M
 	CPI	21h
-	JZ	L2C6C
+	JZ	clock_inc_hour_br1
 	CPI	40h
-	JZ	L2C6C
+	JZ	clock_inc_hour_br1
 	CPI	33h
-	JNZ	L2C35
+	JNZ	clock_store_time
 	MVI	M,30h
-	JMP	L2C35
-L2C6C:
+	JMP	clock_store_time
+clock_inc_hour_br1:
 	MVI	M,31h
-	JMP	L2C35
-L2C71:
+	JMP	clock_store_time
+clock_inc_hour_br2:
 	DCX	H
 	MOV	A,M
 	CPI	32h
-	JNZ	L2C35
+	JNZ	clock_store_time
 	MVI	M,30h
 	INX	H
 	MVI	M,30h
-	JMP	L2C35
-L2C80:
-	CALL	L3022
+	JMP	clock_store_time
+rx_handler_c:
+	CALL	watchdog_disable
 	IN	uart_ctrl
 	ANI	78h
 	CPI	08h
-	JZ	L2C91
+	JZ	rx_handler_c_br1
 	CPI	00h
-	JZ	L2CA6
-L2C91:
+	JZ	rx_handler_c_br2
+rx_handler_c_br1:
 	LDA	status_flags_a
 	ORI	80h
 	STA	status_flags_a
@@ -5771,8 +5790,8 @@ L2C91:
 	STA	0A07Bh
 	MVI	A,37h
 	OUT	uart_ctrl
-	JMP	L2CCA
-L2CA6:
+	JMP	rx_handler_c_br3
+rx_handler_c_br2:
 	IN	uart_data
 	STA	0A07Bh
 	LDA	frame_start_char
@@ -5792,44 +5811,44 @@ L2CA6:
 	ANI	20h
 	ORA	B
 	STA	0A07Dh
-L2CCA:
+rx_handler_c_br3:
 	LDA	0A089h
 	CPI	00h
-	JNZ	L2D3D
+	JNZ	rx_handler_c_loop1
 	LDA	status_flags_a
 	MOV	B,A
 	ANI	01h
-	JZ	L2E67
+	JZ	rx_handler_c_br10
 	MOV	A,B
 	ANI	04h
-	JNZ	L2EB4
+	JNZ	rx_handler_c_br14
 	MOV	A,B
 	ANI	08h
-	JNZ	L2EF1
+	JNZ	rx_handler_c_br17
 	MOV	A,B
 	ANI	10h
-	JNZ	L2F3B
+	JNZ	rx_handler_c_br19
 	MOV	A,B
 	ANI	20h
-	JNZ	L2F73
+	JNZ	rx_handler_c_br20
 	MOV	A,B
 	ANI	40h
-	JNZ	L2FA8
+	JNZ	rx_handler_c_br21
 	LDA	0A07Bh
 	CPI	18h
-	JZ	L2EE0
+	JZ	rx_handler_c_br16
 	CPI	03h
-	JZ	L2FBE
+	JZ	rx_handler_c_br22
 	CPI	00h
 	RZ
 	CPI	02h
-	JZ	L2FCA
+	JZ	rx_handler_c_br23
 	CPI	01h
-	JZ	L2FEF
+	JZ	rx_handler_c_br24
 	CPI	0Ch
 	JZ	fatal_or_init
 	CPI	0Fh
-	JZ	L3002
+	JZ	rx_handler_c_br25
 	CPI	1Eh
 	RNZ
 	LDA	0A07Dh
@@ -5844,19 +5863,19 @@ L2CCA:
 	STA	0A089h
 	STA	status_flags_a
 	STA	0A088h
-	CALL	L3022
+	CALL	watchdog_disable
 	RET
-L2D3D:
+rx_handler_c_loop1:
 	LDA	0A089h
 	CPI	01h
-	JNZ	L2DFF
+	JNZ	rx_handler_c_br7
 	MVI	A,03h
 	STA	0A087h
-L2D4A:
+rx_handler_c_loop2:
 	LDA	0A087h
 	CPI	00h
-	JNZ	L2D79
-L2D52:
+	JNZ	rx_handler_c_br4
+rx_handler_c_loop3:
 	CALL	line_turnaround
 	MVI	C,18h
 	CALL	uart_send_timed
@@ -5873,14 +5892,14 @@ L2D52:
 	STA	status_flags_a
 	STA	0A088h
 	RET
-L2D79:
+rx_handler_c_br4:
 	DCR	A
 	STA	0A087h
 	MVI	A,02h
 	STA	0A089h
 	LDA	0A088h
 	CPI	02h
-	JNZ	L2DA0
+	JNZ	rx_handler_c_br5
 	CALL	line_turnaround
 	MVI	C,1Dh
 	CALL	uart_send_timed
@@ -5890,9 +5909,9 @@ L2D79:
 	CALL	reply_cleanup
 	CALL	watchdog_kick
 	RET
-L2DA0:
+rx_handler_c_br5:
 	CPI	01h
-	JNZ	L2DF2
+	JNZ	rx_handler_c_br6
 	CALL	line_turnaround
 	MVI	C,02h
 	CALL	uart_send_timed
@@ -5909,7 +5928,7 @@ L2DA0:
 	STA	0A085h
 	CALL	uart_send_timed
 	LXI	H,0A08Dh
-L2DCB:
+rx_handler_c_loop4:
 	MOV	C,M
 	LDA	0A085h
 	XRA	C
@@ -5917,7 +5936,7 @@ L2DCB:
 	CALL	uart_send_timed
 	INX	H
 	DCR	B
-	JNZ	L2DCB
+	JNZ	rx_handler_c_loop4
 	MVI	C,03h
 	CALL	uart_send_timed
 	LDA	0A085h
@@ -5928,44 +5947,44 @@ L2DCB:
 	STA	0A088h
 	CALL	watchdog_kick
 	RET
-L2DF2:
+rx_handler_c_br6:
 	SUB	A
 	STA	0A089h
 	LDA	0A080h
 	ORI	80h
 	STA	0A080h
 	RET
-L2DFF:
+rx_handler_c_br7:
 	CPI	02h
-	JNZ	L2E28
+	JNZ	rx_handler_c_br8
 	LDA	0A07Bh
 	CPI	06h
-	JNZ	L2E15
+	JNZ	rx_handler_c_loop5
 	MVI	A,03h
 	STA	0A089h
 	CALL	watchdog_kick
 	RET
-L2E15:
+rx_handler_c_loop5:
 	CALL	line_turnaround
 	MVI	C,18h
 	CALL	uart_send_timed
 	LDA	0A088h
 	CPI	01h
-	JNZ	L2D52
-	JMP	L2D4A
-L2E28:
+	JNZ	rx_handler_c_loop3
+	JMP	rx_handler_c_loop2
+rx_handler_c_br8:
 	LDA	0A086h
 	ANI	1Fh
 	MOV	B,A
 	LDA	0A07Bh
 	ANI	1Fh
 	CMP	B
-	JNZ	L2E15
+	JNZ	rx_handler_c_loop5
 	LDA	0A07Bh
 	STA	0A086h
 	LDA	0A088h
 	CPI	00h
-	JNZ	L2E54
+	JNZ	rx_handler_c_br9
 	SUB	A
 	STA	0A089h
 	LDA	0A080h
@@ -5973,43 +5992,43 @@ L2E28:
 	ORI	20h
 	STA	0A080h
 	RET
-L2E54:
+rx_handler_c_br9:
 	LDA	0A086h
 	ANI	80h
-	JZ	L2E15
+	JZ	rx_handler_c_loop5
 	MVI	A,01h
 	STA	0A088h
 	STA	0A089h
-	JMP	L2D3D
-L2E67:
+	JMP	rx_handler_c_loop1
+rx_handler_c_br10:
 	LDA	0A07Bh
 	CPI	1Dh
-	JNZ	L2E7F
+	JNZ	rx_handler_c_br11
 	MOV	A,B
 	ANI	02h
-	JNZ	L2E83
+	JNZ	rx_handler_c_br12
 	MOV	A,B
 	ORI	02h
 	STA	status_flags_a
 	CALL	watchdog_kick
 	RET
-L2E7F:
+rx_handler_c_br11:
 	MOV	A,B
 	ANI	02h
 	RZ
-L2E83:
+rx_handler_c_br12:
 	LDA	0A07Bh
 	ANI	1Fh
 	MOV	C,A
 	LDA	0A07Dh
 	ANI	1Fh
 	CMP	C
-	JZ	L2E99
+	JZ	rx_handler_c_br13
 	MOV	A,B
 	ANI	7Dh
 	STA	status_flags_a
 	RET
-L2E99:
+rx_handler_c_br13:
 	MOV	A,B
 	ANI	0FDh
 	ORI	01h
@@ -6022,7 +6041,7 @@ L2E99:
 	CALL	uart_send_timed
 	CALL	reply_cleanup
 	RET
-L2EB4:
+rx_handler_c_br14:
 	LHLD	0A08Ah
 	LDA	0A07Bh
 	MOV	M,A
@@ -6035,16 +6054,16 @@ L2EB4:
 	DCR	A
 	STA	0A084h
 	CPI	00h
-	JZ	L2ED6
+	JZ	rx_handler_c_br15
 	CALL	watchdog_kick
 	RET
-L2ED6:
+rx_handler_c_br15:
 	MOV	A,B
 	ANI	0FBh
 	STA	status_flags_a
 	CALL	watchdog_kick
 	RET
-L2EE0:
+rx_handler_c_br16:
 	MOV	A,B
 	ANI	81h
 	STA	status_flags_a
@@ -6053,10 +6072,10 @@ L2EE0:
 	ORI	0A0h
 	STA	status_flags_b
 	RET
-L2EF1:
+rx_handler_c_br17:
 	LDA	0A088h
 	CPI	01h
-	JZ	L2F14
+	JZ	rx_handler_c_br18
 	MVI	A,01h
 	STA	0A088h
 	LDA	0A07Bh
@@ -6069,7 +6088,7 @@ L2EF1:
 	STA	status_flags_b
 	CALL	watchdog_kick
 	RET
-L2F14:
+rx_handler_c_br18:
 	LXI	H,state_vt
 	SHLD	0A08Ah
 	LDA	0A07Bh
@@ -6087,21 +6106,21 @@ L2F14:
 	STA	status_flags_a
 	CALL	watchdog_kick
 	RET
-L2F3B:
+rx_handler_c_br19:
 	MOV	A,B
 	ANI	0EFh
 	STA	status_flags_a
 	MOV	A,B
 	ANI	80h
-	JNZ	L2F5A
+	JNZ	rx_handler_c_loop6
 	MVI	A,01h
 	STA	0A089h
 	MVI	A,02h
 	STA	0A088h
 	LDA	0A07Bh
 	STA	0A086h
-	JMP	L2D3D
-L2F5A:
+	JMP	rx_handler_c_loop1
+rx_handler_c_loop6:
 	MOV	A,B
 	ANI	7Fh
 	STA	status_flags_a
@@ -6113,7 +6132,7 @@ L2F5A:
 	CALL	uart_send_timed
 	CALL	reply_cleanup
 	RET
-L2F73:
+rx_handler_c_br20:
 	MOV	A,B
 	ANI	0DFh
 	MOV	B,A
@@ -6122,10 +6141,10 @@ L2F73:
 	MOV	C,A
 	LDA	0A085h
 	CMP	C
-	JNZ	L2F5A
+	JNZ	rx_handler_c_loop6
 	MOV	A,B
 	ANI	80h
-	JNZ	L2F5A
+	JNZ	rx_handler_c_loop6
 	CALL	line_turnaround
 	MVI	C,06h
 	CALL	uart_send_timed
@@ -6138,7 +6157,7 @@ L2F73:
 	ORI	40h
 	STA	status_flags_b
 	RET
-L2FA8:
+rx_handler_c_br21:
 	MOV	A,B
 	ANI	0BFh
 	STA	status_flags_a
@@ -6149,13 +6168,13 @@ L2FA8:
 	ORI	40h
 	STA	status_flags_b
 	RET
-L2FBE:
+rx_handler_c_br22:
 	LDA	status_flags_a
 	ORI	20h
 	STA	status_flags_a
 	CALL	watchdog_kick
 	RET
-L2FCA:
+rx_handler_c_br23:
 	LDA	0A07Dh
 	ANI	80h
 	RZ
@@ -6172,7 +6191,7 @@ L2FCA:
 	STA	status_flags_a
 	CALL	watchdog_kick
 	RET
-L2FEF:
+rx_handler_c_br24:
 	CALL	line_turnaround
 	MVI	C,0Fh
 	CALL	uart_send_timed
@@ -6181,7 +6200,7 @@ L2FEF:
 	CALL	uart_send_timed
 	CALL	reply_cleanup
 	RET
-L3002:
+rx_handler_c_br25:
 	LDA	status_flags_a
 	ORI	40h
 	STA	status_flags_a
@@ -6195,22 +6214,22 @@ L3002:
 	INR	A
 	STA	0A088h
 	STA	0A089h
-	JMP	L2D3D
-L3022:
+	JMP	rx_handler_c_loop1
+watchdog_disable:
 	SUB	A
 	STA	watchdog_count
 	RET
 uart_send_timed:
 	IN	uart_ctrl
 	ANI	01h
-	JNZ	L303A
+	JNZ	uart_send_timed_br1
 	MVI	A,08h
 	STA	watchdog_count
-L3033:
+uart_send_timed_loop1:
 	IN	uart_ctrl
 	ANI	01h
-	JZ	L3033
-L303A:
+	JZ	uart_send_timed_loop1
+uart_send_timed_br1:
 	SUB	A
 	STA	watchdog_count
 	MOV	A,C

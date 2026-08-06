@@ -13,7 +13,7 @@ Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
 | --- | --- | --- | --- |
 | `0x80-0x81` | U3 M82C51A-2 USART | External serial link (DB37) | **[C]** |
 | `0xA0-0xA5` | U2 M81C55-5 I/O section | DIP switches + baud-rate timer | **[C]** |
-| `0xC0-0xCF` | *unidentified* | LED matrix interface (board absent) | **[L]** |
+| `0xC0-0xCF` | clock board | HH:MM digits, plus a time-setting keypad on `0xCD` | **[C]** |
 | `0xDE` | *unidentified input* | Active-low hardware status; sampled every RST7.5 tick | **[L]** |
 | `0xE0-0xE5` | 8155-class device (U20) | Flip-dot interface — but see the ALT4 contradiction | **[?]** |
 | `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
@@ -279,29 +279,66 @@ Two consequences worth being explicit about:
    instead, substituting a switch for a value the expansion board would
    otherwise have supplied. **[C]**
 
-## 0xC0-0xCF — unidentified, serviced by the watchdog tick **[?]**
+## 0xC0-0xCF — a clock, with keys **[C]**
 
-`0xC0`-`0xC5` are each written exactly once (an init sequence in the 81C55
-register order), then only `0xCD` (7 W / 6 R), `0xCE` (2 W) and `0xCF` (3 W) are
-touched at runtime.
+**This window is a clock board.** Two earlier readings of it were wrong and are
+retracted: it is not an LED matrix interface, and `0xC0`-`0xC5` are not "written
+once at init" — nothing in the init path touches them at all.
 
-**Earlier this was labelled "LED matrix interface, board absent". That is now
-doubtful.** The RST7.5 handler at `0x02A9` reads `0xCD` on every tick and runs
-the watchdog, which points at a device that is *present* — the firmware has no
-absence check for `0xC0` anywhere, unlike the careful probing it does for `0xE7`.
+| Port | Direction | Contents |
+| --- | --- | --- |
+| `0xC5` | R/W | hours **tens** digit, validated `0-2` |
+| `0xC4` | R/W | hours **units** digit, validated `0-9` |
+| `0xC3` | R/W | minutes **tens** digit, validated `0-5` |
+| `0xC2` | R/W | minutes **units** digit, validated `0-9` |
+| `0xC1`, `0xC0` | W | only ever written `0`, and only by `clock_reset` |
+| `0xCD` | W | command: `5` = latch, `0` = release, `0x0C` = ? |
+| `0xCD` | R | bits 3 and 1 busy; bits 7:4 and 2 are key inputs |
+| `0xCE` | W | control, only ever `0x0A` |
+| `0xCF` | W | control, written `1` then `5` then `4` during a reset |
 
-Either the device is on the motherboard and does something else entirely, or
-RST7.5 simply never fires in this unit (its counter is decremented inside the
-handler, so a never-firing RST7.5 is harmless). **Distinguishing these two needs
-one scope probe on the 8085's RST7.5 pin.**
+`clock_read_time` (`0x2A8D`) commands the board, waits for the busy bits to
+clear, reads the four digits, ORs `0x30` into each and stores them as **four
+ASCII characters**. Its caller passes `HL = 0xE001` — `msg_buffer` — so the time
+lands in the first four display positions, and the routine then writes `0x23`
+over the matching four shadow bytes to force a repaint. **The panel shows the
+time as `HHMM` in characters 0-3.**
+
+Four independent things make the reading certain: the digit ranges are exactly
+`0-2 / 0-9 / 0-5 / 0-9`; `clock_inc_minute` carries at `'9'+1` and wraps the tens
+at `'6'`; `clock_inc_hour` carries the same way and forces `00` when the hours
+reach `24`; and the two are validated a *second* time, independently, on the way
+back out in `clock_write_time`.
+
+**Leading-zero blanking, and a self-consistency check on the above.**
+`clock_read_time` replaces an hours-tens digit of `'0'` with `' '` — except for
+panel families 3 and `0x0A`, which get `'?'`. `clock_inc_hour` then tests the
+incremented tens digit against `0x21` and `0x40`, which are precisely `' '+1` and
+`'?'+1`, and maps both to `'1'`. Two routines 350 bytes apart agree on a detail
+that only makes sense if the digit really is a blanked hours tens.
+
+**`0xCD` also carries keys.** The RST7.5 handler reads it every tick, masks
+`0xF4`, and when the value changes starts a 201-tick debounce; on expiry it posts
+`1` in `clock_cmd_mailbox`. `clock_service` picks that up and dispatches on the
+debounced byte: `0xD0` adds a minute, `0xE0` adds an hour, `0xC0` resets, `0x70`
+and `0xB0` toggle latched modes. **This is a time-setting keypad**, and it is why
+RST7.5 reading `0xCD` never looked like a display access.
+
+Still open: what `0xC1`/`0xC0` hold — seconds is the obvious guess, but the
+firmware only ever zeroes them, so the code cannot say. Likewise `0xCE`/`0xCF`
+are written fixed constants and never read.
 
 ## Open questions
 
 - [ ] Measure the 81C55 TIMER IN frequency (or the 8085 CLK OUT) to pin the
       whole baud ladder down. One measurement, six answers.
-- [ ] Does RST7.5 actually fire? Decides whether the `0xC0` device is present.
-- [ ] Identify U9 (DIP16), U10 (DIP20), U19 (DIP16, ST) and U20 (DIP40) and map
-      them onto the `0xC0`/`0xE0`/`0xE8` decode windows.
+- [ ] Is the clock board on this unit at all? `clock_service` returns
+      immediately when `IN 0xCD` reads `0xFF`, so an open bus disables the whole
+      feature — and the ribbon would have to reach a keypad and four more digits.
+- [ ] What do `0xC0` and `0xC1` hold? Seconds fits, but the firmware only ever
+      writes zero to them, so the ROM cannot answer it.
+- [ ] Identify U9 (DIP16), U10 (DIP20) and U20 (DIP40) and map them onto the
+      `0xC0`/`0xE0`/`0xE8` decode windows.
 - [ ] Trace which address lines form the `0x80` / `0xA0` / `0xC0` / `0xE0`
       chip selects (U5/U11 MC14584B + the unidentified decoder).
 - [ ] **Find what `IN 0xDE` reads — bit by bit.** Its role is now known even if

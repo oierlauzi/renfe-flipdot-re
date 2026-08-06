@@ -45,6 +45,7 @@ mem,0acb,rx_handler_b,func,"Serial receive handler B, dispatched from isr_rst55 
 mem,0b76,rx_command_dispatch,label,Handler B command table: 28 ASCII control codes. See docs/serial-protocol.md
 mem,0c1b,cmd_dc2_right,label,"DC2: cursor right, wrapping to the next row at column 64"
 mem,0c41,check_buffer_bounds,label,Clamps the write pointer to 0xE041 and latches error 0x30 on overflow
+mem,0c70,rx_b_return,label,"Shared RET for handler B; 38 command paths jump here"
 mem,0ca7,cmd_vt_position,label,VT: position cursor; takes row then column as ASCII digits
 mem,0d1b,cmd_cr,label,CR: carriage return to column 0
 mem,0d31,cmd_lf,label,LF: line feed
@@ -126,15 +127,15 @@ io,a2,sw_port_b,port,81C55 port B - DIP switches; bits 7:5 = baud select
 io,a3,sw_port_c,port,81C55 port C - DIP switches; bit 5 = startup mode
 io,a4,sw_timer_lo,port,81C55 timer count LSB - clocks the 8251A
 io,a5,sw_timer_hi,port,81C55 timer count MSB + mode bits
-io,c0,io_c0,port,Unidentified; written once at init. See docs/io-map.md - the LED-matrix guess is doubtful
-io,c1,io_c1,port,Unidentified; written once at init
-io,c2,io_c2,port,Unidentified; written once at init
-io,c3,io_c3,port,Unidentified; written once at init
-io,c4,io_c4,port,Unidentified; written once at init
-io,c5,io_c5,port,Unidentified; written once at init
-io,cd,io_cd,port,Unidentified; read by isr_rst75
-io,ce,io_ce,port,Unidentified
-io,cf,io_cf,port,Unidentified
+io,c0,clock_reg_c0,port,"Clock board register; only ever written 0, alongside clock_reg_c1"
+io,c1,clock_reg_c1,port,Clock board register; only ever written 0. See docs/io-map.md
+io,c2,clock_min_units,port,Clock minutes units digit; read and written as 0-9
+io,c3,clock_min_tens,port,Clock minutes tens digit; read and written as 0-5
+io,c4,clock_hour_units,port,Clock hours units digit; read and written as 0-9
+io,c5,clock_hour_tens,port,Clock hours tens digit; read and written as 0-2
+io,cd,clock_cmd,port,"Clock board command (write 5) and status; bits 3 and 1 are busy. Bits 7:4 and 2 read back as key inputs, debounced by isr_rst75"
+io,ce,clock_ctrl_ce,port,Clock board control; only ever written 0x0A
+io,cf,clock_ctrl_cf,port,"Clock board control; written 1, then 5, then 4 during a clock reset"
 io,de,hw_status_in,port,"Active-low hardware status input; OR-accumulated into 0xA024 each RST7.5 tick, reported by BS"
 io,e0,disp0_cmd,port,Display group 0 command register (81C55-like)
 io,e1,disp0_port_a,port,Display group 0 port A - flip-dot drive
@@ -199,3 +200,84 @@ mem,23CF,font_4x7,data,"Third glyph table: 59 entries x 4 columns x 7 rows, code
 mem,234B,font_4x7_lookup,func,"Linear search of font_4x7 by character code, 4-byte stride, from 0x20 up to 0x5A"
 mem,2363,font_4x7_emit,func,"Walk a 4x7 glyph's 4 columns, mask to 7 rows, complement, and send each"
 mem,0092,tbl_halve,data,"64-entry lookup mapping i to i/2"
+mem,210D,panel_0a_draw,label,"Panel family 0x0A: per-character driver"
+mem,216A,panel_0103_draw,label,"Panel families 0x01 and 0x03: per-character driver"
+mem,21B0,panel_02_draw,label,"Panel family 0x02: per-character driver"
+mem,21F6,panel_08_draw,label,"Panel family 0x08: per-character driver"
+mem,2281,panel_0607_draw,label,"Panel families 0x06 and 0x07: per-character driver"
+mem,2303,panel_0b_draw,label,"Panel family 0x0B: a bare RET, so the family draws nothing"
+mem,2304,panel_09_draw,label,"Panel family 0x09: per-character driver"
+mem,24BB,panel_0405_draw,label,"Panel families 0x04 and 0x05: per-character driver; glyphs from 0x1C5D, codes 0x10-0x7F"
+mem,25A2,panel_0c_draw,label,"Panel family 0x0C: only raises the dirty flag 0xA022"
+mem,25AB,panel_0d_draw,label,"Panel family 0x0D: only raises the dirty flag 0xA022"
+mem,25B4,panel_0e_draw,label,"Panel family 0x0E: latch HL and the position, then raise 0xA022"
+mem,2915,panel_1012_draw,label,"Panel families 0x10 and 0x12: per-character driver"
+mem,29D7,panel_11_draw,label,"Panel family 0x11 - this unit. 74-bit serial frame per character; see docs/flipdot-interface.md"
+mem,2146,panel_0a_flush,func,"Family 0x0A end of pass: if 0xA022 is set, hold disp0_port_b at 0x40 or 0x80 for 500 ticks"
+mem,25A8,panel_0c_flush,func,"Family 0x0C end of pass: PUSH PSW / POP PSW / RET, a stub"
+mem,25B1,panel_0d_flush,func,"Family 0x0D end of pass: a stub, same as panel_0c_flush"
+mem,25C3,panel_0e_flush,func,"Family 0x0E end of pass: repaint from alt_char_data, two characters per iteration"
+mem,22BB,panel_0607_send,func,"Families 0x06/0x07: position on port B, glyph byte E on port A, D onto port C bit 5"
+mem,2378,panel_09_select,func,"Family 0x09: turn the character position 0xA00A into a one-hot select on ports A and B"
+mem,239B,panel_09_deselect,func,"Family 0x09: port A 0x07, port B 0xFF"
+mem,23A4,panel_09_strobe,func,"Family 0x09: drop port A bit 2 for 800 RST7.5 ticks, then raise it"
+mem,2523,panel_05_send_glyph,func,"Family 0x05 only: send the five glyph columns with row select D = 1,4,0x10,2,8"
+mem,2545,panel_05_col0,func,"Column 0 of the glyph at 0xA010, XOR 0x55"
+mem,254B,panel_05_col2,func,"Column 2 of the glyph at 0xA010, XOR 0x55"
+mem,2553,panel_05_col4,func,"Column 4 of the glyph at 0xA010, XOR 0x55"
+mem,2560,panel_05_col1,func,"Column 1 of the glyph at 0xA010"
+mem,2567,panel_05_col3,func,"Column 3 of the glyph at 0xA010"
+mem,2330,font_select,func,"Pick the glyph source: three columns via shift_bits_port_a when C is 3, otherwise font_4x7"
+mem,23B2,shift_bits_port_a,func,"Shift D bits of E out on disp0_port_a bit 0, clocking on bit 1"
+mem,1485,render_pass_disp1,label,"Panel family 0 path: differential walk painting display group 1. Returns at once when xram_page reads 0xFF"
+mem,1520,disp1_paint,func,"Repaint display group 1 (ports 0xE8-0xED) character by character"
+mem,15D2,disp1_idle_clocks,func,"Ten clock pulses with no data, or two when a second display is selected. Only for xram_page nibble 5 or 6"
+mem,15FF,disp1_frame_start,func,"Start-of-frame sequence on disp1_port_c, then arm a 5-tick wait"
+mem,1630,disp1_send_m,func,"Load (HL) and fall into disp1_send"
+mem,1631,disp1_send,func,"Complement A onto disp1_port_a"
+mem,1645,disp1_strobe_b,func,"Put 0xA025 inverted on disp1_port_b and strobe bit 7, twice, 5.9 us apart"
+mem,1675,disp1_frame_end,func,"Wait for the armed tick, then the end-of-frame sequence on disp1_port_c"
+mem,16B5,disp1_clock_pulse,func,"One clock pulse on disp1_port_c; advances the character position 0xA00A"
+mem,1703,packed_buffer_init,func,"Point 0xA010 and 0xA068 at msg_buffer2 and walk 64 positions, packing every changed character"
+mem,177F,packed_store_glyph,func,"Pack a character's 5x7 glyph into the msg_buffer2 region at the depth 0xA063 selects"
+mem,1824,packed_pack_mode1,func,"0xA063 = 1: one bit of each of five glyph columns into the byte 0x40 further on"
+mem,1855,packed_pack_mode2,func,"0xA063 = 2: four bits of each of five glyph columns into the byte 0x40 further on"
+mem,1893,packed_pack_mode3,func,"0xA063 >= 3: three bits of each column to (DE), then five more into the byte 0x40 on"
+mem,07DA,init_clear_state,func,"Zero 0x37 bytes from 0xA039, then preselect this unit unless cfg_addr_mode and sw_port_a call for addressing"
+mem,08DA,rx_a_store_byte,func,"Handler A: store one received byte at rx_write_ptr. The frame delimiters and 0x7C/0x7D/0x7F divert first"
+mem,1931,wait_ticks_500,func,"Wait 500 RST7.5 ticks by way of wait_ticks"
+mem,1981,wait_ticks_5,func,"Wait 5 RST7.5 ticks, or 56 for panel family 0x12"
+mem,19FC,hw_status_sample,func,"OR the complement of hw_status_in into 0xA024. Called from isr_rst75 on every tick"
+mem,1A46,uart_send_hex,func,"Send A as two ASCII hex digits, high nibble first"
+mem,1A74,send_ram_string,func,"Transmit a 0xFF-terminated string from (HL) directly, bypassing the banked accessor"
+mem,1B4D,delay_nop,func,"NOP then RET - a 5.9 us settling delay between two port writes"
+mem,2A62,clock_service,func,"Poll the clock/keypad board and act on the command byte isr_rst75 posts in 0xA027"
+mem,2A8D,clock_read_time,func,"Command the clock, wait for ready, then store HH:MM as four ASCII digits at (HL)"
+mem,2ACE,clock_wait_ready,func,"Command 5 to clock_cmd, then poll until the busy bits clear"
+mem,2AD9,clock_write_time,func,"Write four ASCII digits from (HL) back to the clock, range-checking each"
+mem,2B09,clock_show_time,label,"Read the time into msg_buffer positions 0-3 and dirty the matching shadow bytes so the pass repaints them"
+mem,2B2C,clock_show_time_gated,label,"clock_show_time, but only when 0xA00D is 3"
+mem,2B3D,clock_cmd_done,label,"Release clock_cmd, then re-show the time for panel families 0x11, 0x12 and 0"
+mem,2B5E,clock_dispatch,label,"Dispatch the 1-6 command byte taken from clock_cmd_mailbox"
+mem,2B7F,clock_key_dispatch,label,"Command 1: dispatch on the debounced key byte in clock_key_shadow"
+mem,2BA3,clock_key_latch_bit2,label,"Edge latch in 0xA02A for the key on clock_cmd bit 2"
+mem,2BB6,clock_cmd_0c,label,"Write 0x0C to clock_cmd"
+mem,2BBF,clock_key_latch_mode,label,"Edge latch in 0xA02B for the 0x70 and 0xB0 keys, then clock_cmd_0c"
+mem,2BD2,clock_reset,label,"Zero the four time digits and clock_reg_c0/c1, after a 1-5-4 sequence on clock_ctrl_cf"
+mem,2C07,clock_ctrl_0a,label,"Wait for ready, then write 0x0A to clock_ctrl_ce"
+mem,2C19,clock_inc_minute,label,"Read the time, add one minute with a mod-60 carry, write it back"
+mem,2C35,clock_store_time,label,"Common tail of clock_inc_minute and clock_inc_hour: write clock_digits back"
+mem,A02C,clock_digits,data,"Four ASCII digits HHMM, the scratch copy the increment and reset paths work on"
+mem,2C3E,clock_inc_hour,label,"Read the time, add one hour with a mod-24 carry. A blanked or '?' tens digit increments to '1'"
+mem,2C80,rx_handler_c,func,"Third receive path, entered from isr_rst55 when sw_port_c bit 5 is clear"
+mem,3022,watchdog_disable,func,"Zero watchdog_count, so isr_rst75 stops counting down"
+mem,A009,panel_family,data,"Panel type, set from sw_port_c bits 4:0 at 0x055A. render_char dispatches on it; 0 means no per-character driver"
+mem,A00A,char_pos,data,"Character position within the line, counted up by the panel drivers. clear_char_pos zeroes it"
+mem,A01B,tick_wait_flags,data,"Bit 0 requests a tick wait; isr_rst75 clears it when tick_wait_count reaches zero"
+mem,A01C,tick_wait_count,data,"16-bit RST7.5 tick countdown behind wait_ticks"
+mem,A024,hw_status_acc,data,"Sticky accumulator of hw_status_sample; the BS command reports and clears it"
+mem,A025,disp1_char_index,data,"Character index inside disp1_paint, and the byte disp1_strobe_b puts on the bus"
+mem,A010,render_ptr,data,"Character index shared by the render passes, the packed buffer and the family 0x05 driver"
+mem,A022,panel_dirty,data,"Raised by the families whose driver defers the work to an end-of-pass flush"
+mem,A027,clock_cmd_mailbox,data,"Command for clock_service; isr_rst75 posts 1 here when the debounced clock_cmd input changes"
+mem,A028,clock_key_shadow,data,"Debounced value of clock_cmd bits 7:4 and 2, and the countdown that debounces it"
