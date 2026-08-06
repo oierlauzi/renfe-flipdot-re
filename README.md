@@ -126,10 +126,11 @@ GS '5' STX HOLA ETX  -> ACK '5'                  (acknowledged, with address)
 GS '9' SUB           -> nothing                  (wrong address, stays silent)
 ```
 * `0x4A`/`0x4E` at `0x03A0` are an **ISR/main-loop mailbox**, not framing bytes.
-* **The panel is driven serially, not as a matrix.** Each of the 16 characters is
-  an independent module on a shared 26-conductor bus with its own select line;
-  port C bit 4 is the shift clock and bit 5 the data, 74 bits per character.
-  Validated by reconstructing the glyphs from the emulated bit stream.
+* **The panel is driven serially, not as a matrix.** Each character is an
+  independent module on a shared 26-conductor bus, addressed by an **encoded
+  position** (`0x00-0x3F`, matching the 64-byte buffer) rather than a dedicated
+  select line. Port C bit 4 is the shift clock and bit 5 the data, 74 bits per
+  character. Validated by reconstructing the glyphs from the emulated bit stream.
 * The firmware is **designed to run standalone**. Expansion-board memory is
   reached through a paged window at `0xE000` selected by I/O port `0xE7`, and all
   46 banked accesses funnel through three accessors that check for the board and

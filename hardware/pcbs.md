@@ -114,8 +114,34 @@ doing, because the precise value pins the design current.
 
 ## Daughter 2 — flip-dot interface
 
-Large ribbon connector to the flip-dot panel. Carries **three ULN2003A Darlington
-arrays** — U18a and U18b (Texas Instruments) plus U19 (STMicroelectronics) — for
-**21 sinks in total**, and U20 (DIP40). U20 is the strong 81C55 candidate on which
-the whole `0xE0` interpretation rests — see
-[../docs/io-map.md](../docs/io-map.md).
+Large ribbon connector to the flip-dot panel — **26 conductors**, continuing out of
+the unit to the (absent) LED panel.
+
+| Count | Part | Notes |
+| --- | --- | --- |
+| 3 | ULN2003A (U18a, U18b TI; U19 ST) | **21 Darlington sinks** |
+| 1 | U20, DIP40 | Strong 81C55 candidate; the whole `0xE0` reading rests on it |
+| **9** | **Transistors, each with a diode and a 22 kΩ resistor** | Near the ribbon — see below |
+
+### The 9 discrete transistor stages
+
+Each transistor is paired with a diode and a **22 kΩ** resistor. A 22 kΩ base
+resistor means **low base current**, so these are small-signal switches rather
+than power drivers.
+
+Two readings, not mutually exclusive:
+
+* **Bus drivers** for the address, clock and data lines. The ribbon is 26
+  conductors spanning two displays and leaving the enclosure, so it is a long,
+  capacitive bus that a Darlington sink alone may not drive cleanly. Note the
+  count: port B's 8 address bits plus clock plus data is 10 signals, and 9 is
+  suggestively close.
+* **The missing high side.** ULN2003As can only sink, yet a flip-dot coil needs
+  current both ways — an open question in
+  [../docs/flipdot-interface.md](../docs/flipdot-interface.md). If these 9 are
+  PNP or emitter-follower **source** drivers, with a Darlington sink pulling each
+  base through its 22 kΩ, that gap is closed.
+
+The diodes are consistent with either: flyback clamping for an inductive load, or
+reverse protection on a long external bus. Deciding between the readings needs the
+transistors' part numbers and a look at which side of the load they sit on. **[?]**

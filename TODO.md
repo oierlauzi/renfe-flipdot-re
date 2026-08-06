@@ -170,14 +170,23 @@ third is a safety precondition.
 - [x] **Panel ribbon conductor count: 26.** Confirms the select-line drive model
       and rules out position being decoded on the panel.
       → [docs/flipdot-interface.md](docs/flipdot-interface.md#the-ribbon-has-26-conductors--the-model-holds-c)
-- [ ] **Trace the 26 conductors.** Now a well-guided job: find the **16 that each
-      reach exactly one module** (selects), the **2 that reach every module**
-      (clock and data), and the remainder carrying 24 V and returns. This also
-      gives the pinout needed for the direct-drive fallback in
-      [docs/controller.md](docs/controller.md#plan-b-drive-the-panel-directly).
-      - Result — the 16 selects, and which module each goes to:
-      - Result — clock and data conductors:
-      - Result — supply conductors:
+- [ ] **Trace the 26 conductors.** The address is **encoded, not one-hot**, so look
+      for a **group carrying a binary count** (~6-7 conductors), the **two that
+      toggle per data bit** (clock and data), a strobe, and supply.
+      - Result — address group:
+      - Result — clock and data:
+      - Result — supply:
+- [ ] **Inspect the FRONT of the display modules for address switches or straps.**
+      Only the rear has been seen. An encoded broadcast address means each module
+      must know its own position somehow, so something must configure it.
+      - Result:
+- [ ] **Part numbers on the 9 transistors near the ribbon** (each with a diode and
+      a 22 kΩ resistor). Are they bus drivers for the address/clock/data lines, or
+      the **missing high-side drivers** the ULN2003As cannot provide? Which side of
+      the load they sit on decides it.
+      → [hardware/pcbs.md](hardware/pcbs.md#the-9-discrete-transistor-stages)
+      - Result — part numbers:
+      - Result — high side or bus driver:
 - [ ] **Ribbon pitch and header type** (26-way IDC expected).
       - Result:
 - [ ] **Test the missing-RAM prediction.** With the LED panel absent the unit

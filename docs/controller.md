@@ -161,8 +161,8 @@ Worth knowing this exists, because it sidesteps the unresolved physical layer
 entirely.
 
 The flip-dot panel's ribbon carries **26 conductors**, and the drive format is
-fully decoded: 16 per-character select lines, a shift clock, a serial data line
-(active low), and 74 bits per character — see
+largely decoded: an encoded module address on port B, a shift clock, a serial data
+line (active low), and 74 bits per character — see
 [flipdot-interface.md](flipdot-interface.md#the-panel-is-a-serial-shift-register-c-from-the-rom).
 
 An ESP32 with a shift register or port expander can produce that without

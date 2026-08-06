@@ -145,6 +145,47 @@ From inspecting the panel (owner, 2026-08):
   spliced to remove the display. It almost certainly continued to the **second
   LED panel**.
 
+### Correction: the address is ENCODED, not one-hot **[C]**
+
+An earlier revision of this document claimed the ribbon carried **16 one-hot
+select lines**, one per module. **That was wrong**, and the evidence was already in
+hand when it was written: port B takes **49 distinct values**, which an 8-bit
+one-hot scheme cannot produce.
+
+Undoing the `CMA` shows what port B actually carries:
+
+```
+post-CMA, as written : 80 C2 80 C1 80 C0 80 FF 80 FE 80 FD 80 FC 80 FB ...
+pre-CMA, the value   : 7F 3D 7F 3E 7F 3F 7F 00 7F 01 7F 02 7F 03 7F 04 ...
+with 0x7F removed    : 3D 3E 3F 00 01 02 03 04 05 06 07 08 09 0A 0B 0C ...
+```
+
+A plain **incrementing counter over `0x00-0x3F`** — 48 distinct values seen, of
+which only 6 happen to be one-hot. `0x7F` is written between each, so **bit 7 (or
+the all-ones value) acts as a strobe or bus-idle state**.
+
+**So port B is an encoded module address, spanning 64 positions.** Three things
+fall into place:
+
+* **64 positions matches the 64-byte message buffer** exactly
+  ([serial-protocol.md](serial-protocol.md)). One address per buffer column.
+* **The conductor budget now works.** Roughly 6-7 address bits, plus clock, data
+  and control, is about 10 signals — leaving most of the 26 conductors for supply
+  *and* for a downstream display, which the one-hot reading could not accommodate.
+* **The LED panel fits.** It has *more* characters than the flip-dot line and
+  scrolls, so it needs a share of the same bus. A 64-position encoded address
+  serves both displays from one ribbon; 16 dedicated selects could not.
+
+### Consequence: the modules must decode their own address
+
+If the address is encoded and broadcast, each module has to know which position it
+is. That requires per-module configuration — switches, straps, or a wired-in code.
+
+**Only the rear of the modules has been inspected** (the front needs extensive
+disassembly), so the earlier statement that the modules carry no address switches
+is **not established**. It should be treated as an open question, and the front
+faces are now worth looking at specifically. **[?]**
+
 ### What that forces
 
 Identical modules on a shared bus with no per-module addressing can only be
@@ -169,30 +210,23 @@ Consistent with observation: the type-`0x11` driver writes only `0xE2` (49
 distinct values) while the type-`0x10` and `0x12` drivers write both `0xE1` and
 `0xE2` — different panel widths using one or both select ports.
 
-### The ribbon has 26 conductors — the model holds **[C]**
+### The ribbon has 26 conductors **[C]**
 
-Counted at the splice (owner, 2026-08). That is comfortably in the predicted
-20-26 band and **decisively rules out** the ~8-10 alternative in which position
-would have been decoded on the panel.
+Counted at the splice (owner, 2026-08). 26 is a standard IDC width (13 x 2), so
+the header is very likely 26-way IDC.
 
-A plausible allocation, with 6 conductors left over for supply:
+Revised allocation, given that the address is encoded rather than one-hot:
 
-| Conductors | Function |
-| --- | --- |
-| 16 | character selects, one per module, active low |
-| 1 | shift clock — port C bit 4 |
-| 1 | serial data — port C bit 5 |
-| 2 | control / latch — port C bits 1:0 |
-| **6** | **24 V and returns** — flip-dot coils draw real current, so several |
+| Conductors | Function | Conf. |
+| --- | --- | --- |
+| ~6-7 | **encoded module address** (port B) | **[L]** |
+| 1 | shift clock — port C bit 4 | **[C]** |
+| 1 | serial data — port C bit 5 | **[C]** |
+| 1-2 | strobe / control — port B bit 7, port C bits 1:0 | **[L]** |
+| remainder | 24 V and returns, and whatever the LED panel needs | **[L]** |
 
-26 is also a standard IDC ribbon width (13 x 2), so the header is very likely a
-26-way IDC.
-
-The **allocation** above is still **[L]** — what is confirmed is the *count*, and
-therefore the shape of the interface. Tracing which conductor is which is now a
-well-guided job rather than a guess: look for **16 conductors that each reach
-exactly one module** (the selects), **2 that reach every module** (clock and
-data), and the remainder carrying supply.
+Tracing which conductor is which: look for the **group that carries a binary
+count**, the **two that toggle per bit** (clock and data), and the supply.
 
 ### This opens a plan B for the whole project
 

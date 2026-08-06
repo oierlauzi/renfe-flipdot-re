@@ -20,6 +20,61 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Correction: the module address is encoded, not one-hot
+
+**Three observations from the owner, and the second one refutes yesterday's
+model.**
+
+1. **9 transistors on daughter 2 near the ribbon**, each with a diode and a 22 kΩ
+   resistor.
+2. **The ribbon continues to the LED panel, which has more characters and
+   scrolls.** Allocating 16 of 26 conductors to flip-dot selects leaves almost
+   nothing for a *larger* downstream display. That does not work.
+3. **Only the rear of the display modules has been inspected** — the front needs
+   extensive disassembly — so "no address switches" was never established.
+
+**I was wrong about one-hot selects, and the evidence was already in hand.** Port
+B takes **49 distinct values**, which an 8-bit one-hot scheme cannot produce. I
+recorded that number and did not draw the conclusion. Undoing the `CMA`:
+
+```
+pre-CMA : 7F 3D 7F 3E 7F 3F 7F 00 7F 01 7F 02 7F 03 ...
+stripped: 3D 3E 3F 00 01 02 03 04 05 06 07 08 09 0A ...
+```
+
+A plain **incrementing counter over `0x00-0x3F`** — 48 distinct values, only 6 of
+them one-hot. `0x7F` between each is a strobe or bus-idle state.
+
+**So port B is an encoded module address spanning 64 positions**, and three things
+fall into place at once:
+
+* **64 positions matches the 64-byte message buffer exactly** — one address per
+  buffer column.
+* **The conductor budget works**: ~6-7 address bits plus clock, data and control is
+  about 10 signals, leaving most of the 26 for supply *and* a downstream display.
+* **The LED panel fits.** A 64-position encoded address serves a 16-character
+  flip-dot line and a longer scrolling panel from one ribbon. Sixteen dedicated
+  selects could not.
+
+Observation 3 removes the very constraint that pushed me to one-hot in the first
+place. And an encoded broadcast address *requires* each module to know its own
+position, so something must configure it — the module fronts are now worth a look
+specifically.
+
+**On the 9 transistors.** A 22 kΩ base resistor means low base current, so
+small-signal switches, not power drivers. Two readings, not exclusive: **bus
+drivers** for a long capacitive 26-way bus leaving the enclosure (note port B's 8
+bits plus clock plus data is 10 signals, and 9 is suggestively close); or **the
+missing high side** — ULN2003As only sink, yet a coil needs current both ways, so
+9 source drivers with a Darlington pulling each base through 22 kΩ would close that
+gap. Their part numbers and which side of the load they sit on decides it.
+
+**Lesson, again:** the 49-distinct-values figure was sitting in my own output when
+I wrote "16 one-hot selects". Counting is not the same as checking that the count
+is consistent with the model.
+
+---
+
 ## 2026-08-06 — 26 conductors: the select-line model is confirmed
 
 **Counted (owner):** the panel ribbon has **26 conductors**.
