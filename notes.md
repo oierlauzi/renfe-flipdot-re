@@ -84,6 +84,41 @@ expansion board being absent, not for the driver being missing.
 `clock_service` bails on `IN 0xCD == 0xFF`, so an open bus disables the feature
 silently. Worth checking the ribbon for a keypad and four more digits.
 
+**Follow-up, same session — is the LED panel part of the 64-character buffer?**
+
+Asked by the owner. The ROM half is unambiguous: **there is no split at character
+16 anywhere in it.** `render_pass_paged` walks `msg_buffer` against
+`shadow_buffer` in lockstep against a single `char_pos`, stopping on the `03h`
+sentinel at `msg_buffer+40h`. Instrumented the emulator on port `0xE2` for a full
+repaint: **positions 0-63, contiguous, one 74-bit frame each, all on
+`disp0_port_a/b/c`.** (61 frames, not 64 — the pass is differential and three
+shadow bytes already matched. Every position is still walked.) **[C]**
+
+So 48 of the 64 addresses go somewhere the flip-dot line is not.
+
+I first offered two readings — same chain, or the separate `0xE8-0xED` port group
+— and the owner ruled the second out with two facts I did not have: **this unit
+had an LED panel** (unsalvageable), and **the character bus leaves the
+enclosure**. Since `0xE8-0xED` is dead in this build (`render_pass_paged` only
+reaches `render_pass_disp1` when `panel_family` is 0, and this unit selects
+`0x11`), an LED panel that demonstrably existed cannot have been driven by it.
+
+**Concluded: the LED panel most likely answered to positions 16-63 of the same
+64-character buffer. [L]** Held back from **[C]** at the owner's insistence, and
+correctly: nobody has traced the ribbon leaving the enclosure to the LED panel. It
+leaves; where it goes is still an inference.
+
+A frozen constant fits the same picture. At `0x1290`, on completing a block of 64
+positions, the firmware inserts `C-1` extra address slots — a gap between blocks —
+and `C` is `1`, so the gap is zero. A knob that only makes sense for a chain built
+from more than one 64-character block.
+
+**Also corrected a symbol I had just added.** I named `0xA025` `disp1_char_index`
+from `disp1_paint`, its second user. `render_pass_paged` uses it first, as the
+position within the current 64-character block — which is precisely the counter
+the gap logic tests. Renamed `block_index`. Naming a cell from the first routine
+that happens to touch it is how a name ends up narrower than the thing.
+
 ---
 
 ## 2026-08-06 — Designator corrections, and two designators I invented

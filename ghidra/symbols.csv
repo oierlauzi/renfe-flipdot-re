@@ -276,7 +276,7 @@ mem,A00A,char_pos,data,"Character position within the line, counted up by the pa
 mem,A01B,tick_wait_flags,data,"Bit 0 requests a tick wait; isr_rst75 clears it when tick_wait_count reaches zero"
 mem,A01C,tick_wait_count,data,"16-bit RST7.5 tick countdown behind wait_ticks"
 mem,A024,hw_status_acc,data,"Sticky accumulator of hw_status_sample; the BS command reports and clears it"
-mem,A025,disp1_char_index,data,"Character index inside disp1_paint, and the byte disp1_strobe_b puts on the bus"
+mem,A025,block_index,data,"Position within the current 64-character block. render_pass_paged resets it there and may insert a gap; disp1_paint reuses it as its character index"
 mem,A010,render_ptr,data,"Character index shared by the render passes, the packed buffer and the family 0x05 driver"
 mem,A022,panel_dirty,data,"Raised by the families whose driver defers the work to an end-of-pass flush"
 mem,A027,clock_cmd_mailbox,data,"Command for clock_service; isr_rst75 posts 1 here when the debounced clock_cmd input changes"

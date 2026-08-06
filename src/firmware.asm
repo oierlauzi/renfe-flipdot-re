@@ -76,7 +76,7 @@ watchdog_count	equ	0A01Eh
 panel_dirty	equ	0A022h
 refresh_mode	equ	0A023h
 hw_status_acc	equ	0A024h
-disp1_char_index	equ	0A025h
+block_index	equ	0A025h
 clock_cmd_mailbox	equ	0A027h
 clock_key_shadow	equ	0A028h
 clock_digits	equ	0A02Ch
@@ -2656,7 +2656,7 @@ render_pass_paged:
 	LXI	H,msg_buffer
 	SUB	A
 	STA	char_pos
-	STA	disp1_char_index
+	STA	block_index
 render_pass_paged_loop1:
 	CALL	xram_read
 	XCHG
@@ -2664,16 +2664,16 @@ render_pass_paged_loop1:
 	CNZ	render_char
 	XCHG
 	CALL	attr_age
-	LDA	disp1_char_index
+	LDA	block_index
 	INR	A
-	STA	disp1_char_index
+	STA	block_index
 	LDA	char_pos
 	INR	A
 	MOV	B,A
 	LDA	rx_handler_sel
 	CPI	00h
 	JZ	render_pass_paged_br2
-	LDA	disp1_char_index
+	LDA	block_index
 	CPI	40h
 	JNZ	render_pass_paged_br2
 	MVI	C,01h
@@ -2684,7 +2684,7 @@ render_pass_paged_loop2:
 	JMP	render_pass_paged_loop2
 render_pass_paged_br1:
 	SUB	A
-	STA	disp1_char_index
+	STA	block_index
 render_pass_paged_br2:
 	MOV	A,B
 	STA	char_pos
@@ -3003,7 +3003,7 @@ disp1_paint:
 	CALL	init_disp1
 disp1_paint_loop1:
 	SUB	A
-	STA	disp1_char_index
+	STA	block_index
 	LHLD	render_ptr
 	CALL	disp1_frame_start
 	MOV	B,H
@@ -3057,9 +3057,9 @@ disp1_paint_loop3:
 disp1_paint_loop4:
 	POP	D
 	POP	H
-	LDA	disp1_char_index
+	LDA	block_index
 	INR	A
-	STA	disp1_char_index
+	STA	block_index
 	CPI	01h
 	JZ	disp1_paint_br3
 	LXI	B,tbl_0040
@@ -3154,7 +3154,7 @@ disp1_send:
 	JZ	disp1_strobe_b_br1
 	CPI	02h
 	JZ	disp1_strobe_b_br1
-	LDA	disp1_char_index
+	LDA	block_index
 disp1_strobe_b:
 	CMA
 	ANI	7Fh
@@ -3178,7 +3178,7 @@ disp1_strobe_b:
 	POP	H
 	RET
 disp1_strobe_b_br1:
-	LDA	disp1_char_index
+	LDA	block_index
 	ADD	A
 	JMP	disp1_strobe_b
 disp1_frame_end:

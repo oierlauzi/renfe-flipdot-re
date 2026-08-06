@@ -189,6 +189,20 @@ third is a safety precondition.
       - Result — address group:
       - Result — clock and data:
       - Result — supply:
+- [ ] **Follow the character bus out of the enclosure — does it reach the LED
+      panel?** This is the one gap in an otherwise closed argument. The firmware
+      addresses **positions 0-63** on one bus (confirmed by instrumenting port
+      `0xE2` in the emulator), the flip-dot line is 16 of them, the `0xE8-0xED`
+      second-display path is dead in this build, and this unit had an LED panel.
+      That makes the LED panel positions **16-63 of the same 64-character
+      buffer** — but only if the ribbon that leaves the enclosure is the one that
+      reached it. Nobody has traced it. **[L]**
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#the-led-panel-is-probably-characters-16-63-of-the-same-buffer-l)
+      - Result:
+- [ ] **Where does the flip-dot line stop answering?** Send a 64-character message
+      to a powered unit. 16 flip-dot plus 48 LED is the natural split, but the ROM
+      states no width for either, so the LED panel's count is only bounded above.
+      - Result:
 - [ ] **Inspect the FRONT of the display modules for address switches or straps.**
       Only the rear has been seen. An encoded broadcast address means each module
       must know its own position somehow, so something must configure it.

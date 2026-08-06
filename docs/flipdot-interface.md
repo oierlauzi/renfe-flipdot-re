@@ -339,6 +339,55 @@ So type `0x0A` is a 16-character parallel panel and type `0x11` a serially-fed o
 with a 64-position address space. Both derive the position from the same `0xA00A`
 counter.
 
+### The LED panel is probably characters 16-63 of the same buffer **[L]**
+
+Start with what the ROM settles. **There is no split at character 16 anywhere in
+it.** `render_pass_paged` walks `msg_buffer` (`0xE001`) against `shadow_buffer`
+(`0xE043`) in lockstep, bumping `char_pos` by one per position, and stops on the
+`03h` sentinel that `render_task` itself writes at `msg_buffer+40h`. One flat
+64-entry walk, one shadow, one position counter, one port group. `cursor_col`
+runs `0-63`, `DC2` wraps at 64, and `cfg_buffer_len` (ROM `0x007B`) is `40h`.
+**[C]**
+
+Confirmed in emulation: a full repaint addresses **positions 0 through 63,
+contiguously, one 74-bit frame each, all on `disp0_port_a/b/c`**. (A capture will
+usually show slightly fewer frames — 61 in the `FF` run — because the pass is
+differential and a few shadow bytes already matched. Every position is still
+walked and counted.) **[C]**
+
+The flip-dot line is 16 characters, so 48 of those addresses go somewhere else.
+Three facts make the LED panel the candidate:
+
+1. **The ROM's other second-display mechanism is dead in this build.** It is a
+   whole second port group at `0xE8-0xED` with its own buffer and shadow
+   (`msg_buffer2`/`shadow_buffer2` at `0xE084`/`0xE0C6`), driven by
+   `render_pass_disp1`/`disp1_paint`. `render_pass_paged` only reaches it when
+   `panel_family` is 0, and this unit's switches select `0x11`. Nothing ever
+   paints `0xE8-0xED` here. **[C]**
+2. **This unit had an LED panel** (owner; it could not be salvaged). Given (1), it
+   cannot have been driven by the second port group. **[C] observed**
+3. **The flip-dot character bus leaves the enclosure** (owner), so the chain
+   continues past the 16 dot modules. **[C] observed**
+
+**So the LED panel most likely answered to positions 16-63 of this same
+64-character buffer.** The gap in the argument is the one thing nobody has traced:
+**that the ribbon leaving the enclosure is the ribbon that reached the LED panel.**
+Until someone follows it, (3) says only that the bus goes somewhere.
+
+If it holds, it is good news for the project's goal: a host writing a
+64-character message addresses the whole sign, and `VT` cursor positioning reaches
+every character of it.
+
+One more detail fits. At `0x1290`, when the position counter completes a block of
+64, the firmware inserts `C-1` extra address slots before continuing — a gap
+between blocks. **`C` is frozen at 1, so the gap is zero.** That knob only makes
+sense for a chain assembled from more than one 64-character block. **[C]**
+
+Still open: the split point. 16 flip-dot plus 48 LED is the natural reading, but
+the ROM never states a width for either, so the LED panel's character count is
+only bounded above, at 48. Sending a full 64-character message with the panel
+powered would show where the flip-dot line stops answering.
+
 ### Port C bits 1:0 are the display attribute lines **[C]**
 
 Previously recorded as "preserved across every write; function unknown". They are
@@ -606,6 +655,10 @@ sharper. The chain of reasoning:
 2. The **message buffer lives at `0xE001-0xE040`**, inside the paged window that
    `0xE7` selects.
 3. The LED panel assembly is the obvious candidate for that expansion.
+
+This is a claim about where the *memory* is, and sits alongside — not against —
+the addressing argument above: the LED panel assembly would carry the buffer RAM
+**and** answer to character positions 16-63 on the same bus.
 
 If all three hold, then **this unit is missing the RAM its message buffer lives
 in** — which is precisely why the emulator needs `--xram board` before any text
