@@ -20,6 +20,50 @@ Entry template:
 
 ---
 
+## 2026-08-05 — Daughter 1's parts list argues for a current loop
+
+**Recorded (owner):** besides the listed ICs and the DC-DC converter, daughter 1
+carries 4 diodes, 2 electrolytics, 8 film capacitors, 3 x 560 Ω and 3 resistors
+whose bands read brown(wide) / brown / black / red / brown in an uncertain
+direction.
+
+**On the ambiguous bands.** Five bands with one wider means a 1% part and the
+wide band is tolerance. The candidate readings are 1.2 kΩ, 1.02 kΩ and 1.0 kΩ —
+all valid E96 values, all within 20% of each other. **The exact reading barely
+matters; they are ~1 kΩ.**
+
+**The strongest inference is topological, not numerical.** Daughter 1 has a
+DC-DC converter, a hex Schmitt trigger, six probable optocouplers, resistors,
+diodes and capacitors — and **no differential transceiver IC of any kind**. An
+RS-422/485 interface of this era would use a 26LS31/26LS32, 75174/75175 or
+similar. A hex Schmitt trigger driving optocouplers is not how anyone builds
+RS-422; it is exactly how everyone builds a current loop. Nothing near 120 Ω is
+present either.
+
+**The values fit, with a caveat that must not be glossed over.** 560 Ω from 5 V
+gives ~6.5 mA, a comfortable opto LED drive on the logic side. ~1 kΩ from 24 V
+gives ~20 mA, textbook loop current. But the same ~1 kΩ from 5 V gives 3.6 mA and
+would say nothing at all. **The resistor value does not settle it — the node
+voltage does.** Measuring the DC-DC converter's isolated output is now the single
+highest-value measurement on the board.
+
+**A mechanism for the scope transitions.** An isolated DC-DC converter means the
+line side has its own supply, so the transmitter is *active* rather than a bare
+passive switch. That is precisely why transitions were visible where a passive
+loop would have shown nothing. An active-transmit, active-receive current loop is
+consistent with everything observed: the optos, the missing transceiver, the
+~20 mA resistors, the isolation, and the visible edges.
+
+**Also noted:** three of each resistor value, not two. That hints at **three
+signals per direction** — perhaps TX, RX and RTS, or a second channel for the LED
+matrix. Worth not assuming a simple two-signal link when tracing.
+
+**Concluded:** current loop is now the leading theory **[L]**, up from a coin
+flip, on the strength of the missing transceiver rather than the resistor values.
+Still **[?]** until the converter output voltage is known.
+
+---
+
 ## 2026-08-05 — 6.144 MHz crystal: the baud ladder is now exact
 
 **Observed (owner):** a **6.144 MHz crystal** on the motherboard beside the CPU.

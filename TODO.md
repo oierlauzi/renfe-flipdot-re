@@ -88,10 +88,29 @@ third is a safety precondition.
         6N139's LED)
       - no diode behaviour, ~120 Ω or ~12 kΩ → **RS-422/485**
       - Result:
-- [ ] **Is there a 120 Ω termination resistor across any pair** on daughter 1?
-      Present → RS-422/485; absent with series resistors into the opto →
-      current loop.
+- [x] ~~120 Ω termination?~~ Daughter 1's only resistor values are **560 Ω** and
+      **~1 kΩ**. Nothing near 120 Ω, and **no differential transceiver IC at all** —
+      the parts are a DC-DC converter, a hex Schmitt trigger and six probable
+      optocouplers. That is a discrete opto-isolated interface, not RS-422.
+      → [hardware/connectors.md](hardware/connectors.md#what-daughter-1s-parts-imply-l)
+- [ ] **Measure the DC-DC converter's output voltage.** This is now the highest-
+      value single measurement on the board. ~24 V makes the ~1 kΩ resistors
+      loop-current setting (~20 mA) and nearly closes the case for a current loop;
+      5 V means they are ordinary opto drive and prove nothing.
       - Result:
+- [ ] **Measure the three ~1 kΩ resistors** with a meter, to remove the colour-band
+      ambiguity (1.0 / 1.02 / 1.2 kΩ are all plausible readings).
+      - Result:
+- [ ] **Trace one ~1 kΩ resistor**: does it sit between a terminal-block screw and
+      an optocoupler pin?
+      - Result:
+- [ ] **How are the 4 diodes arranged?** A full bridge across an input pair means
+      a polarity-insensitive current-loop input — a strong signature. Individual
+      diodes across opto LEDs are just reverse protection.
+      - Result:
+- [ ] **Three of each resistor value suggests three signals per direction**, not
+      one. Do not assume only TX and RX exist when tracing — look for a third
+      (RTS, or a second channel for the LED matrix).
 - [ ] **Is the transmit side passive or active?** Does anything on daughter 1
       supply current to the TX pair, or are U14-U17 bare switches expecting an
       external supply?

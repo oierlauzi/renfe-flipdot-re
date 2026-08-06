@@ -89,6 +89,75 @@ start bit and the parity/stop configuration the port B switches select. If it
 matches, the baud rate, polarity and framing are all confirmed at once, and the
 receive direction can be attempted with confidence.
 
+### What daughter 1's parts imply **[L]**
+
+The passive inventory in [pcbs.md](pcbs.md) is more informative than it looks.
+
+#### The strongest argument: there is no transceiver IC
+
+Daughter 1 carries a DC-DC converter, a hex Schmitt trigger, six DIP8s that are
+almost certainly optocouplers, and a handful of resistors, diodes and capacitors.
+**That is the parts list for an opto-isolated current loop built from discretes.**
+
+An RS-422 or RS-485 interface of this era would normally use a purpose-made
+differential transceiver — a 26LS31/26LS32 pair, 75174/75175, SN75179, or
+similar. None is present. A hex Schmitt trigger driving optocouplers is not how
+anyone builds RS-422; it is exactly how everyone builds a current loop.
+
+#### Neither resistor value is a termination
+
+RS-422/485 wants **120 Ω** across the pair. The board has **560 Ω** and
+**~1 kΩ**, and nothing near 120 Ω. Termination is not always fitted, so this is
+suggestive rather than conclusive — but combined with the missing transceiver it
+points the same way.
+
+#### The values make sense as a current loop, with a caveat
+
+| Resistor | Plausible role | Current |
+| --- | --- | --- |
+| 3 x **560 Ω** | Optocoupler LED drive on the **logic** side, from 5 V | ~6.5 mA — comfortable for any opto |
+| 3 x **~1 kΩ** | Series element on the **line** side | ~20 mA if the node is at 24 V |
+
+`(24 − 1.35 V) / 1 kΩ ≈ 22 mA`, and `/1.2 kΩ ≈ 19 mA`. **Whichever way the bands
+are read, a ~1 kΩ resistor from a 24 V rail is a 20 mA loop.**
+
+The caveat matters: that arithmetic assumes the resistor's far end sits at ~24 V.
+From 5 V the same resistor gives ~3.6 mA, which would be an ordinary opto drive
+and would say nothing about current loops. **So the value alone does not settle
+it — the node voltage does.**
+
+#### Three of each, not two
+
+Three 560 Ω and three ~1 kΩ suggests **three signals in each direction**, not one.
+Candidates: transmit data, receive data, and a third line — RTS, or a second
+channel for the LED matrix. Worth keeping in mind when tracing: do not assume
+only two signals exist.
+
+#### The DC-DC converter explains the scope transitions
+
+An isolated DC-DC converter on this board means **the line side has its own
+supply**. That makes the transmitter *active* rather than a bare passive switch —
+which is exactly why transitions were visible on the scope when a passive loop
+would have shown nothing. The earlier note that "the transmitter is not a bare
+passive switch" now has a mechanism.
+
+An **active-transmit, active-receive current loop** — this end supplying its own
+loop current from an isolated rail — is consistent with everything observed so
+far: the optocouplers, the missing transceiver, the ~20 mA resistors, the
+isolation, and the visible transitions.
+
+#### What would settle it
+
+- [ ] **Measure the DC-DC converter's output voltage.** If the isolated rail is
+      ~24 V, the ~1 kΩ resistors are loop-current setting and the case is nearly
+      closed. If it is 5 V, they are not.
+- [ ] **Trace one ~1 kΩ resistor**: does it sit between a terminal-block screw and
+      a 6N139/optocoupler pin?
+- [ ] **Measure the ~1 kΩ resistors** with a meter to remove the band ambiguity.
+- [ ] **Identify the 4 diodes' arrangement.** A full bridge on an input pair means
+      a polarity-insensitive current-loop input, which is a strong signature.
+      Individual diodes across opto LEDs are just reverse protection.
+
 ### Attempt 3: the standard, without a scope
 
 Power **off**, multimeter in **diode mode**, across each pair, both polarities:
