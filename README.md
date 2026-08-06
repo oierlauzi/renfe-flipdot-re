@@ -48,7 +48,7 @@ modern LED/LCD signage. Photos below (Google Maps contributions) show the
 | Serial link layer | done — **9600 8E1** default; full 300-9600 ladder mapped |
 | DIP switches | port B fully attributed; port C bit 5 known; port A mostly open |
 | Receive architecture | done — RST5.5 ISR, two handlers — [docs/serial-protocol.md](docs/serial-protocol.md) |
-| Serial framing | **not started — this is the blocker** |
+| Serial framing | both handlers mapped; per-command semantics open |
 | DB37 pinout | not measured |
 | Flip-dot drive | partially traced |
 
@@ -66,8 +66,14 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
   1:2:4:8:16:32 sequence giving 9600 down to 300. Port B also selects word length
   (bit 4) and parity (bits 3:2), so port B is fully attributed.
 * **RST5.5 is the serial receive interrupt**, gated by DIP switch port C bit 5,
-  dispatching to one of *two* receive handlers (`0x08B7`, `0x0ACB`) — the unit
-  implements two protocols or two link roles. RST7.5 is a tick and watchdog.
+  dispatching to one of *two* receive protocols selected by port A bit 6:
+  `0x08B7` simple delimited text, or `0x0ACB` a **28-command protocol** built on
+  ASCII control codes with `STX`/`ETX` framing.
+* **The unit replies `ACK` (0x06) or `NAK` (0x15) on ETX.** Once the link is
+  wired up this makes the rest of the protocol discoverable by experiment.
+* **DIP switch port A bits 4:0 are the display address**, confirmed by sweeping
+  them in the simulator and watching the transmitted status frame
+  `CAN CAN RS NAK <0x60|addr>` follow.
 * `0x4A`/`0x4E` at `0x03A0` are an **ISR/main-loop mailbox**, not framing bytes.
 * The firmware is **designed to run standalone**. Expansion-board memory is
   reached through a paged window at `0xE000` selected by I/O port `0xE7`, and all

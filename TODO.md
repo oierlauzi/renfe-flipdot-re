@@ -103,13 +103,21 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
 - [x] **Receive handler A (`0x08B7`) disassembled.** Framing, per-character
       filtering, error handling and the `0x4A` completion token are documented in
       [docs/serial-protocol.md](docs/serial-protocol.md).
-- [ ] **Receive handler B (`0x0ACB`)** — the other half, used whenever the
-      expansion board is fitted or port A bit 6 is set.
+- [x] **Receive handler B (`0x0ACB`) command table extracted** — 28 ASCII
+      control codes, `STX`/`ETX` framing, `DLE` = reset, and **the unit replies
+      ACK/NAK on ETX**. → [docs/serial-protocol.md](docs/serial-protocol.md)
+- [x] **DIP switch port A attributed**: bits 4:0 = display address (confirmed by
+      sweeping it in the simulator), bit 6 = receive protocol select.
+- [ ] **Decode the individual handler-B commands.** The dispatch targets are
+      known; what each one *does* is not. Highest value: `0x0F17` STX,
+      `0x0F29` ETX, `0x101E` CAN, `0x10A3` RS.
+- [ ] **What are port A bits 7 and 5?**
 - [ ] **Decode the `0xA014` attribute bits.** The in-band control characters
       `0x7C`, `0x7D`, `0x7F`, `0x64-0x66` set display effects and durations;
       which bit means scroll, blink or static is still open.
-- [ ] **Explain the transmitted beacon** `18 18 1E 15 7F` / `18 18 1E 15 BF`.
-      Almost certainly a poll; the last byte looks like an address or flag.
+- [x] **Status frame explained**: `CAN CAN RS NAK <0x60|addr>`, with the
+      address coming from port A. Two variants differing in bits 7:6 of the last
+      byte — those flag bits are still unidentified.
 - [ ] Find why the emulated stack dips below `0xA000` (~120 writes to
       `0x9FFD-0x9FFF`). Either a model artefact or a real clue about RAM size.
 - [ ] Attribute DIP switch **port A** — seven unknown bits, likeliest home of a

@@ -20,6 +20,49 @@ Entry template:
 
 ---
 
+## 2026-08-05 — Handler B is a command protocol; the unit answers ACK/NAK
+
+**Did:** Extracted the handler B (`0x0ACB`) dispatch table, followed the ETX
+path, and used the simulator to sweep DIP switch port A.
+
+**Found:**
+
+* **Handler B is a 28-command protocol** keyed on ASCII control codes, with a
+  multi-state parser: several state variables each divert following bytes to a
+  different continuation, so commands take parameters. `STX` opens a message,
+  `ETX` closes it, and **`DLE` jumps straight to `fatal_or_init` — a reset
+  command**. `0x01`, `0x15`, `0x16` and `0x1D` have no handler, so they are
+  transmit-side only.
+* **On ETX the unit replies `ACK` (0x06) or `NAK` (0x15)** depending on an error
+  flag accumulated at `0xA03A`, then sends its address. This is the most useful
+  single fact found so far: it turns protocol discovery from reading into
+  experiment, and gives an unambiguous link test that does not depend on the
+  panel being healthy.
+* **DIP switch port A bits 4:0 are the display address.** Confirmed twice: from
+  `0x0F69`, which encodes them as printable ASCII (`0x30-0x3F` when bit 4 is
+  clear, `0x40-0x4F` when set — 32 addresses); and by experiment, sweeping port A
+  in the simulator and watching the transmitted frame's last byte track
+  `0x60 | (port A & 0x1F)` exactly.
+* Port A bit 6 selects which receive protocol runs. That accounts for most of
+  port A; bits 7 and 5 remain unknown.
+* The continuously transmitted frame decodes as **`CAN CAN RS NAK <0x60|addr>`**,
+  with a second variant at `0xA0|addr`.
+
+**Concluded:**
+
+* The command table and the ACK/NAK behaviour are **[C]**. What each individual
+  command *does* is still **[?]** — the dispatch targets are known, the semantics
+  are not.
+* The status frame is **[C]** as an observation. Calling it a beacon rather than
+  a poll is **[L]**, and it cuts against the MAESTRA reading: this unit may be
+  master of its *display chain* while being a slave on the *serial bus*.
+* Revised yesterday's guess that the frame was a master polling slaves.
+
+**Next:** decode the individual handler-B commands, starting with `0x0F17` STX,
+`0x0F29` ETX, `0x101E` CAN and `0x10A3` RS. Then the `0xA014` attribute bits.
+
+---
+
 ## 2026-08-05 — Receive handler A decoded; emulator running the real ROM
 
 **Did:** Disassembled `rx_handler_a` (`0x08B7`) and built an 8085 emulator

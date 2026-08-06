@@ -77,12 +77,63 @@ So bit 5 looks like "use hardwired defaults" vs "use the switch-selected
 configuration" — possibly a test/service mode. Confirming which is which is a
 high-value experiment because it decides whether the switches matter at all.
 
-## Unmapped bits
+## Port A bits 4:0 — display address **[C]**
 
-Port A (`0xA1`, 8 bits, 10 reads) and the remaining port B / port C bits are not
-yet attributed. Given the **MAESTRA** sticker and the master/slave hints in
-[serial-protocol.md](serial-protocol.md), a **display address** is the most
-likely occupant. **[L]**
+**Confirmed twice over**, from the listing and by experiment.
+
+From the listing, at `0x0F69` inside the ETX handler, the firmware builds its
+reply address:
+
+```
+0x0F69  IN   0xA1          ; DIP switch port A
+0x0F6B  ANI  0x1F          ; keep bits 4:0
+0x0F6D  MOV  C,A
+0x0F6E  ANI  0x10          ; bit 4 selects the encoding
+0x0F70  JZ   0x0F7C
+0x0F73  MOV  A,C
+0x0F74  ANI  0x0F
+0x0F76  ORI  0x40          ; bit 4 set   -> 0x40-0x4F  '@'..'O'
+0x0F78  MOV  C,A
+0x0F7C  MOV  A,C
+0x0F7D  ORI  0x30          ; bit 4 clear -> 0x30-0x3F  '0'..'?'
+```
+
+So **32 addresses, encoded as printable ASCII**.
+
+Independently, the status frame the unit transmits carries the same five bits.
+Sweeping port A in the simulator moves the last byte in lockstep:
+
+| Port A | bits 4:0 | transmitted frame |
+| --- | --- | --- |
+| `0x40` | `0x00` | `18 18 1E 15 60` / `18 18 1E 15 A0` |
+| `0x41` | `0x01` | `18 18 1E 15 61` / `18 18 1E 15 A1` |
+| `0x45` | `0x05` | `18 18 1E 15 65` / `18 18 1E 15 A5` |
+| `0x50` | `0x10` | `18 18 1E 15 70` / `18 18 1E 15 B0` |
+| `0x5F` | `0x1F` | `18 18 1E 15 7F` / `18 18 1E 15 BF` |
+
+The last byte is exactly `0x60 | (port A & 0x1F)`, with a variant at
+`0xA0 | (port A & 0x1F)`. Reproduce with:
+
+```sh
+PYTHONPATH=tools python3 tools/pit100_sim.py --port-a 0x45 --port-c 0xDF \
+    --xram board --send '02 48 4F 4C 41 03'
+```
+
+## Port A bit 6 — receive protocol select **[C]**
+
+At `0x0675`, when no expansion board is present, bit 6 sets `0xA00C` and
+therefore which receive handler the RST5.5 ISR dispatches to:
+
+| Bit 6 | `0xA00C` | Handler |
+| --- | --- | --- |
+| clear | 0 | `0x08B7` — simple delimited text |
+| set | 1 | `0x0ACB` — the full command protocol |
+
+A fitted expansion board forces `0xA00C = 1` regardless.
+
+## Still unmapped
+
+Port A bits 7 and 5, and the remaining port B / port C bits. **[?]**
 
 ## Recording the physical state — do this first
 
