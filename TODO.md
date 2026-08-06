@@ -199,12 +199,10 @@ MAX3490, **not** the 5 V MAX485/MAX490 on most cheap breakouts.
 - [ ] Verify the Telenorma corporate history properly (Telefonbau und Normalzeit
       → Telenorma → Bosch Telecom, clock systems). Currently recorded from
       recollection and marked **[L]**.
-- [ ] A second read of the EPROM, to confirm the dump's SHA-256.
+- [x] **EPROM provenance complete.** Second read taken, SHA-256 identical, and
+      the UV window is covered by the TELENORMA sticker — which therefore must
+      **not** be removed: it is both the date evidence and the UV shield.
       → [original/README.md](original/README.md)
-- [ ] **Is the EPROM's UV window covered?** If the `TELENORMA` label does not sit
-      over it, cover it — an exposed window degrades in daylight over years, and
-      this part is now dated 1996.
-      - Result:
 
 ---
 

@@ -16,7 +16,7 @@ must never be edited, reformatted or "cleaned up". Derived artefacts belong in
 | MD5 | `428dead8bf514976e625f2ec4aed036c` |
 | Dumped | 2026-05-25 |
 | Reader used | *TODO — record programmer model + software version* |
-| Reads compared | *TODO — record how many independent reads were compared* |
+| Reads compared | **2 independent reads, SHA-256 identical** |
 | Internal version string | `AK0052.139U1` at offset 0x0064 |
 | Label on the chip | **`TELENORMA  18 JUN 96`** |
 | Programmed | **18 June 1996** — the first hard date found on the unit |
@@ -38,6 +38,8 @@ cd original && sha256sum -c SHA256SUMS      # equivalent, by hand
   image is correctly aligned and not bit-shifted.
 * The 5x7 glyph table at `0x1C0D-0x210C` has bit 7 clear in all 1280 bytes,
   which would be extremely unlikely in a corrupt read.
+* **Two independent reads produced identical SHA-256 digests.** Together with the
+  structural checks above, the image can be treated as the ROM's true contents.
 
 ### The TELENORMA label
 
@@ -59,13 +61,24 @@ Two things follow:
   Telecom, not only PAGE Ibérica. See
   [../docs/references.md](../docs/references.md).
 
-### Outstanding provenance work
+### Provenance — complete
 
-- [ ] Re-read the EPROM a second time on the same programmer and confirm the
-      SHA-256 matches, then note it above.
-- [x] Photograph the EPROM label — done, and it turned out to carry the
-      TELENORMA marking above
+- [x] **Second read taken and the SHA-256 matches.** Two independent reads of the
+      part produced identical images, so the dump is verified rather than merely
+      plausible.
+- [x] **EPROM label photographed** — and it turned out to carry the TELENORMA
+      marking above
       ([../hardware/photos/ROM_chip.jpg](../hardware/photos/ROM_chip.jpg)).
-- [ ] Check whether the window is still covered. A UV-EPROM with an uncovered
-      window degrades in daylight over years; if the label is not over the
-      window, cover it.
+- [x] **The UV window is covered by the TELENORMA sticker.** No action needed, and
+      one consequence worth stating outright:
+
+> **Do not remove the TELENORMA sticker.** It is simultaneously the unit's primary
+> date evidence *and* the UV shield over the EPROM's window. Peeling it would
+> destroy the provenance and start the part degrading. This is the opposite of the
+> advice for the DC-DC converter's QA sticker
+> ([../hardware/pcbs.md](../hardware/pcbs.md)), which covers a part number worth
+> reading and shields nothing.
+
+The only field still open is the programmer model and software version used for
+the dump — worth filling in above if it is still to hand, but nothing depends on
+it now that two reads agree.

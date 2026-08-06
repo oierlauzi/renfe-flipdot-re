@@ -74,7 +74,7 @@ and [tools/extract_font.py](tools/extract_font.py) (`--png`) to regenerate it.
 
 | Area | State |
 | --- | --- |
-| ROM dump | done — verified, checksummed, provenance recorded |
+| ROM dump | done — **two independent reads, identical SHA-256**, provenance recorded |
 | Memory map | done — [docs/memory-map.md](docs/memory-map.md) |
 | I/O port map | done — all ports enumerated, most attributed — [docs/io-map.md](docs/io-map.md) |
 | Character font | done — [docs/font.md](docs/font.md) |

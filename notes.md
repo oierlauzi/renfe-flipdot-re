@@ -20,6 +20,27 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Dump provenance closed out
+
+**Confirmed (owner):** a second independent read of the EPROM produced an
+identical SHA-256, and the UV window is covered by the TELENORMA sticker.
+
+So the image in `original/` is now **verified rather than merely plausible** — two
+reads agreeing rules out the marginal-cell and misread failure modes that the
+structural checks (vector table, `0xFF` fill boundary, bit 7 clear across the
+glyph table) could only make unlikely.
+
+**One consequence worth stating loudly, because it cuts against the advice given
+for the other sticker:** the TELENORMA label must **not** be peeled. It is doing
+two jobs at once — it is the unit's primary date evidence *and* the UV shield over
+the window. The DC-DC converter's QA sticker is the opposite case: it covers a
+part number worth reading and shields nothing, so removing that one is fine.
+
+Only the programmer model and software version remain unrecorded, and nothing
+depends on them now.
+
+---
+
 ## 2026-08-06 — The EPROM says TELENORMA 18 JUN 96
 
 **Recorded (owner):** the ROM chip carries a sticker reading
