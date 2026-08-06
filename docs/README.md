@@ -22,6 +22,7 @@ in [../notes.md](../notes.md) what the evidence was.
 | [memory-map.md](memory-map.md) | Address space, ROM layout, vectors, RAM variables |
 | [io-map.md](io-map.md) | Every 8085 I/O port and the device behind it |
 | [serial-protocol.md](serial-protocol.md) | **The goal.** Physical, link and application layer |
+| [controller.md](controller.md) | Planning the host side: interface hardware, sourcing, gotchas |
 | [dip-switches.md](dip-switches.md) | The three switch banks and what they configure |
 | [font.md](font.md) | The 5x7 glyph table format and code point coverage |
 | [flipdot-interface.md](flipdot-interface.md) | How dots actually get flipped |

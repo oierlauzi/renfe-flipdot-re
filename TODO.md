@@ -115,7 +115,16 @@ third is a safety precondition.
 - [ ] **Solder-side photos** of the motherboard and both daughter boards, for
       tracing the chip selects.
 
-## P4 — Long shots worth an hour
+## P4 — Shopping, once the standard is known
+
+See [docs/controller.md](docs/controller.md) for the full comparison. The hedge
+that covers every outcome: a USB-to-TTL serial adapter, a MAX490 and a MAX485
+breakout, a few 6N137/6N139 optocouplers, and a current-limited bench supply.
+
+- [ ] Decide the interface hardware once the diode test or a clean capture
+      settles the electrical standard.
+
+## P4b — Long shots worth an hour
 
 - [ ] Any original controller, or any recording of the line, would nail the
       protocol outright.
