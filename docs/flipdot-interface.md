@@ -131,6 +131,53 @@ explain both the audible scan and the absence of per-dot writes from the CPU.
 per-dot drive time directly, which is the open question below. A one-second sweep
 would mean roughly 1.8 ms per dot.
 
+## The panel's physical topology **[C] observed**
+
+From inspecting the panel (owner, 2026-08):
+
+* **Each character is an independent module** — sixteen of them. A single large
+  matrix was never an option.
+* The modules hang off a **common bus**, the ribbon. They are **not daisy-chained**:
+  the ribbon passes across them without being interrupted and re-emitted per
+  module.
+* **No module carries address-setting switches or links.**
+* The ribbon **exits the unit** after passing all sixteen characters, and was
+  spliced to remove the display. It almost certainly continued to the **second
+  LED panel**.
+
+### What that forces
+
+Identical modules on a shared bus with no per-module addressing can only be
+distinguished by **which conductor each one is wired to**. So position must be
+carried by **dedicated select lines**, one per character — and that is exactly
+what the sink count allows:
+
+| Function | Lines |
+| --- | --- |
+| Character selects, one per module | 16 |
+| Shift clock (port C bit 4) | 1 |
+| Serial data (port C bit 5) | 1 |
+| Control / latch / spare (port C bits 1:0) | 2 |
+| **Total** | **20**, against 21 ULN2003A sinks |
+
+The 81C55's ports fit this cleanly: **port A (`0xE1`) and port B (`0xE2`) supply
+the 16 selects, port C (`0xE3`) the clock, data and control.** The firmware
+inverts (`CMA`) before writing the select ports, and Darlington sinks pull their
+outputs low, so **module select is active low at the module**. **[L]**
+
+Consistent with observation: the type-`0x11` driver writes only `0xE2` (49
+distinct values) while the type-`0x10` and `0x12` drivers write both `0xE1` and
+`0xE2` — different panel widths using one or both select ports.
+
+### Consequence: the ribbon conductor count is now a sharp test
+
+* **~20-26 conductors** (16 selects + clock + data + control + power/ground) →
+  the model above is right.
+* **~8-10 conductors** → it is wrong, and the position is decoded somewhere on
+  the panel after all.
+
+The splice point makes this directly countable. → [TODO.md](../TODO.md)
+
 ## The panel is a serial shift register **[C] from the ROM**
 
 This overturns the earlier working assumption of a parallel row/column matrix, and
@@ -247,7 +294,30 @@ revisiting if one is wrong.
 | A3 | Port C bit 4 is the clock and bit 5 the data | The code toggles bit 4 twice per bit while bit 5 carries the varying value | Scope both against the ribbon | Would invert the whole decode; the `FF` validation makes this very unlikely |
 | A4 | Data is active low (low = dot on) | `CMA` precedes every DATA write, and `FF` then renders as a solid block | Send `FF` on the real panel and see whether it goes all-on or all-off | Every rendered glyph inverts |
 | A5 | The frame is 37 + 1 + 35 + 1 bits | Read directly from the loop counters `0x25` and `0x05`/`0x07` | Count clock edges per character on a logic analyser | The 37 leading bits are the least certain part; they may address a longer register chain |
-| A6 | An expansion board is present (`0xE7` != `0xFF`) for some captures | Without it the buffer at `0xE000` is unbacked | The unit has no LED matrix, so `0xE7` should read `0xFF` | The buffer question in [io-map.md](io-map.md) needs settling first |
+| A6 | An expansion board is present (`0xE7` != `0xFF`) for some captures | Without it the buffer at `0xE000` is unbacked | The unit has no LED matrix, so `0xE7` should read `0xFF` | The buffer question in [io-map.md](io-map.md) needs settling first — and see the prediction below |
+
+### A falsifiable prediction about the missing LED panel
+
+The ribbon continuing onward to the LED panel makes the `0xE000` question much
+sharper. The chain of reasoning:
+
+1. `0xE7` is a register **on the expansion**, and reads `0xFF` when it is absent.
+2. The **message buffer lives at `0xE001-0xE040`**, inside the paged window that
+   `0xE7` selects.
+3. The LED panel assembly is the obvious candidate for that expansion.
+
+If all three hold, then **this unit is missing the RAM its message buffer lives
+in** — which is precisely why the emulator needs `--xram board` before any text
+renders, and why `STX AB ETX` paints the fill character instead of letters.
+
+**The prediction, testable at first power-up:** with the LED panel absent the unit
+should still perform its power-on sweep and still answer serial queries such as
+`SUB` — neither needs the buffer — but should be **unable to display sent text**.
+
+If it *does* display text with the panel gone, this reasoning is wrong and the
+`0xE000` memory is somewhere on the boards that are present. Either outcome is
+informative, and it costs nothing beyond powering the unit up and sending one
+message.
 
 ### The one thing that did not work
 

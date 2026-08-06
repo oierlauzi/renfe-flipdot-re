@@ -167,8 +167,18 @@ third is a safety precondition.
 - [ ] **Does RST7.5 fire?** Scope on 8085 pin 7. Settles whether the `0xC0`
       device is present or absent.
       - Result:
-- [ ] **Panel ribbon conductor count.** Discriminates the row/column drive
-      arrangement immediately.
+- [ ] **Panel ribbon conductor count — now a sharp test of the drive model.**
+      Countable at the splice. ~20-26 conductors confirms 16 per-character select
+      lines plus clock, data, control and power; ~8-10 refutes it and means the
+      position is decoded on the panel.
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#consequence-the-ribbon-conductor-count-is-now-a-sharp-test)
+      - Result — conductor count:
+      - Result — which conductors go to which module pin:
+- [ ] **Test the missing-RAM prediction.** With the LED panel absent the unit
+      should still sweep at power-on and still answer `SUB`, but should be
+      **unable to display sent text** — because the message buffer may live in RAM
+      on the absent expansion. If it *does* display text, that reasoning is wrong.
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#a-falsifiable-prediction-about-the-missing-led-panel)
       - Result:
 - [ ] **Time the power-on buzz** with a stopwatch or a phone recording. Divided
       by 560 dots it gives the per-dot drive time directly, which is otherwise an

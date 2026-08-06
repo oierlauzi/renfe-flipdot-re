@@ -20,6 +20,51 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Panel topology: independent modules on a shared bus
+
+**Observed (owner):** each character is an **independent module**, sixteen of them,
+hanging off the ribbon as a **common bus** rather than daisy-chained. The ribbon is
+not interrupted and re-emitted per module, no module has address switches, and it
+**exits the unit** after the last character — spliced where the display was
+removed, and almost certainly continuing to the **second LED panel**.
+
+**What that forces.** Identical modules on a shared bus with no per-module
+addressing can only be distinguished by *which conductor each is wired to*. So
+position must travel on **dedicated select lines**, one per character. And that is
+exactly what the sink count allows:
+
+| Function | Lines |
+| --- | --- |
+| Character selects | 16 |
+| Shift clock, port C bit 4 | 1 |
+| Serial data, port C bit 5 | 1 |
+| Control, port C bits 1:0 | 2 |
+| **Total** | **20**, against 21 ULN2003A sinks |
+
+So **port A (`0xE1`) and port B (`0xE2`) supply the selects, port C the clock and
+data**. The `CMA` before every select write plus Darlington sinks pulling low means
+**select is active low at the module**. Consistent with what the drivers do: type
+`0x11` writes only `0xE2`, while types `0x10` and `0x12` write both — different
+panel widths using one or both select ports.
+
+**A sharp test falls out.** The conductor count at the splice: ~20-26 confirms the
+model, ~8-10 refutes it and means the position is decoded on the panel instead.
+
+**And the LED panel being on the same ribbon sharpens the `0xE000` question into a
+falsifiable prediction.** `0xE7` is a register on the expansion; the message buffer
+sits at `0xE001-0xE040` inside the window `0xE7` pages; the LED panel assembly is
+the obvious expansion. If those hold, **this unit is missing the RAM its message
+buffer lives in** — which would explain why the emulator needs `--xram board`
+before text renders at all, and why `STX AB ETX` paints the fill character.
+
+Prediction, testable at first power-up: with the LED panel absent the unit should
+still sweep and still answer `SUB` (neither needs the buffer) but should be
+**unable to display sent text**. If it does display text, the reasoning is wrong and
+the `0xE000` memory is on a board that is present. Either way it costs one power-up
+and one message.
+
+---
+
 ## 2026-08-06 — The panel is a serial shift register, and the render path runs
 
 **Did:** Cracked the render path. It needed four separate conditions satisfied

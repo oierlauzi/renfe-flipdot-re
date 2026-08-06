@@ -229,6 +229,22 @@ give the loop current directly, which tells you the expected drive level.
 
 ## Flip-dot panel ribbon — daughter 2
 
+**Topology, observed:** each character is an independent module; the sixteen modules
+hang off the ribbon as a **common bus** rather than being daisy-chained; none has
+address switches; and the ribbon **exits the unit** after the last character,
+spliced where the display was removed. It almost certainly continued to the
+**second LED panel**, making this one bus shared by both displays.
+
+That forces per-character **select lines** — see
+[../docs/flipdot-interface.md](../docs/flipdot-interface.md#what-that-forces) — and
+makes the conductor count a sharp test of the whole drive model:
+
+* **~20-26 conductors** → 16 selects + clock + data + control + power. Model holds.
+* **~8-10 conductors** → model wrong; position is decoded on the panel.
+
+The splice makes this directly countable.
+
+
 Large ribbon header on daughter 2, driven by the ULN2003A Darlington arrays
 (U18) and, most likely, an 81C55 at I/O `0xE0` (see
 [../docs/io-map.md](../docs/io-map.md)).
