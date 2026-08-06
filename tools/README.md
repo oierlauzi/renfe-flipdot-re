@@ -12,6 +12,28 @@ Run them from the repository root; they default to `original/firmware.bin`.
 | [emu8085.py](emu8085.py) | Intel 8085 CPU core; machine-agnostic, memory and I/O via callbacks |
 | [pit100_sim.py](pit100_sim.py) | Runs the real firmware against stub peripherals |
 | [pit100.py](pit100.py) | **Host-side driver**: the command protocol, ready for a serial port |
+| [panel_view.py](panel_view.py) | Decodes the flip-dot serial stream and renders the panel |
+
+## panel_view.py — a virtual flip-dot panel
+
+Watches the emulated firmware drive port `0xE3`, recovers the clocked serial data,
+and reconstructs the 5x7 glyphs:
+
+```sh
+PYTHONPATH=tools python3 tools/panel_view.py --fill
+```
+
+```
+#####  #####  #####
+#####  #####  #####      the ROM's glyph for 0x23 - a solid block
+#####  #####  #####
+...
+```
+
+Frame length, marker position, bit order and polarity all had to be right at once
+for that to come out. **`--text` does not yet show real text** — see the
+assumptions and the known gap in
+[../docs/flipdot-interface.md](../docs/flipdot-interface.md#assumptions-this-rests-on-and-how-to-falsify-each).
 
 ## pit100.py — the driver
 

@@ -20,6 +20,65 @@ Entry template:
 
 ---
 
+## 2026-08-06 — The panel is a serial shift register, and the render path runs
+
+**Did:** Cracked the render path. It needed four separate conditions satisfied
+before a single dot moved, which is why every earlier attempt saw only the eight
+init writes.
+
+1. **A panel type.** Port C bits 4:0 pick a branch at `0x055A`, each loading a
+   type into `0xA009`; `0x136A` dispatches on it to a panel-specific driver. **The
+   default branch sets `0xA009 = 0`, for which no driver exists** — so unrecognised
+   switches drive nothing at all. 13 of the 32 values select a real driver.
+2. **The RST7.5 tick.** The idle loop at `0x1675` spins while `0xA01B & 1` is set,
+   and only the RST7.5 handler clears it.
+3. **Changed content.** `0x136A` is reached by **`CNZ`** — a conditional call after
+   comparing against a shadow copy. **Only changed characters are redrawn.** My
+   all-zero buffer against an all-zero shadow flipped nothing, which is the whole
+   reason nothing appeared.
+4. Somewhere for the buffer to live.
+
+**The big structural finding: the panel is fed serially, not as a matrix.** That
+dissolves the "21 lines cannot address 560 dots" problem entirely.
+
+* Port C **bit 4 = shift clock**, rising edge.
+* Port C **bit 5 = serial data, active low** — low means the dot is on.
+* Port B = character position, inverted.
+* **74 bits per character**: 37 idle high, one **low marker**, 35 glyph bits
+  (5 columns x 7 rows, top row first), one trailing high.
+
+`RLC` five times then `RRC` per row emits the glyph byte's bits in order 0..6,
+matching the font's bit-0-is-top layout exactly.
+
+**Validated end to end.** `tools/panel_view.py` recovers the stream and
+reconstructs glyphs; sending `FF` renders solid blocks, which is precisely the
+ROM's `0x23` glyph. Frame length, marker position, bit order *and* polarity all
+had to be right simultaneously for that to come out — the strongest single
+confirmation in the project so far.
+
+**Anchor on the marker, not the idle run.** A blank glyph is 35 high bits and is
+indistinguishable from padding; my first decoder looked for runs of idle and
+mis-located every frame.
+
+**Also newly attributed: port B bit 0 selects the fill character.** Set stores
+`0x23` into `0xA041`, so the pad is a solid block rather than a space. Clearing it
+makes the fill activity vanish from a capture. One of the last two unattributed
+port B bits.
+
+**What did not work, stated plainly:** message text does not reach the rendered
+glyphs. `STX AB ETX` paints the fill character instead of `A` and `B`, so the link
+from message buffer to render source still has a missing step — most likely tied
+to the unresolved `0xE000` window. The frame mechanism is unaffected, having been
+validated via `FF`, but `panel_view.py --text` should not be trusted yet.
+
+**Assumptions recorded for falsification** in `docs/flipdot-interface.md`, with a
+table giving for each one why it was chosen, how to check it on the hardware, and
+what breaks if it is wrong. The load-bearing ones are the panel type (0x11, chosen
+because it produced the most activity) and the 37 leading idle bits, which may
+address a longer register chain than a single character.
+
+---
+
 ## 2026-08-06 — A host driver, and an emulator bug that faked a protocol timeout
 
 **Did:** Wrote `tools/pit100.py`, a host-side driver for the command protocol,
