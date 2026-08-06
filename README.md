@@ -27,15 +27,17 @@ Full details in [docs/device.md](docs/device.md).
 
 These units were installed across Cercanías Madrid starting in the **mid-1990s**
 and are being **phased out during the 2020s** as stations are refitted with
-modern LED/LCD signage. Photos below (Google Maps contributions) show the
-"Vía" next-arrival displays in service at three stations:
+modern LED/LCD signage. Mounting varies by station: some are **hung from the
+platform marquee/ceiling**, others are **mounted on top of a pole**. Photos
+below (Google Maps contributions) show the "Vía" next-arrival displays in
+service at several stations:
 
 | | | |
 | --- | --- | --- |
 | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnuVKiA1CfmwZmsqmBYouK0si_PNXC_1U0SrNglIIoP5KZG6Z1GexpvDqZtwOC9uT73btR2eoEZ2aWrIWKo9QxQPs-N16P0gDpi3cy41LDFZbNhbBk1PE-Yz6G6Nhmb5ObGMoPb=w480" width="260" alt="Vía display at Tres Cantos">](https://maps.app.goo.gl/SgD5UcXEt2scQfJP6) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmoqYe0ipeDueShLFtyYjQjVWBriaWA0QRaPspo7n_r3Fz-qXHp38SmIWHZOgZ1MsfU3ut1e7HdkN6ZduYmL3LE5ZlVxx3j8Qsh8-ux2M7qVNr8HGspjrl_SVDUodYu_lAfnsVZLit2JfOq=w480" width="260" alt="Vía display at Pitis">](https://maps.app.goo.gl/4AjHZ317e6zEZWLX6) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWk4_tU2sE1bVB9q-qaFMDxpqdA9U9lIxhcIlpl-EgX4x--BPeS4z7z2sRtWZYjxWSkJsR0KsMC2LQUVfB8H8rL1Oyx6-gWMZ2_s3ort6AxnIwKep2PW3Nb7GRVJhsQlt8kzIRg=w480" width="260" alt="Vía display at Galapagar-La Navata">](https://maps.app.goo.gl/Z3yJGkftK173W16y9) |
 | Tres Cantos | Pitis | Galapagar-La Navata |
-| [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnpDItrdE-jffbQzwgDOmBl3eBJsfrWeRIwUOu4PRUU-6UetTpRR4sGQvcV132kxajOcKpNw4lsv0qbUnxs4Rc7jBR-V3Ycl3R9sf9Pio3Wk6Pi036VEk2yvCTzaVt-lRIpQuU7=w480" width="260" alt="Vía display at Las Rozas">](https://maps.app.goo.gl/UtGVrC6zMScknKGb8) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn8hKNYQuLIZa8VCoKam4xc6gy935AlYsH69e-by3c4ZkdvUhzFSQn45frfmGF6cQSo0SKHmEScAodaDCHz1cgGm9BaNnHH5aEMidmlVOjYCf--HT3oZyubCppA8_vkdR3dqbm3=w480" width="260" alt="Vía display at Cantoblanco Universidad">](https://maps.app.goo.gl/gkyVJaivqFrVrPYh8) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWksNsfaIbK51xFdfq2uRg9pGEUd41QC-cA2u6JiGHyDItdHZ6m-IvAlsGf-zE9AxOgDBnmAAhmwR8MbYs1D6YBGs0G0SPIZtCADX8jCFW0WC08OkxbCOTYv5HKZjAT_IzpjSh5iRg=w480" width="260" alt="Vía display at Collado Mediano">](https://maps.app.goo.gl/yveuFPEbi5sjoSSv5) |
-| Las Rozas | Cantoblanco Universidad | Collado Mediano |
+| [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWk4tJf7YDnld6bDf3idtBx8zkhKSAuLuR9X5OKPpXxEIN6QJ6NmxOUSVi68oVhZzKOaNPMTqaWcdhC8w0gkpDABvV2MXC6QVSUTpgXJDViyaysEAjE9uInq-6oN6jEsYC9HU1FE=w480" width="260" alt="Vía display at Delicias">](https://maps.app.goo.gl/wM6Yq13YrQxSNZAG7) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn8hKNYQuLIZa8VCoKam4xc6gy935AlYsH69e-by3c4ZkdvUhzFSQn45frfmGF6cQSo0SKHmEScAodaDCHz1cgGm9BaNnHH5aEMidmlVOjYCf--HT3oZyubCppA8_vkdR3dqbm3=w480" width="260" alt="Vía display at Cantoblanco Universidad">](https://maps.app.goo.gl/gkyVJaivqFrVrPYh8) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWksNsfaIbK51xFdfq2uRg9pGEUd41QC-cA2u6JiGHyDItdHZ6m-IvAlsGf-zE9AxOgDBnmAAhmwR8MbYs1D6YBGs0G0SPIZtCADX8jCFW0WC08OkxbCOTYv5HKZjAT_IzpjSh5iRg=w480" width="260" alt="Vía display at Collado Mediano">](https://maps.app.goo.gl/yveuFPEbi5sjoSSv5) |
+| Delicias | Cantoblanco Universidad | Collado Mediano |
 
 ## Character font
 
