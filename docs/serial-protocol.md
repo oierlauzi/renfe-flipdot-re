@@ -210,6 +210,31 @@ Bytes outside this table with the high nibble `0x0` or `0x1` are ignored
 `0x01` SOH, `0x15` NAK, `0x16` SYN and `0x1D` GS have **no handler** — they are
 transmit-side only.
 
+### The message buffer **[C]**
+
+Every path converges on the bounds check at `0x0C41`:
+
+```
+0x0C41  LXI  HL,0xE001     ; buffer base
+0x0C44  LXI  DE,0x40       ; length, from ROM constant 0x007B
+0x0C47  DAD  HL,DE         ; limit = 0xE041
+        ...compare the write pointer at 0xA03B against the limit...
+0x0C59  XCHG               ; clamp the pointer to the limit
+0x0C5B  STA  0xA044 = 0
+0x0C60  STA  0xA043 = 1    ; overflow flag
+0x0C6B  MVI  A,0x30
+0x0C6D  STA  0xA03A        ; error code '0' -> this message will be NAKed
+```
+
+* **The message buffer is `0xE001-0xE040`, exactly 64 bytes.** The length comes
+  from the ROM constant at `0x007B`, not from a literal.
+* A second buffer lives at `0xE084`.
+* **Overflow is detected, not ignored**: the pointer is clamped and error code
+  `0x30` is latched, so an over-long message is answered with NAK rather than
+  silently truncated.
+
+64 characters for a 16-character panel implies the extra 48 are for scrolling.
+
 ### The unit answers ACK or NAK **[C]**
 
 The most useful fact in this document. On ETX (`0x0F48`):
@@ -230,8 +255,78 @@ discoverable by experiment rather than by reading: send a candidate frame, watch
 for `0x06` or `0x15`. It also gives an unambiguous "the link works" test that
 does not depend on the panel being healthy.
 
-The reply is followed by the address byte built from DIP switch port A — see
-[dip-switches.md](dip-switches.md#port-a-bits-40--display-address-c).
+#### The full reply frame
+
+```
+[4 x SYN]  <ACK|NAK>  <address>  [errcode  [param1 param2]]
+```
+
+| Field | Source | Condition |
+| --- | --- | --- |
+| `SYN` x4 | `0x1AAA` | only if ROM byte `0x008A` bit 1 is set — **not in this build** |
+| `ACK` `0x06` / `NAK` `0x15` | `0xA03A == 0` ? | always |
+| address | DIP switch port A bits 4:0 | only if ROM byte `0x0088` bit 1 is set — **it is** |
+| errcode | `0xA03A` | only when non-zero |
+| `param1`, `param2` | `0xA050`, `0xA051` | only when errcode is neither `0x30` nor `0x32` |
+
+**Error codes are printable ASCII.** `0x30` `'0'` is buffer overflow. `0x32`
+`'2'` is some other self-describing failure; both are reported bare, while any
+other code carries two extra bytes of detail. So a NAK is not just a rejection,
+it says *why*.
+
+Before replying, `0x1A7F` performs line turnaround: it re-issues the 8251A
+command word to drive RTS (`0x37` asserted / `0x17` deasserted), then optionally
+sends four `SYN` bytes or waits a fixed delay. Which of those happens is
+controlled by ROM byte `0x008A` (`0x05` here: enabled, no SYN preamble, delay of
+40 units). **This is why `0x16` SYN has no receive handler — it is a transmit-side
+preamble only.**
+
+After the reply, `0x0F8C` clears `0xA03A`, `0xA04F`, `0xA050`, `0xA051`,
+`0xA052` and `0xA054`, resetting the error state for the next message.
+
+### Decoded commands **[C]**
+
+| Code | | Effect |
+| --- | --- | --- |
+| `0x02` STX | begin message | pointer := `0xE001`; clears `0xA043`/`0xA044`; sets `0xA042 = 1` |
+| `0x03` ETX | end message | validate, reply `ACK`/`NAK` + address + error detail, reset state |
+| `0x18` CAN | **clear the display** | fill 64 bytes from `0xE001` with `0x20` (space) — or from `0xE084` with `0x00` when `0xA057` is set — then post `0x4A` to the mailbox so the main loop repaints |
+| `0x1E` RS | reset receive state | clears `0xA040`, `0xA00D`, `0xA06F`. **Ignored when the unit's address is 0**, so address 0 is effectively "unaddressed" |
+| `0x10` DLE | **reset the unit** | jumps to `fatal_or_init` |
+| `0x06` ACK | clears `0xA03D`, then performs the same clear as CAN |
+
+### Commands that take a parameter byte **[C]**
+
+These set a state variable; the *next* byte received is consumed as the
+parameter rather than dispatched as a command. That is what the state variables
+at the top of handler B are for.
+
+| Command | State var | Parameter handler | Effect |
+| --- | --- | --- | --- |
+| `0x07` BEL | `0xA055` | `0x10D0` | **low 3 bits of the parameter become the display attribute `0xA014`** — 8 display modes |
+| `0x05` ENQ | `0xA03E` | `0x103D` | parameter stored at `0xA041`; a `0x12` DC2 parameter is translated to `0x23` `'#'`; sets `0xA03D = 1` |
+| `0x1D` GS | `0xA03F` | `0x105E` | parameter is an **address**, masked to 7 bits and compared against DIP switch port A. This is why `0x1D` never reaches the dispatch table |
+
+`BEL` + one byte is the display-effect selector for handler B, the counterpart of
+the in-band `0x7C`/`0x7D`/`0x7F` characters in handler A.
+
+### Build-time configuration block, ROM `0x0070-0x008B` **[C]**
+
+Handler B reads its behaviour out of ROM constants rather than hard-coding it —
+the same firmware was evidently customised per installation by patching these
+bytes.
+
+| Address | Value | Meaning |
+| --- | --- | --- |
+| `0x0072` | `0x01` | protocol enable; zero short-circuits the ETX reply |
+| `0x007A` | `0xFF` | address mode: `0xFF` = take the address from DIP switch port A, `0x00` = unaddressed |
+| `0x007B` | `0x40` | **message buffer length, 64 bytes** |
+| `0x007E` | `0x40` | a second length, also 64 |
+| `0x0088` | `0x02` | feature bits; bit 1 = append the address to the reply |
+| `0x008A` | `0x05` | turnaround options: bit 0 enable, bit 1 four-SYN preamble, bit 2 delay, bit 3 RTS polarity |
+
+Anyone building a controller should read these out of *their* ROM rather than
+trusting this table — a different unit may well be configured differently.
 
 ## The transmitted status frame **[C]**
 

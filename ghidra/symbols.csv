@@ -16,6 +16,12 @@ mem,0000,reset,func,Reset vector: DI then jump to fatal_or_init
 mem,002c,vec_rst55,label,RST5.5 hardware interrupt vector
 mem,003c,vec_rst75,label,RST7.5 hardware interrupt vector
 mem,0064,fw_version_string,data,"ASCII ""AK0052.139U1"""
+mem,0070,cfg_block,data,Build-time configuration constants 0x0070-0x008B. See docs/serial-protocol.md
+mem,0072,cfg_proto_enable,data,Nonzero enables the handler B ETX reply
+mem,007a,cfg_addr_mode,data,0xFF = address from sw_port_a; 0x00 = unaddressed
+mem,007b,cfg_buffer_len,data,Message buffer length; 0x40 = 64 bytes
+mem,0088,cfg_features,data,Feature bits; bit 1 appends the address to the ACK/NAK reply
+mem,008a,cfg_turnaround,data,"Turnaround: bit0 enable, bit1 4xSYN preamble, bit2 delay, bit3 RTS polarity"
 mem,0260,isr_rst55,func,Serial receive ISR. Gated by sw_port_c bit 5; dispatches on rx_handler_sel
 mem,02a9,isr_rst75,func,"Periodic tick + watchdog. Reads io_cd, decrements watchdog_count, drives SOD"
 mem,034b,fatal_or_init,func,Target of every unused vector trampoline
@@ -35,13 +41,23 @@ mem,0675,select_rx_protocol,label,Sets rx_handler_sel from the expansion board o
 mem,08b7,rx_handler_a,func,"Serial receive handler A, dispatched from isr_rst55 when rx_handler_sel != 1"
 mem,0acb,rx_handler_b,func,"Serial receive handler B, dispatched from isr_rst55 when rx_handler_sel == 1"
 mem,0b76,rx_command_dispatch,label,Handler B command table: 28 ASCII control codes. See docs/serial-protocol.md
+mem,0c41,check_buffer_bounds,label,Clamps the write pointer to 0xE041 and latches error 0x30 on overflow
 mem,0f17,cmd_stx,func,"STX: start of text; buffer to 0xE001, sets msg_active"
 mem,0f29,cmd_etx,label,ETX: end of text; replies ACK (0x06) or NAK (0x15) from msg_error
 mem,0f69,build_address_byte,label,Encodes sw_port_a bits 4:0 as ASCII 0x30-0x3F or 0x40-0x4F
+mem,1000,clear_buffer,label,"Fill 64 bytes from HL with D, post 0x4A, reset the pointer"
 mem,101e,cmd_can,label,CAN handler; CAN also opens the transmitted status frame
+mem,1035,cmd_enq,label,ENQ: next byte is a parameter
+mem,103d,param_enq,label,Consumes the ENQ parameter byte into 0xA041 (DC2 becomes #)
+mem,1057,cmd_ack,label,ACK received: clears 0xA03D then clears the display
+mem,105e,param_gs_address,label,Consumes the GS parameter byte and matches it against sw_port_a
 mem,10a3,cmd_rs,label,RS handler; RS also appears in the transmitted status frame
+mem,10c8,cmd_bel,label,BEL: next byte sets the display attribute
+mem,10d0,param_bel_attr,label,Consumes the BEL parameter; low 3 bits become display_attr
 mem,1a0c,uart_send,func,Transmit one byte with inter-character delays; polls TxRDY
 mem,1a43,uart_send_raw,label,OUT to uart_data after waiting on TxRDY
+mem,1a7f,line_turnaround,func,"RTS via the 8251A command word, optional 4xSYN preamble or delay"
+mem,1af5,reply_cleanup,func,Called after the ACK/NAK reply
 mem,1b69,xram_read,func,"Banked read: A = (HL), via the 0xE000 window if the expansion board is present. 21 callers"
 mem,1b95,xram_write,func,Banked write: (HL) = A. 21 callers
 mem,1bc4,xram_compare,func,Banked compare: A against (HL). 4 callers
@@ -62,7 +78,15 @@ mem,a018,effect_duration2,data,16-bit duration set by 0x64
 mem,a01e,watchdog_count,data,Decremented by isr_rst75; reaching 1 jumps to fatal_or_init
 mem,a039,render_buffer,data,Buffer walked by the 0x61-iteration render loop
 mem,a03a,msg_error,data,Accumulated message error flag; zero means ACK on ETX
+mem,a03b,rx_write_ptr_b,data,Handler B message write pointer into the 0xE000 window
+mem,a03e,state_enq,data,Set by ENQ; diverts the next byte to param_enq
+mem,a03f,state_gs,data,Set by GS; diverts the next byte to param_gs_address
+mem,a041,enq_param,data,Parameter byte captured after ENQ
 mem,a042,msg_active,data,"Set by STX, cleared by ETX"
+mem,a043,buffer_overflow,data,Set to 1 when the message exceeded the 64-byte buffer
+mem,a050,err_param1,data,First error detail byte sent after a NAK
+mem,a051,err_param2,data,Second error detail byte sent after a NAK
+mem,a055,state_bel,data,Set by BEL; diverts the next byte to param_bel_attr
 mem,a059,xram_saved_page,data,"Previous expansion memory page, restored after a banked access"
 mem,a05a,in_isr_flag,data,"Set to 1 in the ISRs (0x0271, 0x0296); makes the banked accessors save/restore the page"
 mem,a07c,status_flags_a,data,Bit 0 polled by main_loop

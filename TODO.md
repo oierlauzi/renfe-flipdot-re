@@ -108,13 +108,18 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       ACK/NAK on ETX**. → [docs/serial-protocol.md](docs/serial-protocol.md)
 - [x] **DIP switch port A attributed**: bits 4:0 = display address (confirmed by
       sweeping it in the simulator), bit 6 = receive protocol select.
-- [ ] **Decode the individual handler-B commands.** The dispatch targets are
-      known; what each one *does* is not. Highest value: `0x0F17` STX,
-      `0x0F29` ETX, `0x101E` CAN, `0x10A3` RS.
+- [x] **STX, ETX, CAN, RS, DLE, ACK, BEL, ENQ and GS decoded**, along with the
+      64-byte buffer, the full reply frame and the ROM configuration block.
+      → [docs/serial-protocol.md](docs/serial-protocol.md)
+- [ ] **The remaining ~19 handler-B commands**: `0x09` TAB, `0x0A` LF, `0x0B` VT,
+      `0x0C` FF, `0x0D` CR, `0x0E` SO, `0x0F` SI, `0x11` DC1, `0x12` DC2,
+      `0x13` DC3, `0x14` DC4, `0x17` ETB, `0x19` EM, `0x1A` SUB, `0x1B` ESC,
+      `0x04` EOT, `0x08` BS.
+- [ ] **What do the 8 display attribute values mean?** BEL's parameter selects
+      one of 8 via `0xA014` bits 2:0. Cross-reference with handler A's
+      `0x7C`/`0x7D`/`0x7F` and the durations at `0xA016`/`0xA018`.
 - [ ] **What are port A bits 7 and 5?**
-- [ ] **Decode the `0xA014` attribute bits.** The in-band control characters
-      `0x7C`, `0x7D`, `0x7F`, `0x64-0x66` set display effects and durations;
-      which bit means scroll, blink or static is still open.
+
 - [x] **Status frame explained**: `CAN CAN RS NAK <0x60|addr>`, with the
       address coming from port A. Two variants differing in bits 7:6 of the last
       byte — those flag bits are still unidentified.

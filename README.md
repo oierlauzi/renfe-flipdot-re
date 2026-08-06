@@ -79,8 +79,13 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
   dispatching to one of *two* receive protocols selected by port A bit 6:
   `0x08B7` simple delimited text, or `0x0ACB` a **28-command protocol** built on
   ASCII control codes with `STX`/`ETX` framing.
-* **The unit replies `ACK` (0x06) or `NAK` (0x15) on ETX.** Once the link is
-  wired up this makes the rest of the protocol discoverable by experiment.
+* **The unit replies `ACK` (0x06) or `NAK` (0x15) on ETX**, followed by its
+  address and, on failure, a printable **error code** — so a rejection says why.
+  Once the link is wired up this makes the rest of the protocol discoverable by
+  experiment.
+* Messages are **64 bytes at `0xE001`**; overflow is detected and NAKed rather
+  than silently truncated. `CAN` clears the display, `DLE` resets the unit, and
+  `BEL` + one byte selects one of 8 display effects.
 * **DIP switch port A bits 4:0 are the display address**, confirmed by sweeping
   them in the simulator and watching the transmitted status frame
   `CAN CAN RS NAK <0x60|addr>` follow.

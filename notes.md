@@ -20,6 +20,54 @@ Entry template:
 
 ---
 
+## 2026-08-05 — Handler B command semantics; error reporting and a config block
+
+**Did:** Followed the dispatch targets for STX, ETX, CAN and RS, and the state
+variables that turn some commands into parameterised ones.
+
+**Found:**
+
+* **The message buffer is `0xE001-0xE040`, 64 bytes**, and the length is read
+  from the ROM constant at `0x007B` rather than hard-coded. Overflow is caught at
+  `0x0C41`: the pointer is clamped and error code `0x30` latched, so an
+  over-long message gets NAKed instead of silently truncated. A second buffer
+  sits at `0xE084`. 64 bytes for a 16-character panel means the surplus is for
+  scrolling.
+* **The reply is richer than just ACK/NAK.** Full frame:
+  `[4xSYN] <ACK|NAK> <address> [errcode [param1 param2]]`. Error codes are
+  printable ASCII; `0x30` is overflow, `0x32` is another bare failure, and any
+  other code carries two detail bytes from `0xA050`/`0xA051`. A NAK says *why*.
+* `0x1A7F` does line turnaround before replying: re-issues the 8251A command
+  word to drive RTS, then optionally four `SYN` bytes or a fixed delay. **That
+  explains why `0x16` SYN has no receive handler — it is a transmit-side
+  preamble.**
+* Command semantics: **CAN** clears the display (fills 64 bytes with spaces, or
+  the `0xE084` buffer with zero, then posts `0x4A` to repaint). **RS** resets the
+  receive state but is *ignored when the unit's address is 0*. **DLE** resets the
+  unit. **ACK**, oddly, also clears the display.
+* **Three commands take a parameter byte** via a state variable, which is what
+  those state variables at the top of handler B are for: `BEL` (low 3 bits of the
+  parameter become the display attribute `0xA014` — 8 effects), `ENQ` (parameter
+  to `0xA041`, with DC2 translated to `'#'`), and `GS` (parameter is an address,
+  matched against port A). That is why `0x1D` GS never appears in the dispatch
+  table — it is consumed a level earlier.
+* **`0x0070-0x008B` is a build-time configuration block.** Buffer length, address
+  mode, turnaround options and feature bits all come from there. The same
+  firmware was clearly customised per installation by patching these bytes.
+
+**Concluded:**
+
+* All of the above is **[C]** from the listing.
+* **Caveat worth carrying forward:** anyone building a controller should read the
+  config block out of *their own* ROM. A different PI-T100 may be configured with
+  a different buffer length, addressing mode or turnaround behaviour, and nothing
+  in the protocol announces it.
+
+**Next:** the remaining ~19 handler-B commands, and what the 8 display attribute
+values actually look like on the panel.
+
+---
+
 ## 2026-08-05 — Handler B is a command protocol; the unit answers ACK/NAK
 
 **Did:** Extracted the handler B (`0x0ACB`) dispatch table, followed the ETX
