@@ -36,8 +36,51 @@ Firmware version string, at ROM offset `0x0064`: **`AK0052.139U1`**
 | Total dots | 80 x 7 = 560 |
 | Character height | 100 mm |
 
+## Operation in service
+
+The unit is the upper element of a platform sign assembly:
+
+| Element | Content |
+| --- | --- |
+| **Flip-dot line** (this unit) | Train's final destination, and the ETA to this station in minutes, counting down |
+| **Vinyl sticker**, right of the panel | The fixed word `min`, so the last 1-2 characters of the line are the countdown |
+| **LED matrix** below (absent here) | Scrolls the list of upcoming stations, and service notices |
+| **Fluorescent tube**, lower edge | Illuminates the flip-dot panel at night |
+
+The `min` being a *sticker* rather than rendered text is a useful detail: it means
+the 16 characters are laid out as destination text on the left and a numeric
+countdown right-aligned at the end, and that this layout is a convention of
+whatever drives the sign, not something the display knows about.
+
+## What this unit does and does not do **[C]**
+
+Worth stating precisely, because it determines what a replacement controller has
+to implement.
+
+**This device does not compute anything.** It has no arithmetic on the message
+content at all:
+
+* There is **no minutes-to-ASCII conversion** anywhere in the ROM. The only two
+  `ADI 0x30` instructions in the entire firmware are in the `TAB` cursor-position
+  report. Nothing formats a number into digits for display.
+* There is **no minute-scale timer** and no decrement of an ASCII digit.
+* So the **countdown is pushed from upstream**, one text update at a time. The
+  sign does not tick down on its own; something re-sends the line every minute.
+
+What *is* local to this unit:
+
+* Glyph rendering and the flip-dot drive.
+* The display effects — 8 modes selected by `BEL`, with durations
+  (see [serial-protocol.md](serial-protocol.md)). Scrolling and blinking timing
+  is handled here, even though the content is not.
+* Serial addressing, framing, and the ACK/NAK error reporting.
+
+**Consequence for a replacement controller:** send the whole 16-character line,
+including the digits, and re-send it as the ETA changes.
+
 ## Deployment
 
 RENFE Cercanías station platform signage. The unit also has an interface for an
 additional LED matrix panel (I/O `0xC0` and/or `0xE8` groups) which is not
-present in this specimen.
+present in this specimen. The station-list scrolling and notice text belong to
+that panel or to the upstream controller, not to this board.

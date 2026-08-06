@@ -15,7 +15,15 @@ Deeper technical detail for each item lives in
 
 ## P0 — Before anything else
 
-Both items are destroyed or made harder by any prior poking around.
+The first two items are destroyed or made harder by any prior poking around; the
+third is a safety precondition.
+
+- [ ] **Identify both AC feeds and confirm which one powers the PSU.** The
+      fluorescent tube has its own mains input and its ballast is inside the
+      enclosure, so mains is live in more than one place. Prefer all measurements
+      with the tube feed disconnected — it removes both a hazard and a large
+      inductive noise source. → [hardware/psu.md](hardware/psu.md)
+      - Result:
 
 - [ ] **Record the DIP switch positions as found.** All three banks,
       photographed close enough to read *and* written down. This is the only
@@ -55,11 +63,27 @@ Both items are destroyed or made harder by any prior poking around.
 - [ ] **Read the series resistors feeding the 6N139 input.** Together with the
       supply voltage these give the expected drive current directly.
       - Result:
-- [ ] **Identify the electrical standard.** Powered, nothing connected, measured
-      across each pair:
-      - near-0 V differential with a few volts common mode → **RS-422/485**
-      - constant ~20 mA flowing, or a supply feeding a series resistor into the
-        loop → **20 mA current loop**
+- [x] ~~Scope the four pins.~~ Attempted 2026-08: no clean signal, apparent AC
+      component, no differential. **Inconclusive** — an isolated passive
+      interface and a badly-referenced measurement look identical. Analysis in
+      [hardware/connectors.md](hardware/connectors.md#why-the-scope-showed-nothing-useful).
+- [ ] **Was the unit powered during that scope attempt?** If yes the null result
+      leans towards a current loop, because the firmware transmits continuously
+      and an RS-422 driver would have shown it. If no, the result means nothing.
+      - Result:
+- [ ] **Identify the electrical standard — diode test, power OFF, no scope
+      needed.** Multimeter in diode mode across each pair, both polarities:
+      - ~1.1-1.6 V one way and open the other → **20 mA current loop** (the
+        6N139's LED)
+      - no diode behaviour, ~120 Ω or ~12 kΩ → **RS-422/485**
+      - Result:
+- [ ] **Is there a 120 Ω termination resistor across any pair** on daughter 1?
+      Present → RS-422/485; absent with series resistors into the opto →
+      current loop.
+      - Result:
+- [ ] **Is the transmit side passive or active?** Does anything on daughter 1
+      supply current to the TX pair, or are U14-U17 bare switches expecting an
+      external supply?
       - Result:
 - [ ] **Locate the transmit driver.** Part numbers on U14-U17 (the yellow DIP8s
       on daughter 1). If they are optocouplers, whichever pair they drive is TX.

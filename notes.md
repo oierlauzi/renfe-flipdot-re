@@ -20,6 +20,50 @@ Entry template:
 
 ---
 
+## 2026-08-05 — Operational context, and the display computes nothing
+
+**Did:** Recorded how the sign works in service, and checked whether any of that
+behaviour lives in this ROM.
+
+**Operational picture** (from the owner): the flip-dot line shows the train's
+final destination plus the ETA to this station in minutes, counting down. A vinyl
+sticker reading `min` sits to the right of the panel, so the last one or two
+characters are the countdown. A separate LED matrix below scrolls upcoming
+stations and notices. A fluorescent tube lights the panel, with its ballast
+inside the body and its own mains feed — presumably switched with the street
+lighting, while the PSU feed stays live.
+
+**Found — this device computes nothing.** Checked directly:
+
+* There is **no minutes-to-ASCII conversion** in the entire firmware. The only
+  two `ADI 0x30` instructions are in the `TAB` cursor-position report.
+* No minute-scale constants, no ASCII-digit decrement, no real-time counter
+  beyond the RST7.5 watchdog.
+
+So the **countdown is pushed from upstream** as plain text; the sign does not
+tick down by itself. What *is* local: glyph rendering, the flip-dot drive, the 8
+display effects and their durations, addressing, framing and ACK/NAK error
+reporting.
+
+**Concluded [C]:** a replacement controller must send the whole 16-character
+line including the digits, and re-send it whenever the ETA changes. The `min`
+sticker being physical confirms the layout is the *controller's* convention, not
+something this board knows about.
+
+**On the failed scope attempt:** four pins probed, no clean signal, an apparent
+AC component, no differential. This is **inconclusive rather than negative**. An
+isolated passive interface and a badly-referenced measurement produce identical
+results, and the ballast inside the case is a strong 50 Hz noise source. The one
+condition that would make it meaningful: whether the unit was powered, since the
+firmware transmits its status frame continuously and an RS-422 driver would have
+shown that plainly. Recorded the reasoning and a scope-free diode test in
+`hardware/connectors.md`.
+
+**Next:** the diode test settles the electrical standard for the cost of a
+multimeter.
+
+---
+
 ## 2026-08-05 — The whole command protocol, validated end to end
 
 **Did:** Decoded the remaining handler-B commands, then drove the real firmware
