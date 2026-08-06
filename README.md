@@ -70,8 +70,10 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
   asynchronous serial line, opto-isolated, almost certainly RS-422/485 or a
   20 mA current loop. Both the frame format and the baud rate are DIP-switch
   selectable.
-* The **font is fully decoded**: 256 glyphs of 5x7 at ROM `0x1C0D`, indexed
-  directly by character code, one byte per column, bit 0 = top row.
+* The **font is fully decoded** and the code page identified as **IBM CP437**:
+  256 glyphs of 5x7 at ROM `0x1C0D`, indexed directly by character code, one byte
+  per column, bit 0 = top row. So `Ñ` is `0xA5` and `text.encode("cp437")` works.
+  Two exceptions: `0x24` and `0x25` are accented capitals, not `$` and `%`.
 * **The whole baud ladder is mapped**: dividers 20/40/80/160/320/640, an exact
   1:2:4:8:16:32 sequence giving 9600 down to 300. Port B also selects word length
   (bit 4) and parity (bits 3:2), so port B is fully attributed.

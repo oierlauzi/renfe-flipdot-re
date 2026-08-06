@@ -129,6 +129,10 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       display address.
 - [ ] Trace the render path: frame buffer layout, the 97-iteration loop at
       `0x03CE`, and `0xA021` (the 16-vs-32 character count).
-- [ ] Identify the upper-half font code points (`0x80-0xFF`) and produce a
-      candidate code page. → [docs/font.md](docs/font.md)
+- [x] **Code page identified: IBM CP437.** Every region matches — control
+      pictograms, accented Latin, box drawing, Greek and maths. `Ñ` is `0xA5`,
+      and `text.encode("cp437")` produces correct bytes.
+      → [docs/font.md](docs/font.md)
+- [ ] **What is `0x24`?** `0x24` and `0x25` are accented capitals, not `$`/`%`.
+      `0x25` reads as a second `Ñ`; `0x24` is unidentified.
 - [ ] A friendlier glyph tool: generating and editing 5-byte glyphs by hand.

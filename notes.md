@@ -20,6 +20,36 @@ Entry template:
 
 ---
 
+## 2026-08-05 — The code page is IBM CP437
+
+**Did:** Rendered the whole glyph table to a PNG map (`make font-map`) and read
+it, then spot-checked individual code points against the raw bytes.
+
+**Found:** **The encoding is IBM Code Page 437**, and every region of the table
+agrees: `0x01-0x0F` smileys and card suits, `0x10-0x1F` the arrow set,
+`0x80-0x9F` the accented Latin block, `0xA0-0xAF` ending in `¿ ⌐ ¬ ½ ¼ ¡ « »`,
+`0xB0-0xDF` shading and box drawing, `0xE0-0xEF` Greek, `0xF0-0xFE` maths.
+Byte-level spot checks: `0xA5` is an unmistakable `Ñ`, `0xA8` `¿`, `0xAD` `¡`,
+`0x82` `é`.
+
+**Two substitutions**: `0x24` and `0x25` are *not* `$` and `%`. Both are accented
+Latin capitals, and `0x25` reads clearly as a second `Ñ` — exactly what a Spanish
+installation needs when the link or the controller is not 8-bit clean. `0x24` is
+another accented capital of uncertain identity.
+
+**Concluded:**
+
+* CP437 for `0x80-0xFF` and the control ranges **[C]**. This **corrects**
+  `docs/font.md`, which previously said "do not assume Latin-1 or IBM code page
+  437" — the evidence now says otherwise, across seven independent regions.
+* Practically: a controller can just use `text.encode("cp437")`, but must avoid
+  `$` and `%`.
+* `0x24`'s identity **[?]**.
+
+**Next:** the remaining handler-B commands, and what the 8 display attributes do.
+
+---
+
 ## 2026-08-05 — Handler B command semantics; error reporting and a config block
 
 **Did:** Followed the dispatch targets for STX, ETX, CAN and RS, and the state
