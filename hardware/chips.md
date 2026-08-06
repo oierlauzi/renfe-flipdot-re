@@ -9,17 +9,15 @@ package so they can be identified later; see
 | Ref | Part | PCB | I/O window | Role |
 | --- | --- | --- | --- | --- |
 | U1 | MSM80C85AH | Mother | — | CPU, 6.144 MHz crystal (3.072 MHz CLK OUT) |
-| U4 | M27256 | Mother | `0x0000-0x7FFF` | 32 KiB EPROM, labelled `TELENORMA 18 JUN 96` |
 | U2 | M81C55-5 | Mother | `0xA0-0xA5` + RAM `0xA000` | RAM, DIP switch inputs, UART baud clock |
 | U3 | M82C51A-2 | Mother | `0x80-0x81` | USART, external serial link |
-| U4 | M27256F1 | Mother | — | 32 KiB EPROM (firmware) |
+| U4 | M27256F1 | Mother | `0x0000-0x7FFF` | 32 KiB EPROM, labelled `TELENORMA 18 JUN 96` |
 | U5, U11 | MC14584BCP | Mother, D1 | — | Hex Schmitt trigger |
 | U6 | 7555 | Mother | — | Timer (watchdog / reset?) |
 | U7 | 6N139 | Mother | — | Optocoupler, serial RX isolation |
 | U8-U10 | ? | Mother | ? | unidentified |
 | (5 unlabelled) | ? (DIP8) | D1 | — | 3 have yellow bodies; likely optocouplers |
-| U17, U18 | ULN2003A | D2 | — | Darlington sinks, flip-dot drive |
-| U19 | ULN2003A (ST) | D2 | — | Third Darlington array; 21 sinks in total |
+| U17-U19 | ULN2003A (U17/U18 TI, U19 ST) | D2 | — | Darlington sinks, flip-dot drive; **21 sinks** in total |
 | U20 | ? (DIP40) | D2 | `0xE0-0xE5`? | unidentified; **81C55 candidate** |
 
 D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
