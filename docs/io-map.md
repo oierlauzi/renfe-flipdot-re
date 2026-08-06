@@ -82,11 +82,10 @@ Timer preload `0x4014`: mode bits `01` = continuous square wave, count =
 `0x014` = 20. The 81C55 timer output clocks the 8251A, so this divider plus the
 x16 baud factor sets the line rate: `baud = TIMER_IN / (count x 16)`.
 
-The switch-selected dividers form an exact 1:2:4:8:16:32 ladder
-(20/40/80/160/320/640), which confirms this is a standard baud-rate generator and
-reduces the whole question to a single frequency measurement — see
-[dip-switches.md](dip-switches.md#port-b-bits-75--line-rate-c). With a 3.072 MHz
-TIMER IN the ladder is 9600 down to 300. **[L]**
+The crystal is **6.144 MHz**, so the 8085's CLK OUT is 3.072 MHz and the ladder
+of dividers (20/40/80/160/320/640) yields exactly **9600, 4800, 2400, 1200, 600
+and 300 baud** — all six standard, with zero error. **[C]**
+See [dip-switches.md](dip-switches.md#confirmed-by-the-crystal-c).
 
 Because the firmware never writes A/B/C, all 22 port bits are inputs. Three
 banks of DIP switches are visible in

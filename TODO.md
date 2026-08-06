@@ -39,14 +39,16 @@ third is a safety precondition.
 
 ## P1 — One measurement, six answers
 
-- [ ] **8085 clock frequency.** Read the crystal marking on X1/X2 (pins 1-2), or
-      scope CLK OUT (pin 37), then confirm what feeds the 81C55 TIMER IN.
-      This fixes the entire baud ladder at once — see
-      [docs/dip-switches.md](docs/dip-switches.md#port-b-bits-75--line-rate-c).
-      Expected: 6.144 MHz crystal → 3.072 MHz CLK OUT → 9600 baud at divider 20.
-      - Result — crystal marking:
-      - Result — CLK OUT:
-      - Result — 81C55 TIMER IN:
+- [x] **8085 clock frequency — done.** A **6.144 MHz** crystal sits beside the
+      CPU. The 8085 halves it, so the machine runs at 3.072 MHz and the whole baud
+      ladder comes out exact: 9600 / 4800 / 2400 / 1200 / 600 / 300, zero error on
+      all six. → [docs/dip-switches.md](docs/dip-switches.md#confirmed-by-the-crystal-c)
+- [ ] **Confirm the last two links of the clock chain.** Continuity from **8085
+      pin 37 (CLK OUT)** to **81C55 pin 3 (TIMER IN)**, and from **81C55 pin 6
+      (TIMER OUT)** to the **8251A TxC and RxC (pins 9 and 25)**. If TIMER IN were
+      fed from the raw crystal instead, every rate would double.
+      - Result — CLK OUT → TIMER IN:
+      - Result — TIMER OUT → TxC/RxC:
 
 ## P2 — Critical path to driving the display
 

@@ -91,6 +91,11 @@ way the measurement goes.
 * **The display transmits continuously.** Its status frame goes out forever with
   no prompting, so the host must tolerate a constant inbound stream and should
   not treat unexpected bytes as an error.
+* **Allow at least 4 ms before the first reply byte.** The firmware runs a fixed
+  line-turnaround delay of 3.9 ms before answering, then the frame itself takes
+  5.7 ms at 9600 baud and 183 ms at 300. Budget generously — a `SUB` reply at
+  300 baud takes roughly 1.8 seconds. See
+  [serial-protocol.md](serial-protocol.md#timing-c).
 * **`SUB` is the bring-up command.** `1D 7F 1A` — broadcast address, identify.
   It needs no prior state and returns a known-answer string, so it confirms the
   whole chain in one shot. See

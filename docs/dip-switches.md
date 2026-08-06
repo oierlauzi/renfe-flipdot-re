@@ -27,21 +27,31 @@ later written to `0xA4`/`0xA5`.
 The top two bits of the MSB are the 81C55 timer mode (`01` = continuous square
 wave in every case); the remaining 14 bits are the count.
 
-**The dividers are 20, 40, 80, 160, 320, 640 — an exact 1:2:4:8:16:32 ladder.**
-That is independent corroboration that this is a standard baud-rate generator,
-and it constrains the absolute rates hard: `baud = TIMER_IN / (divider x 16)`, so
-the whole ladder is fixed by one measurement. **[C]**
+### Confirmed by the crystal **[C]**
 
-Two candidate crystals both give a fully standard ladder:
+A **6.144 MHz crystal** sits next to the CPU on the motherboard (observed
+2026-08). The 8085 halves its crystal internally, so CLK OUT is **3.072 MHz**,
+and that is the conventional source for the 81C55 TIMER IN.
 
-| TIMER IN | divider 20 | ... | divider 640 |
-| --- | --- | --- | --- |
-| 3.072 MHz | 9600 | | 300 |
-| 6.144 MHz | 19200 | | 600 |
+`baud = TIMER_IN / (divider x 16)` then gives, for every divider in the table:
 
-3.072 MHz is the more likely of the two, because a 6.144 MHz crystal on the 8085
-is halved internally and appears on CLK OUT as 3.072 MHz, which is the usual
-source for the 81C55 TIMER IN. **[L]** Measuring CLK OUT settles it outright.
+| Divider | Baud | |
+| --- | --- | --- |
+| 20 | **9600** | exact |
+| 40 | **4800** | exact |
+| 80 | **2400** | exact |
+| 160 | **1200** | exact |
+| 320 | **600** | exact |
+| 640 | **300** | exact |
+
+**All six are exact standard rates with zero error**, which is itself strong
+confirmation that the clock chain is what it appears to be — an arbitrary TIMER
+IN would not land on six standard rates simultaneously.
+
+One cheap check remains: confirm TIMER IN is fed from CLK OUT rather than from
+the raw crystal, which would double every rate. Continuity from **8085 pin 37
+(CLK OUT)** to **81C55 pin 3 (TIMER IN)** settles it. Then 81C55 pin 6 (TIMER
+OUT) should reach the 8251A's TxC and RxC, pins 9 and 25.
 
 ## Port B bits 4:2 — character format **[C]**
 

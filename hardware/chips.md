@@ -8,7 +8,7 @@ package so they can be identified later; see
 
 | Ref | Part | PCB | I/O window | Role |
 | --- | --- | --- | --- | --- |
-| U1 | MSM80C85AH | Mother | — | CPU |
+| U1 | MSM80C85AH | Mother | — | CPU, 6.144 MHz crystal (3.072 MHz CLK OUT) |
 | U2 | M81C55-5 | Mother | `0xA0-0xA5` + RAM `0xA000` | RAM, DIP switch inputs, UART baud clock |
 | U3 | M82C51A-2 | Mother | `0x80-0x81` | USART, external serial link |
 | U4 | M27256F1 | Mother | — | 32 KiB EPROM (firmware) |
@@ -24,6 +24,20 @@ package so they can be identified later; see
 D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 [../docs/io-map.md](../docs/io-map.md).
 
+## Clock chain **[C] except the last link**
+
+```
+6.144 MHz crystal  ->  8085 X1/X2 (pins 1-2)
+                       8085 divides by 2
+                   ->  CLK OUT (pin 37) = 3.072 MHz
+                   ->  81C55 TIMER IN (pin 3)          [to be confirmed]
+                       divide by the switch-selected 20...640
+                   ->  81C55 TIMER OUT (pin 6)
+                   ->  8251A TxC and RxC (pins 9, 25)  [to be confirmed]
+                       divide by 16 (x16 mode)
+                   ->  300 - 9600 baud
+```
+
 ---
 
 ## U1 — Microprocessor
@@ -32,8 +46,12 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **PCB:** Mother
 - **Datasheet:** [https://www.silicon-ark.co.uk/datasheets/m80c85AH-datasheet-oki.pdf]
 - **Notes:** Intel 8085 clone. Only RST5.5 (`0x0260`) and RST7.5 (`0x02A9`) are
-  used; every other vector traps to `0x034B`. Clock frequency not yet measured —
-  needed to pin down the baud rate.
+  used; every other vector traps to `0x034B`.
+- **Clock:** a **6.144 MHz crystal** sits beside the CPU (observed 2026-08). The
+  8085 halves it internally, so the machine runs at **3.072 MHz** and CLK OUT
+  (pin 37) is 3.072 MHz. That fixes the entire baud ladder at 300-9600 — see
+  [../docs/dip-switches.md](../docs/dip-switches.md#confirmed-by-the-crystal-c).
+  One instruction cycle is 325.5 ns.
 
 ## U2 — Static RAM with I/O Ports and Timer
 - **Manufacturer:** OKI

@@ -30,6 +30,10 @@ from emu8085 import CPU8085
 
 ROM_PATH = "original/firmware.bin"
 
+# 6.144 MHz crystal, halved internally by the 8085. Lets cycle counts be
+# reported as real time -- see docs/dip-switches.md.
+CPU_HZ = 3_072_000
+
 # 8251A status register bits.
 TXRDY, RXRDY, TXEMPTY, PE, OE, FE, SYNDET, DSR = (
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80)
@@ -228,7 +232,8 @@ def main():
 
     # Boot far enough to finish initialisation and settle in the main loop.
     steps, why = m.run(200_000)
-    print(f"boot: {steps} steps, {why}")
+    print(f"boot: {steps} steps, {why} "
+          f"({m.cpu.cycles / CPU_HZ * 1e3:.1f} ms simulated at {CPU_HZ/1e6:.3f} MHz)")
     print(f"  {m.cpu.state()}")
     print(f"  UART mode=0x{m.uart_mode:02X} commands="
           f"{[hex(c) for c in m.uart_cmds]}" if m.uart_mode is not None

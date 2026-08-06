@@ -429,6 +429,38 @@ bytes.
 Anyone building a controller should read these out of *their* ROM rather than
 trusting this table — a different unit may well be configured differently.
 
+## Timing **[C]**
+
+With the clock chain known (6.144 MHz crystal → 3.072 MHz, 325.5 ns per cycle)
+the firmware's delay loops convert to real numbers. Measured by executing them in
+the simulator and counting cycles:
+
+| Quantity | Cycles | Time |
+| --- | --- | --- |
+| One delay unit, `FUN_1B4F` | 277 | **90 µs** |
+| Line turnaround before a reply, `0x1ABD` (40 units) | 12017 | **3.9 ms** |
+| Short turnaround variant, `0x1AD0` (2 units) | ~600 | ~0.2 ms |
+
+**Inter-character delay is zero in this build.** The transmit routine at `0x1A1A`
+has two configurable gap loops, both loaded with `MVI C,0x00`, so they are
+skipped entirely and characters go out back to back. Like the configuration block
+these look meant to be patched per installation.
+
+Frame times, for a host-side timeout budget:
+
+| Baud | Bit time | 5-byte status frame (11 bits/char) |
+| --- | --- | --- |
+| 9600 | 104 µs | 5.7 ms |
+| 4800 | 208 µs | 11.5 ms |
+| 2400 | 417 µs | 22.9 ms |
+| 1200 | 833 µs | 45.8 ms |
+| 600 | 1.67 ms | 91.7 ms |
+| 300 | 3.33 ms | 183 ms |
+
+So after sending a command, **a host should not expect the first reply byte for
+at least ~4 ms**, and should allow the frame time above on top. At 300 baud a
+reply to `SUB` — 45 payload bytes plus preamble — takes about 1.8 seconds.
+
 ## The transmitted status frame **[C]**
 
 Independently of either handler, the unit continuously emits:

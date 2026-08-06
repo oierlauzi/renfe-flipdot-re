@@ -20,6 +20,46 @@ Entry template:
 
 ---
 
+## 2026-08-05 — 6.144 MHz crystal: the baud ladder is now exact
+
+**Observed (owner):** a **6.144 MHz crystal** on the motherboard beside the CPU.
+
+The 8085 halves its crystal internally, so the machine runs at **3.072 MHz** and
+CLK OUT is 3.072 MHz — the conventional feed for the 81C55 TIMER IN. With
+`baud = TIMER_IN / (divider x 16)` the switch-selected dividers give:
+
+| Divider | 20 | 40 | 80 | 160 | 320 | 640 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Baud | 9600 | 4800 | 2400 | 1200 | 600 | 300 |
+
+**All six exact, zero error.** That is itself the confirmation: an arbitrary
+TIMER IN would not land on six standard rates at once. This was the prediction
+recorded in `docs/dip-switches.md` before the crystal was read, so it is a clean
+hit rather than a fit after the fact. Upgraded from **[L]** to **[C]**.
+
+One link is still assumed rather than traced: that TIMER IN comes from CLK OUT
+and not from the raw crystal, which would double every rate. A continuity check
+from 8085 pin 37 to 81C55 pin 3 settles it.
+
+**Knock-on: the firmware's delay loops now convert to real time.** Measured by
+executing them in the simulator and counting cycles at 325.5 ns each:
+
+* `FUN_1B4F`, one delay unit: 277 cycles = **90 µs**
+* Line turnaround before a reply, `0x1ABD` with C=0x28: 12017 cycles = **3.9 ms**
+* Inter-character gap: **zero in this build** — both configurable loops in
+  `0x1A1A` are loaded with `MVI C,0x00` and skipped entirely, so characters go out
+  back to back. Another value that looks meant to be patched per installation.
+
+So a host must allow **at least ~4 ms before the first reply byte**, plus the
+frame time — 5.7 ms at 9600 baud, 183 ms at 300. A `SUB` reply at 300 baud takes
+about 1.8 seconds.
+
+**Also:** calibrated `pit100_sim.py` with `CPU_HZ = 3_072_000`, so boot reports
+simulated milliseconds instead of bare instruction counts. The 200k-step boot is
+487 ms of real device time.
+
+---
+
 ## 2026-08-05 — Power-on sweep, and what the emulator says about it
 
 **Observed (owner):** on power-up a brief buzzing sound sweeps across the panel.
