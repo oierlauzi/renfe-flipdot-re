@@ -195,3 +195,7 @@ mem,2A8D,io_cd_command,func,"Write 5 to I/O 0xCD, poll until bits 3 and 1 clear,
 mem,16DC,init_disp1,func,"Initialise the second display group at 0xE8-0xEF; runs only when 0xE7 low nibble is 2"
 mem,2692,alt_char_table,data,"128 pointers indexed by a 7-bit character code, into alt_char_data"
 mem,2792,alt_char_data,data,"43 entries x 9 bytes: 03h then two 30-bit groups; 3 columns in 10-bit fields, glyph = top 5 bits, so 3x5"
+mem,23CF,font_4x7,data,"Third glyph table: 59 entries x 4 columns x 7 rows, codes 0x20-0x5A, columns stored right to left"
+mem,234B,font_4x7_lookup,func,"Linear search of font_4x7 by character code, 4-byte stride, from 0x20 up to 0x5A"
+mem,2363,font_4x7_emit,func,"Walk a 4x7 glyph's 4 columns, mask to 7 rows, complement, and send each"
+mem,0092,tbl_halve,data,"64-entry lookup mapping i to i/2"

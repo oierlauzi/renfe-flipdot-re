@@ -30,6 +30,14 @@ ALT_ROWS = 5
 ALT_FIELD = 10           # bits per column inside the 30-bit group
 ALT_COUNT = 128
 
+# A third table, found from the linear search at 0x234B: 4 bytes per glyph,
+# 7 rows, codes 0x20-0x5A only, and the columns are stored RIGHT TO LEFT.
+F47_BASE = 0x23CF
+F47_COLS = 4
+F47_ROWS = 7
+F47_FIRST = 0x20
+F47_LAST = 0x5A
+
 
 def load(path):
     with open(path, "rb") as fh:
@@ -40,6 +48,14 @@ def glyph(rom, code):
     """Return the 5 raw column bytes for a character code."""
     off = FONT_BASE + code * GLYPH_BYTES
     return rom[off : off + GLYPH_BYTES]
+
+
+def f47_columns(rom, code):
+    """Return the 4 column values for `code` in the 4x7 table, left to right."""
+    if not F47_FIRST <= code <= F47_LAST:
+        return [0] * F47_COLS
+    off = F47_BASE + (code - F47_FIRST) * F47_COLS
+    return list(rom[off:off + F47_COLS])[::-1]      # stored right to left
 
 
 def alt_columns(rom, code, group=1):
@@ -195,29 +211,31 @@ def main():
                     help="write a glyph-map PNG (flip-dot style) instead of printing text")
     ap.add_argument("--cols", type=int, default=16,
                     help="glyphs per row in --png output (default: 16)")
-    ap.add_argument("--alt", action="store_true",
-                    help="use the alternate 6x10 character set at 0x2692 "
-                         "(panel types 0x10/0x12) instead of the 5x7 table")
+    ap.add_argument("--font", choices=("5x7", "4x7", "3x5"), default="5x7",
+                    help="which of the ROM's three glyph tables to use: "
+                         "5x7 at 0x1C0D (this unit), 4x7 at 0x23CF, "
+                         "3x5 at 0x2692 (default: 5x7)")
     args = ap.parse_args()
 
     charset = ASCII if args.ascii else BLOCK
 
     rom = load(args.rom)
     check(rom)
-    getter = alt_columns if args.alt else glyph
-    nrows = ALT_ROWS if args.alt else GLYPH_ROWS
+    args.alt = args.font == "3x5"
+    getter = {"5x7": glyph, "4x7": f47_columns, "3x5": alt_columns}[args.font]
+    nrows = {"5x7": GLYPH_ROWS, "4x7": F47_ROWS, "3x5": ALT_ROWS}[args.font]
+    ncols = {"5x7": GLYPH_BYTES, "4x7": F47_COLS, "3x5": ALT_COLS}[args.font]
 
     lo, _, hi = args.range.partition("-")
     lo, hi = int(lo, 0), int(hi or lo, 0)
-    limit = ALT_COUNT if args.alt else GLYPH_COUNT
-    if args.alt and args.range == "0x00-0xFF":
+    limit = {"5x7": GLYPH_COUNT, "4x7": F47_LAST + 1, "3x5": ALT_COUNT}[args.font]
+    if args.font != "5x7" and args.range == "0x00-0xFF":
         lo, hi = 0x20, 0x5F          # the range that actually has glyphs
     codes = range(lo, min(hi, limit - 1) + 1)
 
     if args.png:
-        kw = (dict(getter=alt_columns, ncols=ALT_COLS, nrows=ALT_ROWS)
-              if args.alt else {})
-        w, h = render_png(rom, list(codes), args.png, cols=args.cols, **kw)
+        w, h = render_png(rom, list(codes), args.png, cols=args.cols,
+                          getter=getter, ncols=ncols, nrows=nrows)
         print(f"wrote {args.png} ({w}x{h}, {len(codes)} glyphs)")
         return
 
@@ -248,10 +266,14 @@ def main():
     for code in codes:
         cols = getter(rom, code)
         blank = " (blank)" if not any(cols) else ""
-        if args.alt:
+        if args.font == "3x5":
             ptr = rom[ALT_TABLE + 2 * code] | (rom[ALT_TABLE + 2 * code + 1] << 8)
             where = f"@0x{ptr:04X}"
             raw = " ".join(f"{b:02x}" for b in rom[ptr:ptr + 9])
+        elif args.font == "4x7":
+            o = F47_BASE + (code - F47_FIRST) * F47_COLS
+            where = f"@0x{o:04X}"
+            raw = " ".join(f"{b:02x}" for b in rom[o:o + F47_COLS])
         else:
             where = f"@0x{FONT_BASE + code * GLYPH_BYTES:04X}"
             raw = " ".join(f"{b:02x}" for b in cols)

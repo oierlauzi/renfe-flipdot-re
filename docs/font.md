@@ -192,13 +192,86 @@ Two firmware references worth following if the table is ever indexed
 differently: `LXI HL,0x1C0D` (3 sites) and `LXI HL,0x1C5D` (3 sites, = table
 base + 16 entries).
 
+## The ROM holds **three** glyph tables **[C]**
+
+Worth knowing before any statement about "the font": there are three, for different
+panel types, and they share nothing.
+
+| Table | Address | Geometry | Codes | Indexing |
+| --- | --- | --- | --- | --- |
+| [5x7](#code-page-ibm-cp437-with-two-substitutions-c) | `0x1C0D-0x210C` | 5 cols x 7 rows | all 256 | direct: `base + code*5` |
+| [4x7](#the-third-table-at-0x23cf--4-x-7-c) | `0x23CF-0x24BA` | 4 cols x 7 rows | `0x20-0x5A` | linear search, 4-byte stride |
+| [3x5](#the-second-character-set-at-0x2692--3-x-5-decoded-c) | `0x2692-0x2914` | 3 cols x 5 rows | `0x20-0x5A`-ish | pointer table, packed bits |
+
+Only the 5x7 table is used by **this** unit (panel type `0x11`).
+
+### Is there a fourth? Probably not **[L]**
+
+Three independent searches, all negative:
+
+1. **Every `LXI` immediate landing inside the ROM** — the only table bases are
+   `0x1C0D`, `0x23CF` and `0x2692` (plus `0x1C5D`, which is `0x1C0D + 16 glyphs`).
+2. **Runs of 48+ bytes with bit 7 never set**, the signature of a column-per-byte
+   glyph table with 7 or fewer rows. Four runs exist: the two byte-per-column
+   fonts, the `0x00DF-0x025E` zero padding, and a 64-entry halving table at
+   `0x0092` (`i -> i/2`). Nothing else.
+3. **Runs of 16+ consecutive words pointing into the ROM**, which is how the 3x5
+   table was found. Only `0x2692` is real; the other two hits fall inside the
+   halving table and the 5x7 glyph data and are coincidence.
+
+Search 2 cannot see a *bit-packed* font — that is exactly how the 3x5 table evades
+it — but search 1 and 3 cover that case, since a packed table needs either a base
+address in an `LXI` or a pointer table. A fourth font would have to be reached by
+some other means entirely.
+
+## The third table at `0x23CF` — 4 x 7 **[C]**
+
+![4x7 glyph map](font-map-4x7.png)
+
+Found from its reader rather than by scanning. `font_4x7_lookup` (`0x234B`):
+
+```
+0x234B  LXI  H,0x23CF
+0x234E  MVI  A,0x20        ; first code
+0x2350  CMP  B             ; wanted?
+0x2354  INX  H x4          ; else step one 4-byte entry
+0x2358  INR  A
+0x2359  CPI  0x5B          ; ...up to 0x5A
+0x235B  JNZ  0x2350
+```
+
+so **59 entries of 4 bytes, codes `0x20`-`0x5A`** — space through `Z`. That is
+`0x23CF-0x24BA`, ending exactly where the panel driver at `0x24BB` begins.
+`font_4x7_emit` (`0x2363`) then walks the four columns with `ANI 0x7F` (7 rows) and
+`CMA` (active low).
+
+**The columns are stored right to left.** Read left to right every asymmetric letter
+comes out mirrored — `B`, `E`, `L`, `J` are unmistakable. Reversing the four bytes
+gives correct glyphs, so the panel's shift register fills such that the
+first-emitted column lands rightmost. `tools/extract_font.py --font 4x7` does the
+reversal.
+
+```
+0x42 'B'  @0x2457   33 49 49 7f
+          ####
+          #..#
+          #...
+          ###.
+          #..#
+          #..#
+          ###.
+```
+
+Character coverage: digits, `A-Z`, and a handful of punctuation — `#` at `0x23` is
+the same solid block the 5x7 table uses for fill. No lowercase, no accents.
+
 ## The second character set at `0x2692` — 3 x 5, decoded **[C]**
 
 The 5x7 table is not the only one. A **128-entry pointer table at `0x2692-0x2791`**,
 indexed by a 7-bit character code, points into **`0x2792-0x2914`**: 43 entries of
 **9 bytes each**. The region ends exactly where code resumes at `0x2915`.
 
-![Alternate glyph map](font-map-alt.png)
+![3x5 glyph map](font-map-alt.png)
 
 Regenerate with `python3 tools/extract_font.py --alt --png docs/font-map-alt.png`.
 

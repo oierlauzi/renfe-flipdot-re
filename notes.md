@@ -20,6 +20,43 @@ Entry template:
 
 ---
 
+## 2026-08-06 — A third glyph table, and a bounded search for a fourth
+
+**Asked:** are there more glyphs hiding in the assembly, or is that unlikely?
+
+**Found a third table**, 4 x 7 at `0x23CF`. Not by scanning — by following an `LXI`
+immediate. Listing every `LXI` that lands inside the ROM turned up `0x23CF` with one
+call site, and `0x234B` turned out to be a linear search with a **4-byte stride**
+from code `0x20` up to `0x5A`. That fixes the table exactly: 59 entries,
+`0x23CF-0x24BA`, ending precisely where the panel driver at `0x24BB` starts.
+
+**The columns are stored right to left.** Read the natural way, every asymmetric
+letter is mirrored — `B`, `E`, `L`, `J` unmistakably. Reversing the four bytes gives
+correct glyphs, so the panel's shift register must fill so the first column emitted
+lands rightmost. Caught this time by rendering the PNG *before* believing the ASCII,
+which is the lesson from the 3x5 mistake earlier today applied straight away.
+
+**Is there a fourth?** Three independent searches, all negative:
+
+1. every `LXI` immediate landing in the ROM — only `0x1C0D`, `0x23CF`, `0x2692`
+   (plus `0x1C5D` = base + 16 glyphs);
+2. runs of 48+ bytes with bit 7 never set — the two byte-per-column fonts, the
+   zero padding at `0x00DF-0x025E`, and a 64-entry halving table at `0x0092`
+   (`i -> i/2`). Nothing else;
+3. runs of 16+ consecutive in-ROM pointers — only `0x2692`; the other two hits are
+   coincidence inside the halving table and the 5x7 glyph data.
+
+Search 2 is blind to a bit-packed table — which is exactly how the 3x5 one evaded
+it — but 1 and 3 cover that case, since a packed table still needs a base address
+or a pointer table. So **[L] no fourth font**, with the honest caveat that a table
+reached by some entirely different mechanism would not be caught.
+
+**Concluded:** the ROM holds **three** glyph tables, one per panel family. Only the
+5x7 belongs to this unit. Any statement about "the font" now has to say which.
+**[C]**
+
+---
+
 ## 2026-08-06 — The second character set is 3 x 5, not 6 x 7
 
 **Prompted by the owner:** variants of this display are reported to use 6x7

@@ -160,6 +160,7 @@ fw_version_string:
 	db	00h,00h,00h,00h	; 008C  ....
 	NOP
 	RST	7
+tbl_halve:
 	NOP
 	NOP
 	LXI	B,0201h
@@ -1983,7 +1984,7 @@ L0CE9:
 	DAD	B
 	JMP	L0C36
 L0D0E:
-	LXI	H,0092h
+	LXI	H,tbl_halve
 	MVI	D,00h
 	MOV	E,B
 	DAD	D
@@ -4639,7 +4640,7 @@ L2330:
 	PUSH	B
 	MOV	A,C
 	CPI	03h
-	JNZ	L234B
+	JNZ	font_4x7_lookup
 	MVI	D,01h
 	MVI	E,01h
 	MOV	A,B
@@ -4649,12 +4650,12 @@ L2330:
 L2345:
 	CALL	L23B2
 	JMP	L2374
-L234B:
-	LXI	H,23CFh
+font_4x7_lookup:
+	LXI	H,font_4x7
 	MVI	A,20h
 L2350:
 	CMP	B
-	JZ	L2363
+	JZ	font_4x7_emit
 	INX	H
 	INX	H
 	INX	H
@@ -4663,8 +4664,8 @@ L2350:
 	CPI	5Bh
 	JNZ	L2350
 	MVI	B,23h
-	JMP	L234B
-L2363:
+	JMP	font_4x7_lookup
+font_4x7_emit:
 	MVI	B,04h
 L2365:
 	MOV	A,M
@@ -4740,210 +4741,67 @@ L23B2:
 	DCR	D
 	JNZ	L23B2
 	RET
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	MOV	A,A
-	MOV	A,A
-	MOV	A,A
-	MOV	A,A
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	MVI	A,41h
-	MOV	B,C
-	MVI	A,40h
-	MOV	A,A
-	MOV	B,D
-	NOP
-	MOV	B,M
-	MOV	C,C
-	MOV	D,C
-	MOV	H,D
-	DCX	SP
-	MOV	B,L
-	MOV	B,C
-	LXI	H,7C08h
-	DB	08h
-	RRC
-	DAD	SP
-	MOV	B,L
-	MOV	B,L
-	DAA
-	SIM
-	MOV	C,C
-	MOV	C,C
-	MVI	A,07h
-	DAD	B
-	MOV	M,C
-	LXI	B,4936h
-	MOV	C,C
-	MVI	M,3Eh
-	MOV	C,C
-	MOV	C,C
-	MVI	B,08h
-	DB	08h
-	DB	08h
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	RLC
-	DCR	B
-	RLC
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	DB	08h
-	INR	E
-	DB	08h
-	MVI	B,59h
-	LXI	B,5902h
-	MOV	E,L
-	MOV	B,C
-	MVI	A,7Eh
-	LXI	D,7E11h
-	INX	SP
-	MOV	C,C
-	MOV	C,C
-	MOV	A,A
-	SHLD	4141h
-	MVI	A,3Eh
-	MOV	B,C
-	MOV	B,C
-	MOV	A,A
-	MOV	B,C
-	MOV	C,C
-	MOV	C,C
-	MOV	A,A
-	LXI	B,0909h
-	MOV	A,A
-	LDA	4149h
-	MVI	A,7Fh
-	DB	08h
-	DB	08h
-	MOV	A,A
-	MOV	B,C
-	MOV	A,A
-	MOV	B,C
-	NOP
-	NOP
-	CMC
-	MOV	B,B
-	RIM
-	MOV	B,C
-	MVI	M,08h
-	MOV	A,A
-	MOV	B,B
-	MOV	B,B
-	MOV	B,B
-	MOV	A,A
-	MOV	A,A
-	STAX	B
-	STAX	B
-	MOV	A,A
-	MOV	A,A
-	DB	08h
-	INR	B
-	MOV	A,A
-	MVI	A,41h
-	MOV	B,C
-	MVI	A,06h
-	DAD	B
-	DAD	B
-	MOV	A,A
-	MOV	A,M
-	MOV	H,C
-	MOV	B,C
-	MVI	A,46h
-	DAD	H
-	DAD	D
-	MOV	A,A
-	STA	4949h
-	MVI	H,01h
-	MOV	A,A
-	LXI	B,7F00h
-	MOV	B,B
-	MOV	B,B
-	MOV	A,A
-	CMC
-	MOV	B,B
-	MOV	B,B
-	CMC
-	MOV	A,A
-	RIM
-	RIM
-	MOV	A,A
-	MOV	H,E
-	INR	E
-	INR	E
-	MOV	H,E
-	INX	B
-	MOV	A,H
-	INX	B
-	NOP
-	MOV	B,E
-	MOV	C,L
-	MOV	E,C
-	MOV	H,C
+font_4x7:
+	; 59 glyphs x 4 columns x 7 rows, codes 0x20-0x5A, columns stored right to left. Found via the linear search at 0x234B -- see docs/font.md  (236 bytes)
+	db	00h,00h,00h,00h	; 23CF  ....
+	db	00h,00h,00h,00h	; 23D3  ....
+	db	00h,00h,00h,00h	; 23D7  ....
+	db	7Fh,7Fh,7Fh,7Fh	; 23DB  ....
+	db	00h,00h,00h,00h	; 23DF  ....
+	db	00h,00h,00h,00h	; 23E3  ....
+	db	00h,00h,00h,00h	; 23E7  ....
+	db	00h,00h,00h,00h	; 23EB  ....
+	db	00h,00h,00h,00h	; 23EF  ....
+	db	00h,00h,00h,00h	; 23F3  ....
+	db	00h,00h,00h,00h	; 23F7  ....
+	db	00h,00h,00h,00h	; 23FB  ....
+	db	00h,00h,00h,00h	; 23FF  ....
+	db	00h,00h,00h,00h	; 2403  ....
+	db	00h,00h,00h,00h	; 2407  ....
+	db	00h,00h,00h,00h	; 240B  ....
+	db	3Eh,41h,41h,3Eh	; 240F  >AA>
+	db	40h,7Fh,42h,00h	; 2413  @.B.
+	db	46h,49h,51h,62h	; 2417  FIQb
+	db	3Bh,45h,41h,21h	; 241B  .EA!
+	db	08h,7Ch,08h,0Fh	; 241F  .|..
+	db	39h,45h,45h,27h	; 2423  9EE.
+	db	30h,49h,49h,3Eh	; 2427  0II>
+	db	07h,09h,71h,01h	; 242B  ..q.
+	db	36h,49h,49h,36h	; 242F  6II6
+	db	3Eh,49h,49h,06h	; 2433  >II.
+	db	08h,08h,08h,00h	; 2437  ....
+	db	00h,00h,00h,00h	; 243B  ....
+	db	07h,05h,07h,00h	; 243F  ....
+	db	00h,00h,00h,00h	; 2443  ....
+	db	00h,08h,1Ch,08h	; 2447  ....
+	db	06h,59h,01h,02h	; 244B  .Y..
+	db	59h,5Dh,41h,3Eh	; 244F  Y]A>
+	db	7Eh,11h,11h,7Eh	; 2453  ~..~
+	db	33h,49h,49h,7Fh	; 2457  3II.
+	db	22h,41h,41h,3Eh	; 245B  .AA>
+	db	3Eh,41h,41h,7Fh	; 245F  >AA.
+	db	41h,49h,49h,7Fh	; 2463  AII.
+	db	01h,09h,09h,7Fh	; 2467  ....
+	db	3Ah,49h,41h,3Eh	; 246B  :IA>
+	db	7Fh,08h,08h,7Fh	; 246F  ....
+	db	41h,7Fh,41h,00h	; 2473  A.A.
+	db	00h,3Fh,40h,20h	; 2477  .?@ 
+	db	41h,36h,08h,7Fh	; 247B  A6..
+	db	40h,40h,40h,7Fh	; 247F  @@@.
+	db	7Fh,02h,02h,7Fh	; 2483  ....
+	db	7Fh,08h,04h,7Fh	; 2487  ....
+	db	3Eh,41h,41h,3Eh	; 248B  >AA>
+	db	06h,09h,09h,7Fh	; 248F  ....
+	db	7Eh,61h,41h,3Eh	; 2493  ~aA>
+	db	46h,29h,19h,7Fh	; 2497  F)..
+	db	32h,49h,49h,26h	; 249B  2II&
+	db	01h,7Fh,01h,00h	; 249F  ....
+	db	7Fh,40h,40h,7Fh	; 24A3  .@@.
+	db	3Fh,40h,40h,3Fh	; 24A7  ?@@?
+	db	7Fh,20h,20h,7Fh	; 24AB  .  .
+	db	63h,1Ch,1Ch,63h	; 24AF  c..c
+	db	03h,7Ch,03h,00h	; 24B3  .|..
+	db	43h,4Dh,59h,61h	; 24B7  CMYa
 L24BB:
 	PUSH	D
 	PUSH	H

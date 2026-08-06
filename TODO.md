@@ -395,6 +395,10 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       is the top 5 bits of each. All 42 characters render legibly.
       **Not a 6x7 layout** — every 6x7 arrangement renders as noise.
       → [docs/font.md](docs/font.md#the-second-character-set-at-0x2692--3-x-5-decoded-c)
+- [x] **Third glyph table found: 4 x 7 at `0x23CF`.** 59 entries, codes `0x20-0x5A`,
+      columns stored right to left, reached by a linear search at `0x234B`. Three
+      searches (LXI bases, bit-7-clear runs, pointer tables) now agree there is no
+      fourth. → [docs/font.md](docs/font.md#the-rom-holds-three-glyph-tables-c)
 - [ ] **What are the low 5 bits of each column field, and group B?** The spare bits
       hold something close to a row-shifted copy of the glyph, and group B differs
       from group A for 36 of 42 characters. Neither is explained. Nor is why 80
