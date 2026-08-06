@@ -13,6 +13,51 @@ From the chassis sticker ([hardware/photos/sticker.jpg](../hardware/photos/stick
 
 Firmware version string, at ROM offset `0x0064`: **`AK0052.139U1`**
 
+## Dating, and the TELENORMA connection **[C] for the label**
+
+The EPROM carries a sticker reading **`TELENORMA 18 JUN 96`**. That is the first
+hard date found anywhere on the unit — the chassis plate gives a serial but no
+date — and it dates the *firmware*, which is the date that matters most here.
+
+| Evidence | Reading |
+| --- | --- |
+| EPROM label | `TELENORMA 18 JUN 96` → **18 June 1996** |
+| DC-DC converter marking | `970593-960119980401` — the `9601` may be a 1996 date code **[?]** |
+| Converter QA sticker | handwritten, `30-01-9?` **[?]** |
+| Chassis plate serial | `985412?`, no date |
+
+Everything is consistent with a **mid-1990s build**.
+
+### Why a German company's label on a Spanish sign
+
+**Telenorma** descends from **Telefonbau und Normalzeit** of Frankfurt — literally
+"telephone construction and standard time". Alongside telephone systems the firm
+built **public and station clock and time-distribution installations**; it later
+became part of Bosch Telecom. **[L]**, and worth verifying properly.
+
+The label is on the *programmed EPROM*, not the chassis, so the most economical
+reading is that **the firmware came from Telenorma while PAGE Ibérica built the
+sign** — a licensed design, an OEM arrangement, or PAGE Ibérica as the Spanish
+partner in a Telenorma installation. **[?]**
+
+Three consequences worth carrying:
+
+1. **This is probably not a RENFE one-off.** A time-and-information distribution
+   system from a clock-systems company implies a product family with a documented
+   bus, deployed in more than one country.
+2. **Documentation should be hunted under Telenorma and Bosch Telecom too**, not
+   only PAGE Ibérica — see [references.md](references.md).
+3. **It quietly supports the current-loop theory.** German time-distribution and
+   clock-bus installations of that era commonly ran on **20 mA current loops**,
+   which is independently where the component analysis on daughter 1 already
+   points ([../hardware/connectors.md](../hardware/connectors.md#what-daughter-1s-parts-imply-l)). **[L]**
+
+The decoded protocol also reads like a *generic intelligent display terminal*
+rather than something bespoke: ASCII control codes, `GS`-based addressing,
+`STX`/`ETX` framing, `ACK`/`NAK`, an identify command and cursor positioning. That
+is the shape of a documented product bus, which makes finding the original
+specification a realistic prospect rather than a fantasy.
+
 ## What the label tells us
 
 * **"MAESTRA" (master).** This unit is the master of a set. Combined with the

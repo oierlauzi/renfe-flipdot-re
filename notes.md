@@ -20,6 +20,54 @@ Entry template:
 
 ---
 
+## 2026-08-06 — The EPROM says TELENORMA 18 JUN 96
+
+**Recorded (owner):** the ROM chip carries a sticker reading
+**`TELENORMA  18 JUN 96`**. A quick search identifies Telenorma as a German clock
+manufacturer that made station clocks.
+
+**Two distinct findings, and the second is the bigger one.**
+
+**A date.** 18 June 1996 is the **first hard date found anywhere on the unit** —
+the chassis plate carries a serial (`985412?`) but no date — and it dates the
+*firmware*, which is the date that matters most here. It also fits the other
+weak signals: the DC-DC converter's `970593-960119980401` marking may embed a
+`9601` code, and its QA sticker reads `30-01-9?`. A mid-1990s build throughout.
+
+**A different company than expected.** The label is on the *programmed EPROM*,
+not the chassis. Telenorma descends from **Telefonbau und Normalzeit** of
+Frankfurt — "telephone construction and standard time" — which built public and
+station clock and **time-distribution installations** alongside telephone systems,
+later becoming part of Bosch Telecom. **[L]**, recalled rather than sourced, and
+flagged for verification.
+
+The economical reading: **the firmware came from Telenorma while PAGE Ibérica
+built the sign** — licensed design, OEM arrangement, or PAGE Ibérica as the
+Spanish partner in a Telenorma installation. **[?]**
+
+**Three consequences.**
+
+1. **This is probably not a RENFE one-off.** A time-and-information distribution
+   product from a clock-systems firm implies a family with a documented bus,
+   deployed in more than one country. That makes finding the original
+   specification a realistic prospect rather than a fantasy — and it fits what
+   the protocol already looks like: ASCII control codes, `GS` addressing,
+   `STX`/`ETX`, `ACK`/`NAK`, an identify command, cursor positioning. That is a
+   generic intelligent-terminal bus, not something bespoke.
+2. **The documentation hunt has a new front.** Telenorma / Telefonbau und
+   Normalzeit / Bosch Telecom, in German, rather than only Spanish sources.
+   Search terms recorded in `docs/references.md`.
+3. **It quietly supports the current-loop theory.** German clock and
+   time-distribution buses of that era commonly ran on **20 mA current loops** —
+   independently where the daughter-1 component analysis already points. **[L]**
+
+**Housekeeping:** this supersedes the earlier note that the converter's QA
+sticker would be "the only date evidence on the board". It is now corroboration
+rather than the sole record. Also added a check that the EPROM's UV window is
+covered — a 1996 part with an exposed window is worth protecting.
+
+---
+
 ## 2026-08-06 — U19 is a third ULN2003A: 21 sinks, and no source drivers
 
 **Recorded (owner):** U19 on daughter 2 is also a ULN2003A. So the board carries

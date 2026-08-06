@@ -190,8 +190,21 @@ MAX3490, **not** the 5 V MAX485/MAX490 on most cheap breakouts.
 - [ ] PAGE Ibérica still operates in Tres Cantos. A polite email asking for
       PI-T100 documentation costs nothing —
       see [docs/references.md](docs/references.md).
+- [ ] **Chase the TELENORMA lead.** The EPROM is labelled `TELENORMA 18 JUN 96`,
+      so the firmware plausibly originates with the German clock and
+      time-distribution firm rather than PAGE Ibérica. That reframes the
+      documentation hunt — search Telenorma / Telefonbau und Normalzeit / Bosch
+      Telecom passenger-information and clock-bus material, not only Spanish
+      sources. → [docs/references.md](docs/references.md)
+- [ ] Verify the Telenorma corporate history properly (Telefonbau und Normalzeit
+      → Telenorma → Bosch Telecom, clock systems). Currently recorded from
+      recollection and marked **[L]**.
 - [ ] A second read of the EPROM, to confirm the dump's SHA-256.
       → [original/README.md](original/README.md)
+- [ ] **Is the EPROM's UV window covered?** If the `TELENORMA` label does not sit
+      over it, cover it — an exposed window degrades in daylight over years, and
+      this part is now dated 1996.
+      - Result:
 
 ---
 

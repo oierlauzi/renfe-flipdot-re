@@ -9,6 +9,7 @@ package so they can be identified later; see
 | Ref | Part | PCB | I/O window | Role |
 | --- | --- | --- | --- | --- |
 | U1 | MSM80C85AH | Mother | — | CPU, 6.144 MHz crystal (3.072 MHz CLK OUT) |
+| U4 | M27256 | Mother | `0x0000-0x7FFF` | 32 KiB EPROM, labelled `TELENORMA 18 JUN 96` |
 | U2 | M81C55-5 | Mother | `0xA0-0xA5` + RAM `0xA000` | RAM, DIP switch inputs, UART baud clock |
 | U3 | M82C51A-2 | Mother | `0x80-0x81` | USART, external serial link |
 | U4 | M27256F1 | Mother | — | 32 KiB EPROM (firmware) |

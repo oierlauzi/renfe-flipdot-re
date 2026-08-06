@@ -37,12 +37,13 @@ practice — current capacity and mechanical anchoring. It carries no further
 information.
 
 **Before removing the sticker:** photograph it legibly first. It appears to be a
-handwritten QA mark reading something like `30-01-9?` with `OK`, which would make
-it the **only date evidence on the board** — the chassis plate gives a serial
-(`985412?`) but no date. Once it is peeled it is gone. Then photograph what is
-underneath: the printed part number should give the rated output voltage,
-current and isolation rating, corroborating the measurement without needing to
-power anything.
+handwritten QA mark reading something like `30-01-9?` with `OK`. The EPROM's
+`TELENORMA 18 JUN 96` label is now the unit's primary date evidence, so this one
+is corroboration rather than the only record — but it is still the only marking
+on *this* board and it is destroyed by peeling. Then photograph what is
+underneath: the printed part number should give the rated output voltage, current
+and isolation rating, corroborating the measurement without needing to power
+anything.
 
 ### Component inventory
 
