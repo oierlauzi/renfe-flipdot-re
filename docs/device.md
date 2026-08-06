@@ -176,7 +176,7 @@ enclosure can plausibly reach.
 
 | Variant | Composition | Siting | Photo |
 | --- | --- | --- | --- |
-| **Single-sided platform** | 1 flip-dot row + 1 LED matrix row | Wall-mounted on a platform or at its entrance; shows trains calling at that platform | <https://maps.app.goo.gl/2x7p8cGFKuDc8iAQ8> |
+| **Single-sided platform** | 1 flip-dot row + 1 LED matrix row | Shows trains calling at that platform | <https://maps.app.goo.gl/2x7p8cGFKuDc8iAQ8> |
 | **Double-sided platform** | Two of the above, back to back | Readable from both sides | <https://maps.app.goo.gl/L88dpQK7dEkBPZzP8> |
 | **Station-wide** | **2-4 stacked flip-dot rows** of **20 characters** + 1 LED row | Concourse; all platforms at once | <https://maps.app.goo.gl/Nm12rbAVFkfoDoA66> |
 
