@@ -9,6 +9,8 @@ P2BIN   ?= p2bin
 ROM      = original/firmware.bin
 BUILD    = build
 ASM_SRC  = src/firmware.asm
+# Last used ROM address; everything above is erased 0xFF (see tools/rom_info.py).
+USED_END = 3047
 
 .DEFAULT_GOAL := help
 
@@ -19,7 +21,7 @@ help:  ## Show this help
 	  | awk -F'\t' '{printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: check
-check: rom-check symbols-check  ## Run every non-hardware check
+check: rom-check symbols-check verify  ## Run every non-hardware check
 
 .PHONY: rom-check
 rom-check:  ## Verify the ROM dump against the documented checksum
@@ -69,14 +71,20 @@ verify: $(BUILD)  ## Reassemble src/ and prove it matches the original ROM
 	  echo "$(ASL) not found. Install Macro Assembler AS (see src/README.md)."; \
 	  exit 1; }; \
 	$(ASL) -cpu 8085 -L -o $(BUILD)/firmware.p $(ASM_SRC); \
-	$(P2BIN) $(BUILD)/firmware.p $(BUILD)/firmware.bin -r 0x0000-0x7fff; \
-	if cmp -s $(BUILD)/firmware.bin $(ROM); then \
-	  echo "MATCH - reassembly is byte-identical to $(ROM)"; \
+	$(P2BIN) $(BUILD)/firmware.p $(BUILD)/firmware.bin -r '$$0000-$$$(USED_END)'; \
+	head -c $$((0x$(USED_END) + 1)) $(ROM) > $(BUILD)/original_used.bin; \
+	if cmp -s $(BUILD)/firmware.bin $(BUILD)/original_used.bin; then \
+	  echo "MATCH - reassembly is byte-identical to $(ROM) over 0000-$(USED_END)"; \
+	  echo "        (the erased 0xFF tail above that is checked by rom-check)"; \
 	else \
 	  echo "MISMATCH:"; \
-	  cmp -l $(BUILD)/firmware.bin $(ROM) | head -20; \
+	  cmp -l $(BUILD)/firmware.bin $(BUILD)/original_used.bin | head -20; \
 	  exit 1; \
 	fi
+
+.PHONY: disasm
+disasm:  ## Regenerate src/firmware.asm from the ROM
+	$(PYTHON) tools/disasm.py --asm > $(ASM_SRC)
 
 .PHONY: clean
 clean:  ## Remove build artefacts

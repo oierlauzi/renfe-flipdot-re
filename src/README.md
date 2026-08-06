@@ -1,11 +1,21 @@
 # Annotated source
 
-Intended home of a **matching disassembly**: hand-written 8085 assembly that
-reassembles to a file byte-identical to
-[../original/firmware.bin](../original/firmware.bin).
+**The matching disassembly exists and passes.** [firmware.asm](firmware.asm)
+reassembles to a file **byte-identical** to
+[../original/firmware.bin](../original/firmware.bin) over its whole used extent,
+`0000h-3047h` (12 360 bytes):
 
-`make verify` proves it, by comparing SHA-256. Until the reassembly exists the
-target simply reports that it has nothing to check.
+```
+$ make verify
+   6670 lines source file
+      0 errors
+      0 warnings
+build/firmware.p==>>build/firmware.bin (12360 Bytes)
+MATCH - reassembly is byte-identical to original/firmware.bin over 0000-3047
+```
+
+The erased `0FFh` tail above `3047h` is not assembled; `make rom-check` asserts
+it separately, which is cheaper and just as conclusive.
 
 ## Why bother
 
@@ -26,8 +36,34 @@ regions that matter (the RX path, the render loop) and leave the rest as
 
 | File | Status |
 | --- | --- |
-| [hardware.inc](hardware.inc) | Usable — I/O and memory equates |
-| `firmware.asm` | Not written yet |
+| [firmware.asm](firmware.asm) | **Verified byte-identical.** Generated; see below |
+| [hardware.inc](hardware.inc) | I/O and memory equates, kept for hand-written work |
+
+### How it is produced
+
+`firmware.asm` is **generated from the ROM**, not transcribed by hand:
+
+```sh
+make disasm        # tools/disasm.py --asm > src/firmware.asm
+make verify        # assemble it and compare against the ROM
+```
+
+That is a deliberate choice. A hand transcription of 12 KiB would take a long
+time and introduce its own errors; generating it means the listing is always a
+faithful decode, and the *interesting* work — naming things — accumulates in
+[../ghidra/symbols.csv](../ghidra/symbols.csv) and flows into the listing on the
+next `make disasm`.
+
+Current state: **561 labels, 78 of them real names** from `symbols.csv`, the rest
+auto-generated `LXXXX`. Every symbol added to that file turns one more `LXXXX`
+into something meaningful, so the listing improves as the analysis does. Data
+regions are declared in `DATA_REGIONS` in `tools/disasm.py`; getting one wrong
+costs readability, never correctness, because a mis-decoded stretch still
+reassembles to the same bytes.
+
+The generator refuses to emit anything unless the byte spans it accounts for
+reconstruct the ROM exactly — so a bug there fails loudly rather than producing a
+plausible-looking listing.
 
 ## Toolchain
 
@@ -44,7 +80,11 @@ sudo apt install asl
 Alternatives if `asl` is unavailable: `naken_asm`, or SDCC's `sdas8085` (Zilog
 mnemonics — avoid, it forces a translation pass on every line).
 
-## Suggested skeleton
+## Hand-writing regions instead
+
+The generated listing is the baseline, not a ceiling. If a region is worth
+transcribing properly — with real comments and structure — replace it and keep
+`make verify` green.
 
 ```asm
         cpu     8085

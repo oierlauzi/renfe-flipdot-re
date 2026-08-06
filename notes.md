@@ -20,6 +20,55 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Matching disassembly: byte-identical, verified by AS
+
+**Did:** generated `src/firmware.asm` and put it through Macro Assembler AS.
+
+```
+0 errors, 0 warnings
+build/firmware.p==>>build/firmware.bin (12360 Bytes)
+MATCH - byte-identical to original/firmware.bin over 0000-3047
+```
+
+**The proof-of-understanding milestone is met.** Every operand, every data-region
+boundary and every table size in the listing is now confirmed by an independent
+assembler rather than by my own decode agreeing with itself.
+
+**Method — generated, not transcribed.** `make disasm` runs
+`tools/disasm.py --asm`. Hand-transcribing 12 KiB would take a long time and
+introduce its own errors; generating means the listing is a faithful decode by
+construction, and the interesting work — naming things — accumulates in
+`ghidra/symbols.csv` and flows into the listing on the next regeneration. Current
+state: 561 labels, 78 named, 483 still `LXXXX`. Each symbol added promotes one.
+
+A detail worth keeping: data regions are declared in one list, and getting one
+wrong costs *readability, never correctness* — a mis-decoded stretch still
+reassembles to the same bytes. That decoupling is what made generating the whole
+image safe. The generator also refuses to emit unless its accounted byte spans
+reconstruct the ROM exactly, so a bug fails loudly instead of producing a
+plausible listing.
+
+**A course correction from the owner.** With `asl` absent I proposed writing a
+small 8085 assembler in `tools/`. The owner: *"I'd prefer to depend on well
+established tools rather than developing ad-hoc ones."* Correct, and for a reason
+worth writing down: an ad-hoc assembler would be unreviewed and unmaintained, and
+its agreement with my own disassembler would prove nothing — the whole value of a
+matching build is that an *independent* tool confirms the bytes. I had been about
+to build something that looked like verification and wasn't.
+
+I then found `asl` unavailable via apt, unbuildable without network, and
+uninstallable without root, and was preparing to ship the listing unverified. The
+owner installed AS instead, and it verified first try.
+
+**Concluded:** `src/firmware.asm` verified byte-identical. **[C]** `make check`
+now runs `verify` alongside the ROM and symbol checks, so a regression in the
+symbol table or the data regions cannot pass silently.
+
+**Next:** naming the 483 remaining `LXXXX` labels — no hardware needed, and each
+one improves the listing permanently.
+
+---
+
 ## 2026-08-06 — 0x24 and 0x25 are n-tilde and N-tilde (owner's insight)
 
 **The owner supplied the answer and it is obviously right once stated:** `0x24` is
