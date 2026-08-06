@@ -193,15 +193,39 @@ def xref(rom, needle, only_calls=False):
 
 USED_END = 0x3048           # rom_info.py asserts everything above this is 0xFF
 
-# Regions that are data, not code. Each is (start, end_exclusive, label, note).
-# Getting one of these wrong costs readability, not correctness: a mis-decoded
-# stretch still re-assembles to the same bytes.
+# Regions that are data, not code: (start, end_exclusive, label, note, width).
+# `width` is bytes per emitted line -- set it to the entry stride so one line is
+# one table entry. Getting a region wrong costs readability, not correctness: a
+# mis-decoded stretch still re-assembles to the same bytes.
 DATA_REGIONS = [
-    (0x0040, 0x0064, "tbl_0040", "unclassified table"),
-    (0x0064, 0x0090, "id_block", "SUB reply: version string then the config block"),
-    (0x00D2, 0x00E6, "reply_affixes", "per-command reply prefixes/suffixes, 0xFF-terminated"),
-    (0x1C0D, 0x210D, "font_table", "256 glyphs x 5 columns -- see docs/font.md"),
+    (0x0040, 0x0064, "tbl_0040", "unclassified table", 8),
+    (0x0064, 0x0090, "id_block",
+     "SUB reply: version string then the config block", 8),
+    (0x00D2, 0x00E6, "reply_affixes",
+     "per-command reply prefixes/suffixes, 0xFF-terminated", 8),
+    (0x1C0D, 0x210D, "font_table",
+     "256 glyphs x 5 columns, one per line -- see docs/font.md", 5),
+    (0x2692, 0x2792, "alt_char_table",
+     "128 pointers indexed by a 7-bit character code; 86 share the blank", 2),
+    (0x2792, 0x2915, "alt_char_data",
+     "43 entries x 9 bytes, each starting 03h. Only 0-9 :;<=>? and A-Z differ "
+     "from blank -- a reduced character set for another panel type. Layout "
+     "not yet decoded", 9),
 ]
+
+
+# Characters allowed in the ASCII gutter of a `db` line. A trailing backslash is
+# a line continuation in AS, so an unsanitised comment can silently swallow the
+# next line -- which cost 5 bytes and a confusing 5-byte label shift once.
+SAFE_COMMENT = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
+    "!#$%&()*+,-./:<=>?@[]^_{|}~")
+
+
+def gutter(chunk):
+    """Printable rendering of data bytes, safe to put after a `;`."""
+    return "".join(chr(b) if 32 <= b < 127 and chr(b) in SAFE_COMMENT else "."
+                   for b in chunk)
 
 
 def asl_hex(value, width=2):
@@ -212,9 +236,9 @@ def asl_hex(value, width=2):
 
 def build_listing(rom):
     """Return (lines, covered_bytes). Raises if coverage does not match the ROM."""
-    data_starts = {start: (lbl, note) for start, _, lbl, note in DATA_REGIONS}
+    data_starts = {s: (lbl, note, w) for s, _, lbl, note, w in DATA_REGIONS}
     in_data = set()
-    for start, end, _, _ in DATA_REGIONS:
+    for start, end, _, _, _ in DATA_REGIONS:
         in_data.update(range(start, end))
 
     # Pass 1: instruction boundaries and referenced addresses.
@@ -225,11 +249,12 @@ def build_listing(rom):
             continue
         boundaries.add(pc)
         _, n, target = decode(rom, pc)
-        op = rom[pc]
         if target is not None:
             refs.add(target)
-        elif op in (0x01, 0x11, 0x21) and n == 3:
-            refs.add(rom[pc + 1] | (rom[pc + 2] << 8))
+        # LXI operands are NOT added: most are constants, not addresses.
+        # `LXI H,01F4h` is the delay count 500, and minting an L01F4 label for it
+        # would invent a code reference that does not exist. LXI still *renders*
+        # as a label when the target is independently known -- see operand().
         pc += n
 
     # A label may only sit where an instruction or a data region starts.
@@ -272,6 +297,15 @@ def build_listing(rom):
     ]
     for addr in sorted(a for a in MEM if a >= USED_END):
         lines.append(f"{MEM[addr]}\tequ\t{asl_hex(addr, 4)}")
+
+    # Named addresses that fall *inside* a data region cannot carry a label, so
+    # define them as equates instead. Without this, referring to one by name is
+    # an undefined symbol.
+    interior = sorted(a for a in MEM if a < USED_END and a not in labels)
+    if interior:
+        lines += ["", "; ------------------- names pointing inside data regions"]
+        for addr in interior:
+            lines.append(f"{MEM[addr]}\tequ\t{asl_hex(addr, 4)}")
     lines += ["", "\torg\t0000h", ""]
 
     covered = bytearray()
@@ -280,14 +314,14 @@ def build_listing(rom):
         if pc in labels:
             lines.append(f"{labels[pc]}:")
         if pc in data_starts:
-            start, end = pc, next(e for s, e, _, _ in DATA_REGIONS if s == pc)
-            note = data_starts[pc][1]
+            start = pc
+            end = next(e for s, e, _, _, _ in DATA_REGIONS if s == pc)
+            _, note, width = data_starts[pc]
             lines.append(f"\t; {note}  ({end - start} bytes)")
-            for row in range(start, end, 8):
-                chunk = rom[row:min(row + 8, end)]
-                text = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+            for row in range(start, end, width):
+                chunk = rom[row:min(row + width, end)]
                 lines.append("\tdb\t" + ",".join(asl_hex(b) for b in chunk)
-                             + f"\t; {row:04X}  {text}")
+                             + f"\t; {row:04X}  {gutter(chunk)}")
             covered += rom[start:end]
             pc = end
             continue
@@ -298,8 +332,12 @@ def build_listing(rom):
             mnem = text.split(None, 1)[0]
             text = f"{mnem}\t{operand(target)}"
         elif op in (0x01, 0x11, 0x21) and n == 3:
+            # Only render as a name when the target is independently known to be
+            # an address; otherwise it is a constant and stays numeric.
             word = rom[pc + 1] | (rom[pc + 2] << 8)
-            text = f"LXI\t{RP[(op >> 4) & 3]},{operand(word)}"
+            known = MEM.get(word) or (labels.get(word) if word in data_starts
+                                      else None)
+            text = f"LXI\t{RP[(op >> 4) & 3]},{known or asl_hex(word, 4)}"
         elif op in (0xD3, 0xDB):
             name = IO.get(rom[pc + 1])
             text = f"{'OUT' if op == 0xD3 else 'IN'}\t{name or asl_hex(rom[pc + 1])}"

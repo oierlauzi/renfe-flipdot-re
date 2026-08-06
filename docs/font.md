@@ -192,6 +192,36 @@ Two firmware references worth following if the table is ever indexed
 differently: `LXI HL,0x1C0D` (3 sites) and `LXI HL,0x1C5D` (3 sites, = table
 base + 16 entries).
 
+## A second, undecoded character set at `0x2692` **[C] that it exists**
+
+The 5x7 table is not the only one. A **128-entry pointer table at `0x2692-0x2791`**,
+indexed by a 7-bit character code, points into **`0x2792-0x2914`**: 43 entries of
+**9 bytes each**, every one beginning `03h`. The region ends exactly where code
+resumes at `0x2915`, which is what makes the extent certain rather than guessed.
+
+`alt_char_lookup` (`0x264F`) is the reader: mask the character to 7 bits, index the
+table, return the pointer.
+
+**Which characters have data is the giveaway.** 86 of the 128 codes share the blank
+entry; the 42 that do not are exactly:
+
+```
+0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ
+```
+
+Digits, the six punctuation codes that complete `0x30-0x3F`, and the 26 uppercase
+letters. That is a **reduced character set** — no lowercase, no accents, no `ñ` —
+which is what a simpler or coarser display would carry.
+
+**The 9-byte layout is not decoded.** It is not the 5x7 scheme: bit 7 is used, and
+rendering the payload as 8 columns of 8 rows, or 8 rows of 8 bits, produces noise
+rather than letters. The constant `03h` header suggests a length or command byte
+rather than pure bitmap. Reached from the panel-type branches at `0x2915`, so it
+belongs to panel types `0x10`/`0x12` — **not** this unit's `0x11`. **[?]**
+
+Worth knowing mainly as a caution: **"the font" in this ROM is ambiguous.** Any
+statement about glyphs should say which table it means.
+
 ## Relation to the physical display
 
 The panel is 16 characters of 5x7 dots, i.e. 80x7 = 560 flip-dots, matching a

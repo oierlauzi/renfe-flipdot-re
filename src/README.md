@@ -54,7 +54,7 @@ faithful decode, and the *interesting* work — naming things — accumulates in
 [../ghidra/symbols.csv](../ghidra/symbols.csv) and flows into the listing on the
 next `make disasm`.
 
-Current state: **561 labels, 78 of them real names** from `symbols.csv`, the rest
+Current state: **551 labels, 100 of them real names** from `symbols.csv`, the rest
 auto-generated `LXXXX`. Every symbol added to that file turns one more `LXXXX`
 into something meaningful, so the listing improves as the analysis does. Data
 regions are declared in `DATA_REGIONS` in `tools/disasm.py`; getting one wrong

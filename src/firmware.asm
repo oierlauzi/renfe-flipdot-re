@@ -89,16 +89,22 @@ shadow_buffer	equ	0E043h
 msg_buffer2	equ	0E084h
 shadow_buffer2	equ	0E0C6h
 
+; ------------------- names pointing inside data regions
+cfg_block	equ	0070h
+cfg_proto_enable	equ	0072h
+cfg_addr_mode	equ	007Ah
+cfg_buffer_len	equ	007Bh
+cfg_features	equ	0088h
+cfg_turnaround	equ	008Ah
+report_prefix_sub	equ	00D5h
+
 	org	0000h
 
 reset:
 	DI
-L0001:
 	JMP	tbl_0040
 	RST	7
-L0005:
 	RST	7
-L0006:
 	RST	7
 	RST	7
 	JMP	0043h
@@ -109,7 +115,6 @@ L0006:
 	RST	7
 	JMP	0046h
 	RST	7
-L0014:
 	RST	7
 	RST	7
 	RST	7
@@ -124,7 +129,6 @@ L0014:
 	RST	7
 	JMP	0058h
 	RST	7
-L0028:
 	JMP	004Fh
 	RST	7
 vec_rst55:
@@ -134,7 +138,6 @@ vec_rst55:
 	RST	7
 	JMP	005Eh
 	RST	7
-L0038:
 	JMP	0055h
 	RST	7
 vec_rst75:
@@ -145,7 +148,7 @@ tbl_0040:
 	db	0C3h,4Bh,03h,0C3h,4Bh,03h,0C3h,4Bh	; 0040  .K..K..K
 	db	03h,0C3h,4Bh,03h,0C3h,4Bh,03h,0C3h	; 0048  ..K..K..
 	db	4Bh,03h,0C3h,4Bh,03h,0C3h,4Bh,03h	; 0050  K..K..K.
-	db	0C3h,4Bh,03h,0C3h,60h,02h,0C3h,4Bh	; 0058  .K..`..K
+	db	0C3h,4Bh,03h,0C3h,60h,02h,0C3h,4Bh	; 0058  .K.....K
 	db	03h,0C3h,0A9h,02h	; 0060  ....
 fw_version_string:
 	; SUB reply: version string then the config block  (44 bytes)
@@ -157,10 +160,9 @@ fw_version_string:
 	db	00h,00h,00h,00h	; 008C  ....
 	NOP
 	RST	7
-L0092:
 	NOP
 	NOP
-	LXI	B,L0201
+	LXI	B,0201h
 	STAX	B
 	INX	B
 	INX	B
@@ -489,7 +491,6 @@ report_prefix_tab:
 	NOP
 	NOP
 	NOP
-L01F4:
 	NOP
 	NOP
 	NOP
@@ -503,7 +504,6 @@ L01F4:
 	NOP
 	NOP
 	NOP
-L0201:
 	NOP
 	NOP
 	NOP
@@ -737,7 +737,7 @@ init_stack:
 	LXI	SP,0A0F3h
 	SUB	A
 	STA	in_isr_flag
-	CALL	L1994
+	CALL	sod_pulse
 	CALL	init_display_ifaces
 	IN	sw_port_c
 	ANI	20h
@@ -765,10 +765,10 @@ L0371:
 	CPI	00h
 	JNZ	L039A
 L0391:
-	CALL	L123E
+	CALL	render_task
 	JMP	L0391
 L0397:
-	CALL	L123E
+	CALL	render_task
 L039A:
 	CALL	attr_age
 	CALL	L2A62
@@ -1313,7 +1313,6 @@ L07A5:
 	CPI	0Dh
 	JZ	L07D4
 	CPI	0Eh
-L07D0:
 	JZ	L07D4
 	RET
 L07D4:
@@ -1351,10 +1350,10 @@ L080F:
 	STA	selected
 	STA	0A06Fh
 L0817:
-	CALL	L1994
+	CALL	sod_pulse
 	MVI	B,02h
-	CALL	L1B58
-	CALL	L1994
+	CALL	delay_183ms
+	CALL	sod_pulse
 	IN	sw_port_b
 	ANI	01h
 	JZ	L0831
@@ -1385,7 +1384,7 @@ L0850:
 	MOV	A,B
 	ORA	C
 	JNZ	L0850
-	CALL	L1994
+	CALL	sod_pulse
 	LDA	second_display_sel
 	CPI	01h
 	JNZ	L088A
@@ -1567,13 +1566,13 @@ L09AD:
 	STA	display_attr
 	RET
 L09B9:
-	LXI	H,L07D0
+	LXI	H,07D0h
 	JMP	L09AD
 L09BF:
 	LXI	H,1F40h
 	JMP	L09AD
 L09C5:
-	LXI	H,L0028
+	LXI	H,0028h
 	SHLD	effect_duration2
 	LDA	display_attr
 	ANI	7Ah
@@ -1984,7 +1983,7 @@ L0CE9:
 	DAD	B
 	JMP	L0C36
 L0D0E:
-	LXI	H,L0092
+	LXI	H,0092h
 	MVI	D,00h
 	MOV	E,B
 	DAD	D
@@ -2151,7 +2150,7 @@ cmd_si_read_screen:
 	JMP	L0C70
 cmd_sub_identify:
 	CALL	line_turnaround
-	LXI	H,00D5h
+	LXI	H,report_prefix_sub
 	CALL	send_rom_string
 	LXI	H,fw_version_string
 	MVI	B,2Dh
@@ -2229,7 +2228,7 @@ L0EF2:
 	JMP	L0C70
 L0EFE:
 	POP	D
-	LXI	B,L0006
+	LXI	B,0006h
 	XCHG
 	DAD	B
 	XCHG
@@ -2621,7 +2620,7 @@ L1222:
 	JZ	L0C70
 	LDA	0A07Bh
 	JMP	L0C10
-L123E:
+render_task:
 	LDA	rx_handler_sel
 	CPI	00h
 	JNZ	L12D0
@@ -2746,7 +2745,7 @@ alt_fill_step:
 	STA	alt_state
 	PUSH	PSW
 	MVI	B,05h
-	CALL	L1B58
+	CALL	delay_183ms
 	IN	sw_port_b
 	ANI	01h
 	JZ	L135D
@@ -2838,17 +2837,17 @@ render_pass_direct:
 	LXI	H,0E03Dh
 	LDA	0A009h
 	CPI	03h
-	CZ	L147E
+	CZ	clear_char_pos
 	CPI	08h
-	CZ	L147E
+	CZ	clear_char_pos
 	CPI	0Ah
-	CZ	L147E
+	CZ	clear_char_pos
 	CPI	0Ch
-	CZ	L147E
+	CZ	clear_char_pos
 	CPI	0Dh
-	CZ	L147E
+	CZ	clear_char_pos
 	CPI	0Eh
-	CZ	L147E
+	CZ	clear_char_pos
 	MVI	A,01h
 	STA	0A021h
 	CALL	render_loop_direct
@@ -2885,7 +2884,7 @@ render_loop_direct:
 	MVI	A,36h
 	OUT	disp0_port_c
 	RET
-L147E:
+clear_char_pos:
 	PUSH	PSW
 	SUB	A
 	STA	0A00Ah
@@ -2981,7 +2980,7 @@ L1520:
 	STA	0A00Ah
 	MVI	E,01h
 	LHLD	0A010h
-	CALL	L16DC
+	CALL	init_disp1
 L1530:
 	SUB	A
 	STA	0A025h
@@ -3061,7 +3060,7 @@ L15A8:
 	JNZ	L1530
 	MVI	E,00h
 	MVI	L,0FFh
-	CALL	L16DC
+	CALL	init_disp1
 L15C6:
 	POP	B
 	POP	D
@@ -3117,7 +3116,7 @@ L1610:
 	OUT	disp1_port_c
 	ORI	05h
 	STA	0A01Ah
-	LXI	H,L0005
+	LXI	H,0005h
 	SHLD	0A01Ch
 	LDA	0A01Bh
 	ORI	81h
@@ -3151,7 +3150,7 @@ L1645:
 	OUT	disp1_port_b
 	RET
 	PUSH	H
-	LXI	H,L0001
+	LXI	H,0001h
 	SHLD	0A01Ch
 	LDA	0A01Bh
 	ORI	01h
@@ -3168,16 +3167,16 @@ L1675:
 	JNZ	L1675
 	MVI	A,2Bh
 	OUT	disp1_port_c
-	CALL	L1B4F
+	CALL	delay_90us
 	MVI	A,29h
 	OUT	disp1_port_c
 	ORI	02h
 	OUT	disp1_port_c
-	CALL	L1B4F
+	CALL	delay_90us
 	ORI	10h
 	STA	0A01Ah
 	PUSH	H
-	LXI	H,L0005
+	LXI	H,0005h
 	SHLD	0A01Ch
 	MVI	A,81h
 	STA	0A01Bh
@@ -3213,7 +3212,7 @@ L16C5:
 	MVI	A,0Bh
 	OUT	disp1_port_c
 	RET
-L16DC:
+init_disp1:
 	IN	xram_page
 	ANI	0Fh
 	CPI	02h
@@ -3571,7 +3570,7 @@ L1901:
 	ORA	C
 	JNZ	L1901
 	RET
-L190D:
+delay_76us:
 	PUSH	PSW
 	MVI	A,0Eh
 L1910:
@@ -3579,7 +3578,7 @@ L1910:
 	JNZ	L1910
 	POP	PSW
 	RET
-L1916:
+wait_ticks_800:
 	PUSH	H
 	PUSH	PSW
 	LXI	H,0320h
@@ -3598,23 +3597,23 @@ L1926:
 L1931:
 	PUSH	H
 	PUSH	PSW
-	LXI	H,L01F4
+	LXI	H,01F4h
 	JMP	L191B
-L1939:
+wait_ticks_panel:
 	PUSH	H
 	PUSH	PSW
-	LXI	H,L0028
+	LXI	H,0028h
 	LDA	0A009h
 	CPI	05h
-	JZ	L1958
+	JZ	wait_ticks
 	CPI	04h
-	JZ	L1958
+	JZ	wait_ticks
 	CPI	06h
-	JZ	L1958
+	JZ	wait_ticks
 	CPI	08h
-	JZ	L1958
-	LXI	H,L0014
-L1958:
+	JZ	wait_ticks
+	LXI	H,0014h
+wait_ticks:
 	SHLD	0A01Ch
 	LDA	0A01Bh
 	ORI	01h
@@ -3626,25 +3625,25 @@ L1963:
 	POP	PSW
 	POP	H
 	RET
-L196E:
+wait_ticks_short:
 	PUSH	H
 	PUSH	PSW
 	LXI	H,0002h
 	LDA	0A009h
 	CPI	12h
-	JNZ	L1958
+	JNZ	wait_ticks
 	LXI	H,0054h
-	JMP	L1958
+	JMP	wait_ticks
 L1981:
 	PUSH	H
 	PUSH	PSW
-	LXI	H,L0005
+	LXI	H,0005h
 	LDA	0A009h
 	CPI	12h
-	JNZ	L1958
-	LXI	H,L0038
-	JMP	L1958
-L1994:
+	JNZ	wait_ticks
+	LXI	H,0038h
+	JMP	wait_ticks
+sod_pulse:
 	PUSH	PSW
 	MVI	A,0C0h
 	SIM
@@ -3732,7 +3731,7 @@ uart_send:
 	RET
 L1A19:
 	POP	PSW
-L1A1A:
+uart_send_gapped:
 	PUSH	PSW
 	PUSH	B
 	MVI	C,00h
@@ -3740,7 +3739,7 @@ L1A1A:
 	CPI	00h
 	JZ	L1A2B
 L1A24:
-	CALL	L1B4F
+	CALL	delay_90us
 	DCR	C
 	JNZ	L1A24
 L1A2B:
@@ -3749,7 +3748,7 @@ L1A2B:
 	CPI	00h
 	JZ	L1A3A
 L1A33:
-	CALL	L1B4F
+	CALL	delay_90us
 	DCR	C
 	JNZ	L1A33
 L1A3A:
@@ -3768,17 +3767,17 @@ L1A46:
 	RRC
 	RRC
 	RRC
-	CALL	L1A60
-	CALL	L1A1A
+	CALL	nibble_to_ascii
+	CALL	uart_send_gapped
 	POP	PSW
 	PUSH	PSW
-	CALL	L1A60
-	CALL	L1A1A
+	CALL	nibble_to_ascii
+	CALL	uart_send_gapped
 	MVI	A,20h
-	CALL	L1A1A
+	CALL	uart_send_gapped
 	POP	PSW
 	RET
-L1A60:
+nibble_to_ascii:
 	ANI	0Fh
 	ADI	90h
 	DAA
@@ -3796,7 +3795,7 @@ L1A74:
 	MOV	A,M
 	CPI	0FFh
 	RZ
-	CALL	L1A1A
+	CALL	uart_send_gapped
 	INX	H
 	JMP	L1A74
 line_turnaround:
@@ -3835,7 +3834,7 @@ L1AB9:
 	RZ
 	MVI	C,28h
 L1ABF:
-	CALL	L1B4F
+	CALL	delay_90us
 	DCR	C
 	JNZ	L1ABF
 	RET
@@ -3912,14 +3911,14 @@ L1B3A:
 	JZ	L1B3A
 	MVI	C,28h
 L1B43:
-	CALL	L1B4F
+	CALL	delay_90us
 	DCR	C
 	JNZ	L1B43
 	JMP	L1B24
 L1B4D:
 	NOP
 	RET
-L1B4F:
+delay_90us:
 	PUSH	PSW
 	MVI	A,11h
 L1B52:
@@ -3927,7 +3926,7 @@ L1B52:
 	JNZ	L1B52
 	POP	PSW
 	RET
-L1B58:
+delay_183ms:
 	MVI	C,0C8h
 L1B5A:
 	MVI	A,0C8h
@@ -3937,7 +3936,7 @@ L1B5C:
 	DCR	C
 	JNZ	L1B5A
 	DCR	B
-	JNZ	L1B58
+	JNZ	delay_183ms
 	RET
 xram_read:
 	PUSH	H
@@ -4049,167 +4048,263 @@ L1C00:
 	JMP	L0B5F
 	NOP
 font_5x7:
-	; 256 glyphs x 5 columns -- see docs/font.md  (1280 bytes)
-	db	00h,00h,00h,00h,00h,7Fh,45h,51h	; 1C0D  ......EQ
-	db	45h,7Fh,7Fh,6Bh,4Fh,6Bh,7Fh,0Eh	; 1C15  E..kOk..
-	db	1Fh,7Ch,1Fh,0Eh,0Ch,1Eh,3Fh,1Eh	; 1C1D  .|....?.
-	db	0Ch,0Ch,1Eh,7Fh,1Eh,0Ch,1Ch,3Eh	; 1C25  .......>
-	db	5Fh,3Eh,1Ch,00h,00h,08h,00h,00h	; 1C2D  _>......
-	db	7Fh,7Fh,77h,7Fh,7Fh,1Ch,22h,22h	; 1C35  ..w...""
-	db	22h,1Ch,63h,5Dh,5Dh,5Dh,63h,38h	; 1C3D  ".c]]]c8
-	db	28h,3Ah,06h,0Eh,06h,29h,79h,29h	; 1C45  (:...)y)
-	db	06h,60h,60h,3Fh,03h,04h,10h,1Fh	; 1C4D  .``?....
-	db	45h,7Eh,00h,2Ah,1Ch,36h,1Ch,2Ah	; 1C55  E~.*.6.*
-	db	3Eh,1Ch,1Ch,08h,08h,08h,08h,1Ch	; 1C5D  >.......
-	db	1Ch,3Eh,14h,22h,7Fh,22h,14h,00h	; 1C65  .>."."..
-	db	5Fh,00h,5Fh,00h,06h,7Fh,01h,7Fh	; 1C6D  _._.....
-	db	01h,02h,5Dh,55h,5Dh,20h,1Ch,1Ch	; 1C75  ..]U] ..
-	db	1Ch,1Ch,1Ch,40h,4Ah,5Fh,4Ah,40h	; 1C7D  ...@J_J@
-	db	04h,02h,7Fh,02h,04h,10h,20h,7Fh	; 1C85  ...... .
-	db	20h,10h,08h,08h,2Ah,1Ch,08h,08h	; 1C8D   ...*...
-	db	1Ch,2Ah,08h,08h,0Eh,08h,08h,08h	; 1C95  .*......
-	db	08h,08h,1Ch,08h,1Ch,08h,18h,1Ch	; 1C9D  ........
-	db	1Fh,1Ch,18h,0Ch,1Ch,7Ch,1Ch,0Ch	; 1CA5  .....|..
-	db	00h,00h,00h,00h,00h,00h,00h,5Fh	; 1CAD  ......._
-	db	00h,00h,00h,07h,00h,07h,00h,7Fh	; 1CB5  ........
-	db	7Fh,7Fh,7Fh,7Fh,7Ch,09h,05h,05h	; 1CBD  ....|...
-	db	78h,7Ch,09h,11h,21h,7Ch,36h,49h	; 1CC5  x|..!|6I
-	db	56h,20h,50h,00h,00h,07h,00h,00h	; 1CCD  V P.....
-	db	1Ch,22h,41h,00h,00h,00h,00h,41h	; 1CD5  ."A....A
-	db	22h,1Ch,22h,14h,7Fh,14h,22h,08h	; 1CDD  "."...".
-	db	08h,3Eh,08h,08h,00h,40h,30h,00h	; 1CE5  .>...@0.
-	db	00h,08h,08h,08h,08h,08h,00h,00h	; 1CED  ........
-	db	40h,00h,00h,20h,10h,08h,04h,02h	; 1CF5  @.. ....
-	db	3Eh,41h,41h,41h,3Eh,00h,42h,7Fh	; 1CFD  >AAA>.B.
-	db	40h,00h,62h,51h,49h,49h,46h,22h	; 1D05  @.bQIIF"
-	db	41h,49h,49h,36h,18h,14h,12h,7Fh	; 1D0D  AII6....
-	db	10h,27h,45h,45h,45h,39h,3Ch,4Ah	; 1D15  .'EEE9<J
-	db	49h,49h,30h,01h,71h,09h,05h,03h	; 1D1D  II0.q...
-	db	36h,49h,49h,49h,36h,06h,49h,49h	; 1D25  6III6.II
-	db	29h,1Eh,00h,00h,14h,00h,00h,00h	; 1D2D  ).......
-	db	40h,34h,00h,00h,08h,14h,22h,41h	; 1D35  @4...."A
-	db	00h,14h,14h,14h,14h,14h,00h,41h	; 1D3D  .......A
-	db	22h,14h,08h,02h,01h,59h,05h,02h	; 1D45  "....Y..
-	db	3Eh,41h,5Dh,59h,4Eh,7Eh,09h,09h	; 1D4D  >A]YN~..
-	db	09h,7Eh,7Fh,49h,49h,49h,36h,3Eh	; 1D55  .~.III6>
-	db	41h,41h,41h,22h,7Fh,41h,41h,41h	; 1D5D  AAA".AAA
-	db	3Eh,7Fh,49h,49h,49h,41h,7Fh,09h	; 1D65  >.IIIA..
-	db	09h,09h,01h,3Eh,41h,49h,49h,78h	; 1D6D  ...>AIIx
-	db	7Fh,08h,08h,08h,7Fh,00h,41h,7Fh	; 1D75  ......A.
-	db	41h,00h,20h,40h,40h,40h,3Fh,7Fh	; 1D7D  A. @@@?.
-	db	08h,14h,22h,41h,7Fh,40h,40h,40h	; 1D85  .."A.@@@
-	db	40h,7Fh,02h,0Ch,02h,7Fh,7Fh,04h	; 1D8D  @.......
-	db	08h,10h,7Fh,3Eh,41h,41h,41h,3Eh	; 1D95  ...>AAA>
-	db	7Fh,09h,09h,09h,06h,3Eh,41h,51h	; 1D9D  .....>AQ
-	db	21h,5Eh,7Fh,09h,19h,29h,46h,46h	; 1DA5  !^...)FF
-	db	49h,49h,49h,31h,01h,01h,7Fh,01h	; 1DAD  III1....
-	db	01h,3Fh,40h,40h,40h,3Fh,0Fh,30h	; 1DB5  .?@@@?.0
-	db	40h,30h,0Fh,7Fh,20h,18h,20h,7Fh	; 1DBD  @0.. . .
-	db	63h,14h,08h,14h,63h,03h,04h,78h	; 1DC5  c...c..x
-	db	04h,03h,61h,51h,49h,45h,43h,7Fh	; 1DCD  ..aQIEC.
-	db	7Fh,41h,41h,41h,02h,04h,08h,10h	; 1DD5  .AAA....
-	db	20h,41h,41h,41h,7Fh,7Fh,10h,08h	; 1DDD   AAA....
-	db	04h,08h,10h,40h,40h,40h,40h,40h	; 1DE5  ...@@@@@
-	db	00h,01h,02h,04h,00h,20h,54h,54h	; 1DED  ..... TT
-	db	54h,78h,7Fh,48h,44h,44h,38h,38h	; 1DF5  Tx.HDD88
-	db	44h,44h,44h,44h,38h,44h,44h,48h	; 1DFD  DDDD8DDH
-	db	7Fh,38h,54h,54h,54h,08h,00h,08h	; 1E05  .8TTT...
-	db	7Eh,09h,02h,48h,54h,54h,54h,3Ch	; 1E0D  ~..HTTT<
-	db	7Fh,08h,04h,04h,78h,00h,00h,7Dh	; 1E15  ....x..}
-	db	00h,00h,20h,40h,40h,3Dh,00h,7Fh	; 1E1D  .. @@=..
-	db	10h,28h,44h,00h,00h,3Fh,40h,20h	; 1E25  .(D..?@ 
-	db	00h,7Ch,04h,38h,04h,7Ch,7Ch,08h	; 1E2D  .|.8.||.
-	db	04h,04h,78h,38h,44h,44h,44h,38h	; 1E35  ..x8DDD8
-	db	7Ch,14h,14h,14h,08h,08h,14h,14h	; 1E3D  |.......
-	db	14h,7Ch,7Ch,08h,04h,04h,08h,48h	; 1E45  .||....H
-	db	54h,54h,54h,24h,04h,3Fh,44h,24h	; 1E4D  TTT$.?D$
-	db	00h,3Ch,40h,40h,40h,3Ch,0Ch,30h	; 1E55  .<@@@<.0
-	db	40h,30h,0Ch,3Ch,40h,30h,40h,3Ch	; 1E5D  @0.<@0@<
-	db	44h,28h,10h,28h,44h,04h,48h,30h	; 1E65  D(.(D.H0
-	db	08h,04h,44h,64h,54h,4Ch,44h,08h	; 1E6D  ..DdTLD.
-	db	36h,41h,41h,00h,00h,00h,7Fh,00h	; 1E75  6AA.....
-	db	00h,00h,41h,41h,36h,08h,02h,01h	; 1E7D  ..AA6...
-	db	02h,04h,02h,18h,14h,12h,14h,18h	; 1E85  ........
-	db	0Eh,51h,51h,31h,0Ah,3Dh,40h,40h	; 1E8D  .QQ1.=@@
-	db	3Dh,40h,00h,7Ch,56h,5Dh,00h,22h	; 1E95  =@.|V]."
-	db	55h,55h,3Ah,40h,21h,54h,54h,39h	; 1E9D  UU:@!TT9
-	db	40h,20h,55h,56h,38h,40h,20h,54h	; 1EA5  @ UV8@ T
-	db	55h,38h,40h,0Eh,51h,51h,31h,0Ah	; 1EAD  U8@.QQ1.
-	db	3Ah,55h,55h,1Ah,00h,38h,55h,54h	; 1EB5  :UU..8UT
-	db	19h,00h,38h,55h,56h,18h,00h,00h	; 1EBD  ..8UV...
-	db	45h,7Ch,41h,00h,00h,4Ah,79h,42h	; 1EC5  E|A..JyB
-	db	00h,00h,49h,7Ah,40h,00h,79h,24h	; 1ECD  ..Iz@.y$
-	db	22h,24h,79h,70h,2Ah,25h,2Ah,70h	; 1ED5  "$yp*%*p
-	db	7Ch,54h,56h,45h,00h,34h,54h,38h	; 1EDD  |TVE.4T8
-	db	54h,58h,7Ch,0Ah,7Fh,49h,49h,32h	; 1EE5  TX|..II2
-	db	49h,49h,32h,00h,39h,44h,44h,39h	; 1EED  II2.9DD9
-	db	00h,38h,45h,46h,38h,00h,3Ah,41h	; 1EF5  .8EF8.:A
-	db	41h,3Ah,40h,38h,41h,42h,38h,40h	; 1EFD  A:@8AB8@
-	db	44h,29h,10h,09h,04h,39h,44h,44h	; 1F05  D)...9DD
-	db	44h,39h,3Dh,40h,40h,40h,3Dh,18h	; 1F0D  D9=@@@=.
-	db	24h,7Eh,24h,00h,48h,7Eh,49h,41h	; 1F15  $~$.H~IA
-	db	42h,2Bh,2Ch,78h,2Ch,2Bh,7Fh,05h	; 1F1D  B+,x,+..
-	db	15h,7Ah,50h,48h,7Eh,09h,01h,02h	; 1F25  .zPH~...
-	db	20h,54h,56h,39h,40h,00h,48h,7Ah	; 1F2D   TV9@.Hz
-	db	41h,00h,38h,44h,46h,39h,00h,3Ch	; 1F35  A.8DF9.<
-	db	40h,42h,3Dh,40h,7Ah,09h,0Ah,71h	; 1F3D  @B=@z..q
-	db	00h,7Ah,09h,11h,22h,79h,48h,55h	; 1F45  .z.."yHU
-	db	55h,4Fh,50h,4Eh,51h,51h,4Eh,00h	; 1F4D  UOPNQQN.
-	db	30h,48h,45h,40h,20h,38h,08h,08h	; 1F55  0HE@ 8..
-	db	08h,08h,08h,08h,08h,08h,18h,17h	; 1F5D  ........
-	db	08h,4Ch,6Ah,59h,17h,28h,34h,7Ah	; 1F65  .LjY.(4z
-	db	21h,00h,00h,79h,00h,00h,08h,14h	; 1F6D  !..y....
-	db	2Ah,14h,22h,22h,14h,2Ah,14h,08h	; 1F75  *."".*..
-	db	55h,00h,55h,00h,55h,55h,2Ah,55h	; 1F7D  U.U.UU*U
-	db	2Ah,55h,2Ah,55h,2Ah,55h,2Ah,00h	; 1F85  *U*U*U*.
-	db	00h,7Fh,00h,00h,08h,08h,7Fh,00h	; 1F8D  ........
-	db	00h,14h,14h,7Fh,00h,00h,08h,7Fh	; 1F95  ........
-	db	00h,7Fh,00h,08h,78h,08h,78h,00h	; 1F9D  ....x.x.
-	db	14h,14h,7Ch,00h,00h,14h,77h,00h	; 1FA5  ..|...w.
-	db	7Fh,00h,00h,7Fh,00h,7Fh,00h,14h	; 1FAD  ........
-	db	74h,04h,7Ch,00h,14h,17h,10h,1Fh	; 1FB5  t.|.....
-	db	00h,08h,0Fh,08h,0Fh,00h,14h,1Fh	; 1FBD  ........
-	db	00h,00h,00h,08h,08h,78h,00h,00h	; 1FC5  .....x..
-	db	00h,00h,0Fh,08h,08h,08h,08h,0Fh	; 1FCD  ........
-	db	08h,08h,08h,08h,78h,08h,08h,00h	; 1FD5  ....x...
-	db	00h,7Fh,08h,08h,08h,08h,08h,08h	; 1FDD  ........
-	db	08h,08h,08h,7Fh,08h,08h,00h,00h	; 1FE5  ........
-	db	7Fh,14h,14h,00h,7Fh,00h,7Fh,08h	; 1FED  ........
-	db	00h,1Fh,10h,17h,14h,00h,7Ch,04h	; 1FF5  ......|.
-	db	74h,14h,14h,17h,10h,17h,14h,14h	; 1FFD  t.......
-	db	74h,04h,74h,14h,00h,7Fh,00h,77h	; 2005  t.t....w
-	db	14h,14h,14h,14h,14h,14h,14h,77h	; 200D  .......w
-	db	00h,77h,14h,14h,14h,17h,14h,14h	; 2015  .w......
-	db	08h,0Fh,08h,0Fh,08h,14h,14h,74h	; 201D  .......t
-	db	14h,14h,08h,78h,08h,78h,08h,00h	; 2025  ...x.x..
-	db	0Fh,08h,0Fh,08h,00h,00h,1Fh,14h	; 202D  ........
-	db	14h,00h,00h,7Ch,14h,14h,00h,78h	; 2035  ...|...x
-	db	08h,78h,08h,08h,7Fh,08h,7Fh,08h	; 203D  .x......
-	db	14h,14h,7Fh,14h,14h,08h,08h,0Fh	; 2045  ........
-	db	00h,00h,00h,00h,78h,08h,08h,7Fh	; 204D  ....x...
-	db	7Fh,7Fh,7Fh,7Fh,78h,78h,78h,78h	; 2055  ....xxxx
-	db	78h,7Fh,7Fh,7Fh,00h,00h,00h,00h	; 205D  x.......
-	db	7Fh,7Fh,7Fh,0Fh,0Fh,0Fh,0Fh,0Fh	; 2065  ........
-	db	38h,44h,44h,38h,44h,7Eh,01h,25h	; 206D  8DD8D~.%
-	db	1Ah,00h,7Eh,02h,02h,06h,00h,04h	; 2075  ..~.....
-	db	7Ch,04h,7Ch,04h,41h,63h,55h,49h	; 207D  |.|.AcUI
-	db	63h,38h,44h,44h,3Ch,04h,40h,3Eh	; 2085  c8DD<.@>
-	db	10h,1Eh,10h,08h,04h,78h,04h,04h	; 208D  .....x..
-	db	00h,5Dh,77h,5Dh,00h,1Ch,2Ah,49h	; 2095  .]w]..*I
-	db	2Ah,1Ch,5Ch,62h,02h,62h,5Ch,30h	; 209D  *.\b.b\0
-	db	4Ah,4Dh,39h,02h,18h,24h,18h,24h	; 20A5  JM9..$.$
-	db	18h,5Ch,32h,2Ah,26h,1Dh,1Ch,2Ah	; 20AD  .\2*&..*
-	db	49h,49h,00h,7Ch,02h,02h,02h,7Ch	; 20B5  II.|...|
-	db	2Ah,2Ah,2Ah,2Ah,2Ah,44h,44h,5Fh	; 20BD  *****DD_
-	db	44h,44h,00h,51h,4Ah,44h,00h,00h	; 20C5  DD.QJD..
-	db	44h,4Ah,51h,00h,00h,00h,7Ch,02h	; 20CD  DJQ...|.
-	db	0Ch,18h,20h,1Fh,00h,00h,08h,6Bh	; 20D5  .. ....k
-	db	6Bh,08h,00h,24h,12h,24h,12h,24h	; 20DD  k..$.$.$
-	db	06h,09h,09h,06h,00h,00h,0Ch,0Ch	; 20E5  ........
-	db	00h,00h,00h,08h,08h,00h,00h,08h	; 20ED  ........
-	db	18h,20h,3Fh,01h,00h,1Fh,01h,3Eh	; 20F5  . ?....>
-	db	00h,32h,29h,26h,00h,00h,00h,3Ch	; 20FD  .2)&...<
-	db	3Ch,3Ch,00h,00h,00h,00h,00h,00h	; 2105  <<......
+	; 256 glyphs x 5 columns, one per line -- see docs/font.md  (1280 bytes)
+	db	00h,00h,00h,00h,00h	; 1C0D  .....
+	db	7Fh,45h,51h,45h,7Fh	; 1C12  .EQE.
+	db	7Fh,6Bh,4Fh,6Bh,7Fh	; 1C17  .kOk.
+	db	0Eh,1Fh,7Ch,1Fh,0Eh	; 1C1C  ..|..
+	db	0Ch,1Eh,3Fh,1Eh,0Ch	; 1C21  ..?..
+	db	0Ch,1Eh,7Fh,1Eh,0Ch	; 1C26  .....
+	db	1Ch,3Eh,5Fh,3Eh,1Ch	; 1C2B  .>_>.
+	db	00h,00h,08h,00h,00h	; 1C30  .....
+	db	7Fh,7Fh,77h,7Fh,7Fh	; 1C35  ..w..
+	db	1Ch,22h,22h,22h,1Ch	; 1C3A  .....
+	db	63h,5Dh,5Dh,5Dh,63h	; 1C3F  c]]]c
+	db	38h,28h,3Ah,06h,0Eh	; 1C44  8(:..
+	db	06h,29h,79h,29h,06h	; 1C49  .)y).
+	db	60h,60h,3Fh,03h,04h	; 1C4E  ..?..
+	db	10h,1Fh,45h,7Eh,00h	; 1C53  ..E~.
+	db	2Ah,1Ch,36h,1Ch,2Ah	; 1C58  *.6.*
+	db	3Eh,1Ch,1Ch,08h,08h	; 1C5D  >....
+	db	08h,08h,1Ch,1Ch,3Eh	; 1C62  ....>
+	db	14h,22h,7Fh,22h,14h	; 1C67  .....
+	db	00h,5Fh,00h,5Fh,00h	; 1C6C  ._._.
+	db	06h,7Fh,01h,7Fh,01h	; 1C71  .....
+	db	02h,5Dh,55h,5Dh,20h	; 1C76  .]U] 
+	db	1Ch,1Ch,1Ch,1Ch,1Ch	; 1C7B  .....
+	db	40h,4Ah,5Fh,4Ah,40h	; 1C80  @J_J@
+	db	04h,02h,7Fh,02h,04h	; 1C85  .....
+	db	10h,20h,7Fh,20h,10h	; 1C8A  . . .
+	db	08h,08h,2Ah,1Ch,08h	; 1C8F  ..*..
+	db	08h,1Ch,2Ah,08h,08h	; 1C94  ..*..
+	db	0Eh,08h,08h,08h,08h	; 1C99  .....
+	db	08h,1Ch,08h,1Ch,08h	; 1C9E  .....
+	db	18h,1Ch,1Fh,1Ch,18h	; 1CA3  .....
+	db	0Ch,1Ch,7Ch,1Ch,0Ch	; 1CA8  ..|..
+	db	00h,00h,00h,00h,00h	; 1CAD  .....
+	db	00h,00h,5Fh,00h,00h	; 1CB2  .._..
+	db	00h,07h,00h,07h,00h	; 1CB7  .....
+	db	7Fh,7Fh,7Fh,7Fh,7Fh	; 1CBC  .....
+	db	7Ch,09h,05h,05h,78h	; 1CC1  |...x
+	db	7Ch,09h,11h,21h,7Ch	; 1CC6  |..!|
+	db	36h,49h,56h,20h,50h	; 1CCB  6IV P
+	db	00h,00h,07h,00h,00h	; 1CD0  .....
+	db	1Ch,22h,41h,00h,00h	; 1CD5  ..A..
+	db	00h,00h,41h,22h,1Ch	; 1CDA  ..A..
+	db	22h,14h,7Fh,14h,22h	; 1CDF  .....
+	db	08h,08h,3Eh,08h,08h	; 1CE4  ..>..
+	db	00h,40h,30h,00h,00h	; 1CE9  .@0..
+	db	08h,08h,08h,08h,08h	; 1CEE  .....
+	db	00h,00h,40h,00h,00h	; 1CF3  ..@..
+	db	20h,10h,08h,04h,02h	; 1CF8   ....
+	db	3Eh,41h,41h,41h,3Eh	; 1CFD  >AAA>
+	db	00h,42h,7Fh,40h,00h	; 1D02  .B.@.
+	db	62h,51h,49h,49h,46h	; 1D07  bQIIF
+	db	22h,41h,49h,49h,36h	; 1D0C  .AII6
+	db	18h,14h,12h,7Fh,10h	; 1D11  .....
+	db	27h,45h,45h,45h,39h	; 1D16  .EEE9
+	db	3Ch,4Ah,49h,49h,30h	; 1D1B  <JII0
+	db	01h,71h,09h,05h,03h	; 1D20  .q...
+	db	36h,49h,49h,49h,36h	; 1D25  6III6
+	db	06h,49h,49h,29h,1Eh	; 1D2A  .II).
+	db	00h,00h,14h,00h,00h	; 1D2F  .....
+	db	00h,40h,34h,00h,00h	; 1D34  .@4..
+	db	08h,14h,22h,41h,00h	; 1D39  ...A.
+	db	14h,14h,14h,14h,14h	; 1D3E  .....
+	db	00h,41h,22h,14h,08h	; 1D43  .A...
+	db	02h,01h,59h,05h,02h	; 1D48  ..Y..
+	db	3Eh,41h,5Dh,59h,4Eh	; 1D4D  >A]YN
+	db	7Eh,09h,09h,09h,7Eh	; 1D52  ~...~
+	db	7Fh,49h,49h,49h,36h	; 1D57  .III6
+	db	3Eh,41h,41h,41h,22h	; 1D5C  >AAA.
+	db	7Fh,41h,41h,41h,3Eh	; 1D61  .AAA>
+	db	7Fh,49h,49h,49h,41h	; 1D66  .IIIA
+	db	7Fh,09h,09h,09h,01h	; 1D6B  .....
+	db	3Eh,41h,49h,49h,78h	; 1D70  >AIIx
+	db	7Fh,08h,08h,08h,7Fh	; 1D75  .....
+	db	00h,41h,7Fh,41h,00h	; 1D7A  .A.A.
+	db	20h,40h,40h,40h,3Fh	; 1D7F   @@@?
+	db	7Fh,08h,14h,22h,41h	; 1D84  ....A
+	db	7Fh,40h,40h,40h,40h	; 1D89  .@@@@
+	db	7Fh,02h,0Ch,02h,7Fh	; 1D8E  .....
+	db	7Fh,04h,08h,10h,7Fh	; 1D93  .....
+	db	3Eh,41h,41h,41h,3Eh	; 1D98  >AAA>
+	db	7Fh,09h,09h,09h,06h	; 1D9D  .....
+	db	3Eh,41h,51h,21h,5Eh	; 1DA2  >AQ!^
+	db	7Fh,09h,19h,29h,46h	; 1DA7  ...)F
+	db	46h,49h,49h,49h,31h	; 1DAC  FIII1
+	db	01h,01h,7Fh,01h,01h	; 1DB1  .....
+	db	3Fh,40h,40h,40h,3Fh	; 1DB6  ?@@@?
+	db	0Fh,30h,40h,30h,0Fh	; 1DBB  .0@0.
+	db	7Fh,20h,18h,20h,7Fh	; 1DC0  . . .
+	db	63h,14h,08h,14h,63h	; 1DC5  c...c
+	db	03h,04h,78h,04h,03h	; 1DCA  ..x..
+	db	61h,51h,49h,45h,43h	; 1DCF  aQIEC
+	db	7Fh,7Fh,41h,41h,41h	; 1DD4  ..AAA
+	db	02h,04h,08h,10h,20h	; 1DD9  .... 
+	db	41h,41h,41h,7Fh,7Fh	; 1DDE  AAA..
+	db	10h,08h,04h,08h,10h	; 1DE3  .....
+	db	40h,40h,40h,40h,40h	; 1DE8  @@@@@
+	db	00h,01h,02h,04h,00h	; 1DED  .....
+	db	20h,54h,54h,54h,78h	; 1DF2   TTTx
+	db	7Fh,48h,44h,44h,38h	; 1DF7  .HDD8
+	db	38h,44h,44h,44h,44h	; 1DFC  8DDDD
+	db	38h,44h,44h,48h,7Fh	; 1E01  8DDH.
+	db	38h,54h,54h,54h,08h	; 1E06  8TTT.
+	db	00h,08h,7Eh,09h,02h	; 1E0B  ..~..
+	db	48h,54h,54h,54h,3Ch	; 1E10  HTTT<
+	db	7Fh,08h,04h,04h,78h	; 1E15  ....x
+	db	00h,00h,7Dh,00h,00h	; 1E1A  ..}..
+	db	20h,40h,40h,3Dh,00h	; 1E1F   @@=.
+	db	7Fh,10h,28h,44h,00h	; 1E24  ..(D.
+	db	00h,3Fh,40h,20h,00h	; 1E29  .?@ .
+	db	7Ch,04h,38h,04h,7Ch	; 1E2E  |.8.|
+	db	7Ch,08h,04h,04h,78h	; 1E33  |...x
+	db	38h,44h,44h,44h,38h	; 1E38  8DDD8
+	db	7Ch,14h,14h,14h,08h	; 1E3D  |....
+	db	08h,14h,14h,14h,7Ch	; 1E42  ....|
+	db	7Ch,08h,04h,04h,08h	; 1E47  |....
+	db	48h,54h,54h,54h,24h	; 1E4C  HTTT$
+	db	04h,3Fh,44h,24h,00h	; 1E51  .?D$.
+	db	3Ch,40h,40h,40h,3Ch	; 1E56  <@@@<
+	db	0Ch,30h,40h,30h,0Ch	; 1E5B  .0@0.
+	db	3Ch,40h,30h,40h,3Ch	; 1E60  <@0@<
+	db	44h,28h,10h,28h,44h	; 1E65  D(.(D
+	db	04h,48h,30h,08h,04h	; 1E6A  .H0..
+	db	44h,64h,54h,4Ch,44h	; 1E6F  DdTLD
+	db	08h,36h,41h,41h,00h	; 1E74  .6AA.
+	db	00h,00h,7Fh,00h,00h	; 1E79  .....
+	db	00h,41h,41h,36h,08h	; 1E7E  .AA6.
+	db	02h,01h,02h,04h,02h	; 1E83  .....
+	db	18h,14h,12h,14h,18h	; 1E88  .....
+	db	0Eh,51h,51h,31h,0Ah	; 1E8D  .QQ1.
+	db	3Dh,40h,40h,3Dh,40h	; 1E92  =@@=@
+	db	00h,7Ch,56h,5Dh,00h	; 1E97  .|V].
+	db	22h,55h,55h,3Ah,40h	; 1E9C  .UU:@
+	db	21h,54h,54h,39h,40h	; 1EA1  !TT9@
+	db	20h,55h,56h,38h,40h	; 1EA6   UV8@
+	db	20h,54h,55h,38h,40h	; 1EAB   TU8@
+	db	0Eh,51h,51h,31h,0Ah	; 1EB0  .QQ1.
+	db	3Ah,55h,55h,1Ah,00h	; 1EB5  :UU..
+	db	38h,55h,54h,19h,00h	; 1EBA  8UT..
+	db	38h,55h,56h,18h,00h	; 1EBF  8UV..
+	db	00h,45h,7Ch,41h,00h	; 1EC4  .E|A.
+	db	00h,4Ah,79h,42h,00h	; 1EC9  .JyB.
+	db	00h,49h,7Ah,40h,00h	; 1ECE  .Iz@.
+	db	79h,24h,22h,24h,79h	; 1ED3  y$.$y
+	db	70h,2Ah,25h,2Ah,70h	; 1ED8  p*%*p
+	db	7Ch,54h,56h,45h,00h	; 1EDD  |TVE.
+	db	34h,54h,38h,54h,58h	; 1EE2  4T8TX
+	db	7Ch,0Ah,7Fh,49h,49h	; 1EE7  |..II
+	db	32h,49h,49h,32h,00h	; 1EEC  2II2.
+	db	39h,44h,44h,39h,00h	; 1EF1  9DD9.
+	db	38h,45h,46h,38h,00h	; 1EF6  8EF8.
+	db	3Ah,41h,41h,3Ah,40h	; 1EFB  :AA:@
+	db	38h,41h,42h,38h,40h	; 1F00  8AB8@
+	db	44h,29h,10h,09h,04h	; 1F05  D)...
+	db	39h,44h,44h,44h,39h	; 1F0A  9DDD9
+	db	3Dh,40h,40h,40h,3Dh	; 1F0F  =@@@=
+	db	18h,24h,7Eh,24h,00h	; 1F14  .$~$.
+	db	48h,7Eh,49h,41h,42h	; 1F19  H~IAB
+	db	2Bh,2Ch,78h,2Ch,2Bh	; 1F1E  +,x,+
+	db	7Fh,05h,15h,7Ah,50h	; 1F23  ...zP
+	db	48h,7Eh,09h,01h,02h	; 1F28  H~...
+	db	20h,54h,56h,39h,40h	; 1F2D   TV9@
+	db	00h,48h,7Ah,41h,00h	; 1F32  .HzA.
+	db	38h,44h,46h,39h,00h	; 1F37  8DF9.
+	db	3Ch,40h,42h,3Dh,40h	; 1F3C  <@B=@
+	db	7Ah,09h,0Ah,71h,00h	; 1F41  z..q.
+	db	7Ah,09h,11h,22h,79h	; 1F46  z...y
+	db	48h,55h,55h,4Fh,50h	; 1F4B  HUUOP
+	db	4Eh,51h,51h,4Eh,00h	; 1F50  NQQN.
+	db	30h,48h,45h,40h,20h	; 1F55  0HE@ 
+	db	38h,08h,08h,08h,08h	; 1F5A  8....
+	db	08h,08h,08h,08h,18h	; 1F5F  .....
+	db	17h,08h,4Ch,6Ah,59h	; 1F64  ..LjY
+	db	17h,28h,34h,7Ah,21h	; 1F69  .(4z!
+	db	00h,00h,79h,00h,00h	; 1F6E  ..y..
+	db	08h,14h,2Ah,14h,22h	; 1F73  ..*..
+	db	22h,14h,2Ah,14h,08h	; 1F78  ..*..
+	db	55h,00h,55h,00h,55h	; 1F7D  U.U.U
+	db	55h,2Ah,55h,2Ah,55h	; 1F82  U*U*U
+	db	2Ah,55h,2Ah,55h,2Ah	; 1F87  *U*U*
+	db	00h,00h,7Fh,00h,00h	; 1F8C  .....
+	db	08h,08h,7Fh,00h,00h	; 1F91  .....
+	db	14h,14h,7Fh,00h,00h	; 1F96  .....
+	db	08h,7Fh,00h,7Fh,00h	; 1F9B  .....
+	db	08h,78h,08h,78h,00h	; 1FA0  .x.x.
+	db	14h,14h,7Ch,00h,00h	; 1FA5  ..|..
+	db	14h,77h,00h,7Fh,00h	; 1FAA  .w...
+	db	00h,7Fh,00h,7Fh,00h	; 1FAF  .....
+	db	14h,74h,04h,7Ch,00h	; 1FB4  .t.|.
+	db	14h,17h,10h,1Fh,00h	; 1FB9  .....
+	db	08h,0Fh,08h,0Fh,00h	; 1FBE  .....
+	db	14h,1Fh,00h,00h,00h	; 1FC3  .....
+	db	08h,08h,78h,00h,00h	; 1FC8  ..x..
+	db	00h,00h,0Fh,08h,08h	; 1FCD  .....
+	db	08h,08h,0Fh,08h,08h	; 1FD2  .....
+	db	08h,08h,78h,08h,08h	; 1FD7  ..x..
+	db	00h,00h,7Fh,08h,08h	; 1FDC  .....
+	db	08h,08h,08h,08h,08h	; 1FE1  .....
+	db	08h,08h,7Fh,08h,08h	; 1FE6  .....
+	db	00h,00h,7Fh,14h,14h	; 1FEB  .....
+	db	00h,7Fh,00h,7Fh,08h	; 1FF0  .....
+	db	00h,1Fh,10h,17h,14h	; 1FF5  .....
+	db	00h,7Ch,04h,74h,14h	; 1FFA  .|.t.
+	db	14h,17h,10h,17h,14h	; 1FFF  .....
+	db	14h,74h,04h,74h,14h	; 2004  .t.t.
+	db	00h,7Fh,00h,77h,14h	; 2009  ...w.
+	db	14h,14h,14h,14h,14h	; 200E  .....
+	db	14h,77h,00h,77h,14h	; 2013  .w.w.
+	db	14h,14h,17h,14h,14h	; 2018  .....
+	db	08h,0Fh,08h,0Fh,08h	; 201D  .....
+	db	14h,14h,74h,14h,14h	; 2022  ..t..
+	db	08h,78h,08h,78h,08h	; 2027  .x.x.
+	db	00h,0Fh,08h,0Fh,08h	; 202C  .....
+	db	00h,00h,1Fh,14h,14h	; 2031  .....
+	db	00h,00h,7Ch,14h,14h	; 2036  ..|..
+	db	00h,78h,08h,78h,08h	; 203B  .x.x.
+	db	08h,7Fh,08h,7Fh,08h	; 2040  .....
+	db	14h,14h,7Fh,14h,14h	; 2045  .....
+	db	08h,08h,0Fh,00h,00h	; 204A  .....
+	db	00h,00h,78h,08h,08h	; 204F  ..x..
+	db	7Fh,7Fh,7Fh,7Fh,7Fh	; 2054  .....
+	db	78h,78h,78h,78h,78h	; 2059  xxxxx
+	db	7Fh,7Fh,7Fh,00h,00h	; 205E  .....
+	db	00h,00h,7Fh,7Fh,7Fh	; 2063  .....
+	db	0Fh,0Fh,0Fh,0Fh,0Fh	; 2068  .....
+	db	38h,44h,44h,38h,44h	; 206D  8DD8D
+	db	7Eh,01h,25h,1Ah,00h	; 2072  ~.%..
+	db	7Eh,02h,02h,06h,00h	; 2077  ~....
+	db	04h,7Ch,04h,7Ch,04h	; 207C  .|.|.
+	db	41h,63h,55h,49h,63h	; 2081  AcUIc
+	db	38h,44h,44h,3Ch,04h	; 2086  8DD<.
+	db	40h,3Eh,10h,1Eh,10h	; 208B  @>...
+	db	08h,04h,78h,04h,04h	; 2090  ..x..
+	db	00h,5Dh,77h,5Dh,00h	; 2095  .]w].
+	db	1Ch,2Ah,49h,2Ah,1Ch	; 209A  .*I*.
+	db	5Ch,62h,02h,62h,5Ch	; 209F  .b.b.
+	db	30h,4Ah,4Dh,39h,02h	; 20A4  0JM9.
+	db	18h,24h,18h,24h,18h	; 20A9  .$.$.
+	db	5Ch,32h,2Ah,26h,1Dh	; 20AE  .2*&.
+	db	1Ch,2Ah,49h,49h,00h	; 20B3  .*II.
+	db	7Ch,02h,02h,02h,7Ch	; 20B8  |...|
+	db	2Ah,2Ah,2Ah,2Ah,2Ah	; 20BD  *****
+	db	44h,44h,5Fh,44h,44h	; 20C2  DD_DD
+	db	00h,51h,4Ah,44h,00h	; 20C7  .QJD.
+	db	00h,44h,4Ah,51h,00h	; 20CC  .DJQ.
+	db	00h,00h,7Ch,02h,0Ch	; 20D1  ..|..
+	db	18h,20h,1Fh,00h,00h	; 20D6  . ...
+	db	08h,6Bh,6Bh,08h,00h	; 20DB  .kk..
+	db	24h,12h,24h,12h,24h	; 20E0  $.$.$
+	db	06h,09h,09h,06h,00h	; 20E5  .....
+	db	00h,0Ch,0Ch,00h,00h	; 20EA  .....
+	db	00h,08h,08h,00h,00h	; 20EF  .....
+	db	08h,18h,20h,3Fh,01h	; 20F4  .. ?.
+	db	00h,1Fh,01h,3Eh,00h	; 20F9  ...>.
+	db	32h,29h,26h,00h,00h	; 20FE  2)&..
+	db	00h,3Ch,3Ch,3Ch,00h	; 2103  .<<<.
+	db	00h,00h,00h,00h,00h	; 2108  .....
 L210D:
 	PUSH	D
 	PUSH	H
@@ -4233,9 +4328,9 @@ L2121:
 	NOP
 	ORA	C
 	OUT	disp0_port_b
-	CALL	L190D
-	CALL	L190D
-	CALL	L190D
+	CALL	delay_76us
+	CALL	delay_76us
+	CALL	delay_76us
 	ANI	0Fh
 	OUT	disp0_port_b
 	MVI	A,01h
@@ -4296,9 +4391,9 @@ L2190:
 	NOP
 	ORA	C
 	OUT	disp0_port_b
-	CALL	L190D
-	CALL	L190D
-	CALL	L190D
+	CALL	delay_76us
+	CALL	delay_76us
+	CALL	delay_76us
 	ANI	3Fh
 	OUT	disp0_port_b
 	POP	H
@@ -4318,7 +4413,7 @@ L21BE:
 	OUT	disp0_port_a
 	SUB	A
 	OUT	disp0_port_b
-	CALL	L190D
+	CALL	delay_76us
 	ORI	80h
 	OUT	disp0_port_b
 	NOP
@@ -4328,7 +4423,7 @@ L21BE:
 	NOP
 	ORI	40h
 	OUT	disp0_port_b
-	CALL	L190D
+	CALL	delay_76us
 	ANI	80h
 	OUT	disp0_port_b
 	DCR	C
@@ -4336,10 +4431,10 @@ L21BE:
 	INX	H
 	JMP	L21BE
 L21E6:
-	CALL	L190D
+	CALL	delay_76us
 	ORI	20h
 	OUT	disp0_port_b
-	CALL	L1916
+	CALL	wait_ticks_800
 	SUB	A
 	OUT	disp0_port_b
 L21F3:
@@ -4420,7 +4515,7 @@ L2267:
 	ANI	2Bh
 	ORI	12h
 	OUT	disp0_port_c
-	CALL	L1939
+	CALL	wait_ticks_panel
 	INX	H
 	INR	E
 	DCR	C
@@ -4477,34 +4572,34 @@ L22BB:
 	ANI	80h
 	ORA	B
 	OUT	disp0_port_b
-	CALL	L22F7
+	CALL	delay_230us
 	MOV	A,E
 	OUT	disp0_port_a
-	CALL	L22F7
+	CALL	delay_230us
 	IN	disp0_port_c
 	ANI	20h
 	ORA	D
 	OUT	disp0_port_c
-	CALL	L1939
+	CALL	wait_ticks_panel
 	ANI	20h
 	OUT	disp0_port_c
 	MVI	A,80h
 	OUT	disp0_port_a
-	CALL	L22F7
+	CALL	delay_230us
 	IN	disp0_port_b
 	ORI	7Fh
 	OUT	disp0_port_b
 	MVI	A,0Ah
 L22EF:
-	CALL	L190D
+	CALL	delay_76us
 	DCR	A
 	JNZ	L22EF
 	RET
-L22F7:
+delay_230us:
 	PUSH	PSW
 	MVI	A,03h
 L22FA:
-	CALL	L190D
+	CALL	delay_76us
 	DCR	A
 	JNZ	L22FA
 	POP	PSW
@@ -4555,7 +4650,7 @@ L2345:
 	CALL	L23B2
 	JMP	L2374
 L234B:
-	LXI	H,L23CF
+	LXI	H,23CFh
 	MVI	A,20h
 L2350:
 	CMP	B
@@ -4621,7 +4716,7 @@ L23A4:
 	IN	disp0_port_a
 	ANI	0FBh
 	OUT	disp0_port_a
-	CALL	L1916
+	CALL	wait_ticks_800
 	ORI	04h
 	OUT	disp0_port_a
 	RET
@@ -4645,7 +4740,6 @@ L23B2:
 	DCR	D
 	JNZ	L23B2
 	RET
-L23CF:
 	NOP
 	NOP
 	NOP
@@ -4898,7 +4992,7 @@ L24E6:
 	NOP
 	ORI	40h
 	OUT	disp0_port_b
-	CALL	L1939
+	CALL	wait_ticks_panel
 	ANI	0BFh
 	OUT	disp0_port_b
 	MOV	A,D
@@ -4969,25 +5063,25 @@ L256E:
 	CMA
 	ANI	7Fh
 	OUT	disp0_port_b
-	CALL	L2596
+	CALL	delay_1_5ms
 	MOV	A,E
 	OUT	disp0_port_a
-	CALL	L2596
+	CALL	delay_1_5ms
 	MOV	A,D
 	OUT	disp0_port_c
-	CALL	L1939
+	CALL	wait_ticks_panel
 	SUB	A
 	OUT	disp0_port_c
 	MVI	A,80h
 	OUT	disp0_port_a
-	CALL	L2596
-	CALL	L2596
+	CALL	delay_1_5ms
+	CALL	delay_1_5ms
 	RET
-L2596:
+delay_1_5ms:
 	PUSH	PSW
 	MVI	A,14h
 L2599:
-	CALL	L190D
+	CALL	delay_76us
 	DCR	A
 	JNZ	L2599
 	POP	PSW
@@ -5039,37 +5133,37 @@ L25E1:
 L25E5:
 	PUSH	H
 	DCX	H
-	CALL	L264F
+	CALL	alt_char_lookup
 	INX	H
 	INX	H
 	INX	H
 	INX	H
 	INX	H
-	CALL	L2661
-	CALL	L2680
+	CALL	shift_out_port_a
+	CALL	clock_port_a
 	POP	H
 	PUSH	H
-	CALL	L264F
+	CALL	alt_char_lookup
 	INX	H
 	INX	H
 	INX	H
 	INX	H
 	INX	H
-	CALL	L2661
-	CALL	L2680
+	CALL	shift_out_port_a
+	CALL	clock_port_a
 	POP	H
 	PUSH	H
 	DCX	H
-	CALL	L264F
+	CALL	alt_char_lookup
 	INX	H
-	CALL	L2661
-	CALL	L2680
+	CALL	shift_out_port_a
+	CALL	clock_port_a
 	POP	H
 	PUSH	H
-	CALL	L264F
+	CALL	alt_char_lookup
 	INX	H
-	CALL	L2661
-	CALL	L2680
+	CALL	shift_out_port_a
+	CALL	clock_port_a
 	POP	H
 	DCX	H
 	DCX	H
@@ -5097,12 +5191,12 @@ L2646:
 L264D:
 	POP	PSW
 	RET
-L264F:
+alt_char_lookup:
 	MVI	B,00h
 	CALL	xram_read
 	ANI	7Fh
 	MOV	C,A
-	LXI	H,L2692
+	LXI	H,alt_char_table
 	DAD	B
 	DAD	B
 	MOV	E,M
@@ -5110,7 +5204,7 @@ L264F:
 	MOV	D,M
 	XCHG
 	RET
-L2661:
+shift_out_port_a:
 	MVI	B,1Eh
 L2663:
 	MVI	C,08h
@@ -5132,7 +5226,7 @@ L2666:
 	JNZ	L2666
 	INX	H
 	JMP	L2663
-L2680:
+clock_port_a:
 	MVI	B,0Ah
 	SUB	A
 	OUT	disp0_port_a
@@ -5144,577 +5238,181 @@ L2685:
 	DCR	B
 	JNZ	L2685
 	RET
-L2692:
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SBB	E
-	DAA
-	ANA	H
-	DAA
-	XRA	L
-	DAA
-	ORA	M
-	DAA
-	CMP	A
-	DAA
-	RZ
-	DAA
-	POP	D
-	DAA
-	JC	0E327h
-	DAA
-	CPE	0F527h
-	DAA
-	CPI	27h
-	RLC
-	DB	28h
-	DB	10h
-	DB	28h
-	DAD	D
-	DB	28h
-	SHLD	9228h
-	DAA
-	DCX	H
-	DB	28h
-	INR	M
-	DB	28h
-	DCR	A
-	DB	28h
-	MOV	B,M
-	DB	28h
-	MOV	C,A
-	DB	28h
-	MOV	E,B
-	DB	28h
-	MOV	H,C
-	DB	28h
-	MOV	L,D
-	DB	28h
-	MOV	M,E
-	DB	28h
-	MOV	A,H
-	DB	28h
-	ADD	L
-	DB	28h
-	ADC	M
-	DB	28h
-	SUB	A
-	DB	28h
-	ANA	B
-	DB	28h
-	XRA	C
-	DB	28h
-	ORA	D
-	DB	28h
-	CMP	E
-	DB	28h
-	CNZ	0CD28h
-	DB	28h
-	SUI	28h
-	RST	3
-	DB	28h
-	RPE
-	DB	28h
-	POP	PSW
-	DB	28h
-	JM	0328h
-	DAD	H
-	INR	C
-	DAD	H
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	SUB	D
-	DAA
-	INX	B
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	NOP
-	INX	B
-	MOV	M,E
-	JPE	0BC0Fh
-	EI
-	RM
-	STC
-	CMP	B
-	INX	B
-	NOP
-	MOV	A,M
-	RP
-	NOP
-	NOP
-	MOV	A,M
-	RP
-	NOP
-	INX	B
-	DB	08h
-	MOV	H,M
-	ACI	8Ch
-	SBB	D
-	MOV	H,D
-	MOV	E,M
-	ADC	B
-	INX	B
-	NOP
-	MOV	L,D
-	MOV	C,A
-	CMP	H
-	ADC	B
-	MOV	L,B
-	MOV	D,A
-	XRA	B
-	INX	B
-	POP	H
-	RZ
-	MOV	B,A
-	CMP	B
-	MOV	H,C
-	RZ
-	MOV	C,A
-	CMP	B
-	INX	B
-	POP	H
-	JPE	0B45Bh
-	PCHL
-	RPE
-	MOV	D,C
-	ANA	H
-	INX	B
-	MOV	M,E
-	JPE	0B44Bh
-	EI
-	RPE
-	MOV	D,C
-	ANA	B
-	INX	B
-	ADD	B
-	MOV	H,M
-	SBI	0Ch
-	NOP
-	MOV	H,M
-	SUI	0Ch
-	INX	B
-	MOV	D,E
-	JPE	0BC0Fh
-	EI
-	RPO
-	MOV	D,A
-	XRA	B
-	INX	B
-	MOV	B,B
-	JPE	0BC4Fh
-	PCHL
-	RPO
-	MOV	D,A
-	CMP	B
-	INX	B
-	NOP
-	INR	D
-	ANA	B
-	NOP
-	NOP
-	INR	D
-	ANA	B
-	NOP
-	INX	B
-	NOP
-	MVI	D,0A0h
-	NOP
-	ADD	H
-	MVI	D,0A8h
-	NOP
-	INX	B
-	NOP
-	DB	08h
-	PUSH	B
-	DB	08h
-	LXI	B,0A118h
-	NOP
-	INX	B
-	MOV	D,D
-	SUB	H
-	ANA	L
-	DB	28h
-	MOV	D,D
-	SUB	H
-	ANA	L
-	DB	28h
-	INX	B
-	NOP
-	SUB	H
-	JNZ	1200h
-	SBB	B
-	MOV	B,B
-	NOP
-	INX	B
-	NOP
-	MOV	L,D
-	MOV	C,H
-	INR	C
-	NOP
-	MOV	A,D
-	MOV	M,B
-	NOP
-	INX	B
-	MOV	A,E
-	RPE
-	MOV	E,A
-	CMP	H
-	EI
-	RZ
-	MOV	E,A
-	CMP	B
-	INX	B
-	EI
-	JPE	0BC5Fh
-	EI
-	JPE	0A857h
-	INX	B
-	MOV	M,E
-	JPO	8408h
-	EI
-	RPO
-	DB	10h
-	ADD	B
-	INX	B
-	EI
-	JPO	0BC1Fh
-	EI
-	JPO	0B817h
-	INX	B
-	EI
-	JPE	8458h
-	EI
-	JPE	8458h
-	INX	B
-	EI
-	RPE
-	MOV	E,B
-	INR	B
-	EI
-	RZ
-	MOV	D,B
-	INR	B
-	INX	B
-	MOV	M,E
-	JPO	0B44Bh
-	EI
-	RPO
-	MOV	D,E
-	ORA	B
-	INX	B
-	EI
-	RZ
-	MOV	C,A
-	CMP	H
-	EI
-	RZ
-	MOV	C,A
-	CMP	H
-	INX	B
-	NOP
-	MVI	A,0F0h
-	NOP
-	NOP
-	MVI	A,0F0h
-	NOP
-	INX	B
-	NOP
-	SHLD	0BC1Fh
-	ADC	B
-	RIM
-	RAR
-	CMP	H
-	INX	B
-	EI
-	CNZ	8CCFh
-	EI
-	RNZ
-	RST	1
-	ADC	H
-	INX	B
-	EI
-	JNZ	8000h
-	EI
-	JPO	8008h
-	INX	B
-	EI
-	RNC
-	RRC
-	CMP	H
-	EI
-	RC
-	CMA
-	CMP	H
-	INX	B
-	EI
-	RNC
-	RRC
-	CMP	H
-	EI
-	RC
-	MOV	C,A
-	CMP	H
-	INX	B
-	MOV	M,E
-	JPO	0BC0Fh
-	EI
-	RPO
-	RAL
-	CMP	B
-	INX	B
-	EI
-	RPE
-	MOV	E,M
-	INR	C
-	EI
-	RZ
-	MOV	D,M
-	DB	08h
-	INX	B
-	MOV	M,E
-	JPO	0BCCFh
-	EI
-	RPO
-	SUB	A
-	CMP	B
-	INX	B
-	EI
-	RPE
-	RST	3
-	ADC	H
-	EI
-	RZ
-	RST	3
-	ADC	B
-	INX	B
-	MOV	B,B
-	JPE	0B44Bh
-	PCHL
-	RPE
-	MOV	D,C
-	ANA	B
-	INX	B
-	ADD	B
-	MOV	A,M
-	RM
-	INR	B
-	NOP
-	MOV	A,M
-	RP
-	INR	B
-	INX	B
-	DI
-	JNZ	0BC0Fh
-	EI
-	RPO
-	RLC
-	CMP	H
-	INX	B
-	XTHL
-	CNZ	3C0Fh
-	MOV	H,E
-	ADI	86h
-	INR	E
-	INX	B
-	DI
-	CNZ	3CCFh
-	MOV	A,E
-	RNZ
-	ADD	A
-	CMP	H
-	INX	B
-	IN	0C8h
-	RRC
-	CMP	H
-	EI
-	RNZ
-	MOV	C,A
-	XRA	H
-	INX	B
-	RNZ
-	ACI	0CEh
-	INR	C
-	MOV	H,C
-	ANI	0C6h
-	INR	C
-	INX	B
-	SBB	E
-	MOV	L,D
-	INR	E
-	ADC	H
-	SBB	E
-	MOV	A,D
-	DB	38h
-	ADD	H
+alt_char_table:
+	; 128 pointers indexed by a 7-bit character code; 86 share the blank  (256 bytes)
+	db	92h,27h	; 2692  ..
+	db	92h,27h	; 2694  ..
+	db	92h,27h	; 2696  ..
+	db	92h,27h	; 2698  ..
+	db	92h,27h	; 269A  ..
+	db	92h,27h	; 269C  ..
+	db	92h,27h	; 269E  ..
+	db	92h,27h	; 26A0  ..
+	db	92h,27h	; 26A2  ..
+	db	92h,27h	; 26A4  ..
+	db	92h,27h	; 26A6  ..
+	db	92h,27h	; 26A8  ..
+	db	92h,27h	; 26AA  ..
+	db	92h,27h	; 26AC  ..
+	db	92h,27h	; 26AE  ..
+	db	92h,27h	; 26B0  ..
+	db	92h,27h	; 26B2  ..
+	db	92h,27h	; 26B4  ..
+	db	92h,27h	; 26B6  ..
+	db	92h,27h	; 26B8  ..
+	db	92h,27h	; 26BA  ..
+	db	92h,27h	; 26BC  ..
+	db	92h,27h	; 26BE  ..
+	db	92h,27h	; 26C0  ..
+	db	92h,27h	; 26C2  ..
+	db	92h,27h	; 26C4  ..
+	db	92h,27h	; 26C6  ..
+	db	92h,27h	; 26C8  ..
+	db	92h,27h	; 26CA  ..
+	db	92h,27h	; 26CC  ..
+	db	92h,27h	; 26CE  ..
+	db	92h,27h	; 26D0  ..
+	db	92h,27h	; 26D2  ..
+	db	92h,27h	; 26D4  ..
+	db	92h,27h	; 26D6  ..
+	db	92h,27h	; 26D8  ..
+	db	92h,27h	; 26DA  ..
+	db	92h,27h	; 26DC  ..
+	db	92h,27h	; 26DE  ..
+	db	92h,27h	; 26E0  ..
+	db	92h,27h	; 26E2  ..
+	db	92h,27h	; 26E4  ..
+	db	92h,27h	; 26E6  ..
+	db	92h,27h	; 26E8  ..
+	db	92h,27h	; 26EA  ..
+	db	92h,27h	; 26EC  ..
+	db	92h,27h	; 26EE  ..
+	db	92h,27h	; 26F0  ..
+	db	9Bh,27h	; 26F2  ..
+	db	0A4h,27h	; 26F4  ..
+	db	0ADh,27h	; 26F6  ..
+	db	0B6h,27h	; 26F8  ..
+	db	0BFh,27h	; 26FA  ..
+	db	0C8h,27h	; 26FC  ..
+	db	0D1h,27h	; 26FE  ..
+	db	0DAh,27h	; 2700  ..
+	db	0E3h,27h	; 2702  ..
+	db	0ECh,27h	; 2704  ..
+	db	0F5h,27h	; 2706  ..
+	db	0FEh,27h	; 2708  ..
+	db	07h,28h	; 270A  .(
+	db	10h,28h	; 270C  .(
+	db	19h,28h	; 270E  .(
+	db	22h,28h	; 2710  .(
+	db	92h,27h	; 2712  ..
+	db	2Bh,28h	; 2714  +(
+	db	34h,28h	; 2716  4(
+	db	3Dh,28h	; 2718  =(
+	db	46h,28h	; 271A  F(
+	db	4Fh,28h	; 271C  O(
+	db	58h,28h	; 271E  X(
+	db	61h,28h	; 2720  a(
+	db	6Ah,28h	; 2722  j(
+	db	73h,28h	; 2724  s(
+	db	7Ch,28h	; 2726  |(
+	db	85h,28h	; 2728  .(
+	db	8Eh,28h	; 272A  .(
+	db	97h,28h	; 272C  .(
+	db	0A0h,28h	; 272E  .(
+	db	0A9h,28h	; 2730  .(
+	db	0B2h,28h	; 2732  .(
+	db	0BBh,28h	; 2734  .(
+	db	0C4h,28h	; 2736  .(
+	db	0CDh,28h	; 2738  .(
+	db	0D6h,28h	; 273A  .(
+	db	0DFh,28h	; 273C  .(
+	db	0E8h,28h	; 273E  .(
+	db	0F1h,28h	; 2740  .(
+	db	0FAh,28h	; 2742  .(
+	db	03h,29h	; 2744  .)
+	db	0Ch,29h	; 2746  .)
+	db	92h,27h	; 2748  ..
+	db	92h,27h	; 274A  ..
+	db	92h,27h	; 274C  ..
+	db	92h,27h	; 274E  ..
+	db	92h,27h	; 2750  ..
+	db	92h,27h	; 2752  ..
+	db	92h,27h	; 2754  ..
+	db	92h,27h	; 2756  ..
+	db	92h,27h	; 2758  ..
+	db	92h,27h	; 275A  ..
+	db	92h,27h	; 275C  ..
+	db	92h,27h	; 275E  ..
+	db	92h,27h	; 2760  ..
+	db	92h,27h	; 2762  ..
+	db	92h,27h	; 2764  ..
+	db	92h,27h	; 2766  ..
+	db	92h,27h	; 2768  ..
+	db	92h,27h	; 276A  ..
+	db	92h,27h	; 276C  ..
+	db	92h,27h	; 276E  ..
+	db	92h,27h	; 2770  ..
+	db	92h,27h	; 2772  ..
+	db	92h,27h	; 2774  ..
+	db	92h,27h	; 2776  ..
+	db	92h,27h	; 2778  ..
+	db	92h,27h	; 277A  ..
+	db	92h,27h	; 277C  ..
+	db	92h,27h	; 277E  ..
+	db	92h,27h	; 2780  ..
+	db	92h,27h	; 2782  ..
+	db	92h,27h	; 2784  ..
+	db	92h,27h	; 2786  ..
+	db	92h,27h	; 2788  ..
+	db	92h,27h	; 278A  ..
+	db	92h,27h	; 278C  ..
+	db	92h,27h	; 278E  ..
+	db	92h,27h	; 2790  ..
+alt_char_data:
+	; 43 entries x 9 bytes, each starting 03h. Only 0-9 :;<=>? and A-Z differ from blank -- a reduced character set for another panel type. Layout not yet decoded  (387 bytes)
+	db	03h,00h,00h,00h,00h,00h,00h,00h,00h	; 2792  .........
+	db	03h,73h,0EAh,0Fh,0BCh,0FBh,0F8h,37h,0B8h	; 279B  .s.....7.
+	db	03h,00h,7Eh,0F0h,00h,00h,7Eh,0F0h,00h	; 27A4  ..~...~..
+	db	03h,08h,66h,0CEh,8Ch,9Ah,62h,5Eh,88h	; 27AD  ..f...b^.
+	db	03h,00h,6Ah,4Fh,0BCh,88h,68h,57h,0A8h	; 27B6  ..jO..hW.
+	db	03h,0E1h,0C8h,47h,0B8h,61h,0C8h,4Fh,0B8h	; 27BF  ...G.a.O.
+	db	03h,0E1h,0EAh,5Bh,0B4h,0E9h,0E8h,51h,0A4h	; 27C8  ...[...Q.
+	db	03h,73h,0EAh,4Bh,0B4h,0FBh,0E8h,51h,0A0h	; 27D1  .s.K...Q.
+	db	03h,80h,66h,0DEh,0Ch,00h,66h,0D6h,0Ch	; 27DA  ..f...f..
+	db	03h,53h,0EAh,0Fh,0BCh,0FBh,0E0h,57h,0A8h	; 27E3  .S.....W.
+	db	03h,40h,0EAh,4Fh,0BCh,0E9h,0E0h,57h,0B8h	; 27EC  .@.O...W.
+	db	03h,00h,14h,0A0h,00h,00h,14h,0A0h,00h	; 27F5  .........
+	db	03h,00h,16h,0A0h,00h,84h,16h,0A8h,00h	; 27FE  .........
+	db	03h,00h,08h,0C5h,08h,01h,18h,0A1h,00h	; 2807  .........
+	db	03h,52h,94h,0A5h,28h,52h,94h,0A5h,28h	; 2810  .R..(R..(
+	db	03h,00h,94h,0C2h,00h,12h,98h,40h,00h	; 2819  .......@.
+	db	03h,00h,6Ah,4Ch,0Ch,00h,7Ah,70h,00h	; 2822  ..jL..zp.
+	db	03h,7Bh,0E8h,5Fh,0BCh,0FBh,0C8h,5Fh,0B8h	; 282B  .{._..._.
+	db	03h,0FBh,0EAh,5Fh,0BCh,0FBh,0EAh,57h,0A8h	; 2834  ..._...W.
+	db	03h,73h,0E2h,08h,84h,0FBh,0E0h,10h,80h	; 283D  .s.......
+	db	03h,0FBh,0E2h,1Fh,0BCh,0FBh,0E2h,17h,0B8h	; 2846  .........
+	db	03h,0FBh,0EAh,58h,84h,0FBh,0EAh,58h,84h	; 284F  ...X...X.
+	db	03h,0FBh,0E8h,58h,04h,0FBh,0C8h,50h,04h	; 2858  ...X...P.
+	db	03h,73h,0E2h,4Bh,0B4h,0FBh,0E0h,53h,0B0h	; 2861  .s.K...S.
+	db	03h,0FBh,0C8h,4Fh,0BCh,0FBh,0C8h,4Fh,0BCh	; 286A  ...O...O.
+	db	03h,00h,3Eh,0F0h,00h,00h,3Eh,0F0h,00h	; 2873  ..>...>..
+	db	03h,00h,22h,1Fh,0BCh,88h,20h,1Fh,0BCh	; 287C  ...... ..
+	db	03h,0FBh,0C4h,0CFh,8Ch,0FBh,0C0h,0CFh,8Ch	; 2885  .........
+	db	03h,0FBh,0C2h,00h,80h,0FBh,0E2h,08h,80h	; 288E  .........
+	db	03h,0FBh,0D0h,0Fh,0BCh,0FBh,0D8h,2Fh,0BCh	; 2897  ......./.
+	db	03h,0FBh,0D0h,0Fh,0BCh,0FBh,0D8h,4Fh,0BCh	; 28A0  .......O.
+	db	03h,73h,0E2h,0Fh,0BCh,0FBh,0E0h,17h,0B8h	; 28A9  .s.......
+	db	03h,0FBh,0E8h,5Eh,0Ch,0FBh,0C8h,56h,08h	; 28B2  ...^...V.
+	db	03h,73h,0E2h,0CFh,0BCh,0FBh,0E0h,97h,0B8h	; 28BB  .s.......
+	db	03h,0FBh,0E8h,0DFh,8Ch,0FBh,0C8h,0DFh,88h	; 28C4  .........
+	db	03h,40h,0EAh,4Bh,0B4h,0E9h,0E8h,51h,0A0h	; 28CD  .@.K...Q.
+	db	03h,80h,7Eh,0F8h,04h,00h,7Eh,0F0h,04h	; 28D6  ..~...~..
+	db	03h,0F3h,0C2h,0Fh,0BCh,0FBh,0E0h,07h,0BCh	; 28DF  .........
+	db	03h,0E3h,0C4h,0Fh,3Ch,63h,0C6h,86h,1Ch	; 28E8  ....<c...
+	db	03h,0F3h,0C4h,0CFh,3Ch,7Bh,0C0h,87h,0BCh	; 28F1  ....<{...
+	db	03h,0DBh,0C8h,0Fh,0BCh,0FBh,0C0h,4Fh,0ACh	; 28FA  .......O.
+	db	03h,0C0h,0CEh,0CEh,0Ch,61h,0E6h,0C6h,0Ch	; 2903  .....a...
+	db	03h,9Bh,6Ah,1Ch,8Ch,9Bh,7Ah,38h,84h	; 290C  ..j...z8.
 L2915:
 	PUSH	D
 	PUSH	H
@@ -5745,18 +5443,18 @@ L2934:
 	ANI	03h
 	ORI	04h
 	OUT	disp0_port_c
-	CALL	L190D
-	CALL	L190D
+	CALL	delay_76us
+	CALL	delay_76us
 	MVI	B,05h
 L294C:
 	IN	disp0_port_c
 	ANI	0F7h
 	ORI	10h
 	OUT	disp0_port_c
-	CALL	L190D
+	CALL	delay_76us
 	ANI	2Fh
 	OUT	disp0_port_c
-	CALL	L190D
+	CALL	delay_76us
 	ORI	20h
 	OUT	disp0_port_c
 	LDA	0A009h
@@ -5764,13 +5462,13 @@ L294C:
 	JNZ	L297D
 	MOV	A,M
 	OUT	disp0_port_a
-	CALL	L190D
+	CALL	delay_76us
 	MVI	A,81h
 	OUT	disp0_port_b
-	CALL	L190D
+	CALL	delay_76us
 	SUB	A
 	OUT	disp0_port_a
-	CALL	L190D
+	CALL	delay_76us
 L297D:
 	IN	disp0_port_b
 	ANI	7Fh
@@ -5778,7 +5476,7 @@ L297D:
 	CALL	L1981
 	ORI	80h
 	OUT	disp0_port_b
-	CALL	L190D
+	CALL	delay_76us
 	LDA	0A009h
 	CPI	12h
 	JNZ	L29A6
@@ -5789,22 +5487,22 @@ L297D:
 	IN	disp0_port_c
 	ORI	08h
 	OUT	disp0_port_c
-	CALL	L190D
+	CALL	delay_76us
 L29A6:
 	IN	disp0_port_c
 	ORI	10h
 	OUT	disp0_port_c
-	CALL	L190D
+	CALL	delay_76us
 	ANI	2Fh
 	OUT	disp0_port_c
-	CALL	L190D
-	CALL	L190D
+	CALL	delay_76us
+	CALL	delay_76us
 	MOV	A,M
 	OUT	disp0_port_a
-	CALL	L196E
+	CALL	wait_ticks_short
 	SUB	A
 	OUT	disp0_port_a
-	CALL	L190D
+	CALL	delay_76us
 	INX	H
 	DCR	B
 	JNZ	L294C
@@ -5931,7 +5629,7 @@ L2A89:
 	POP	PSW
 	POP	B
 	RET
-L2A8D:
+io_cd_command:
 	MVI	A,05h
 	OUT	io_cd
 L2A91:
@@ -6010,7 +5708,7 @@ L2B06:
 	RET
 L2B09:
 	LXI	H,msg_buffer
-	CALL	L2A8D
+	CALL	io_cd_command
 L2B0F:
 	MVI	A,00h
 	OUT	io_cd
@@ -6147,7 +5845,7 @@ L2C0B:
 	JMP	L2B3D
 L2C19:
 	LXI	H,0A02Ch
-	CALL	L2A8D
+	CALL	io_cd_command
 	LXI	H,0A02Fh
 	INR	M
 	MOV	A,M
@@ -6166,7 +5864,7 @@ L2C35:
 	JMP	L2B3D
 L2C3E:
 	LXI	H,0A02Ch
-	CALL	L2A8D
+	CALL	io_cd_command
 	LXI	H,0A02Dh
 	INR	M
 	MOV	A,M
@@ -6332,7 +6030,7 @@ L2D79:
 	MOV	C,A
 	CALL	uart_send_timed
 	CALL	reply_cleanup
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2DA0:
 	CPI	01h
@@ -6370,7 +6068,7 @@ L2DCB:
 	CALL	reply_cleanup
 	SUB	A
 	STA	0A088h
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2DF2:
 	SUB	A
@@ -6387,7 +6085,7 @@ L2DFF:
 	JNZ	L2E15
 	MVI	A,03h
 	STA	0A089h
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2E15:
 	CALL	line_turnaround
@@ -6435,7 +6133,7 @@ L2E67:
 	MOV	A,B
 	ORI	02h
 	STA	status_flags_a
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2E7F:
 	MOV	A,B
@@ -6480,13 +6178,13 @@ L2EB4:
 	STA	0A084h
 	CPI	00h
 	JZ	L2ED6
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2ED6:
 	MOV	A,B
 	ANI	0FBh
 	STA	status_flags_a
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2EE0:
 	MOV	A,B
@@ -6511,7 +6209,7 @@ L2EF1:
 	ANI	0E0h
 	ORA	C
 	STA	status_flags_b
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2F14:
 	LXI	H,state_vt
@@ -6529,7 +6227,7 @@ L2F14:
 	ANI	0F7h
 	ORI	04h
 	STA	status_flags_a
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2F3B:
 	MOV	A,B
@@ -6597,7 +6295,7 @@ L2FBE:
 	LDA	status_flags_a
 	ORI	20h
 	STA	status_flags_a
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2FCA:
 	LDA	0A07Dh
@@ -6609,12 +6307,12 @@ L2FCA:
 	LDA	status_flags_a
 	ORI	08h
 	STA	status_flags_a
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 	LDA	status_flags_a
 	ORI	10h
 	STA	status_flags_a
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 L2FEF:
 	CALL	line_turnaround
@@ -6629,7 +6327,7 @@ L3002:
 	LDA	status_flags_a
 	ORI	40h
 	STA	status_flags_a
-	CALL	L3042
+	CALL	watchdog_kick
 	RET
 	LDA	0A07Dh
 	ANI	40h
@@ -6660,7 +6358,7 @@ L303A:
 	MOV	A,C
 	OUT	uart_data
 	RET
-L3042:
+watchdog_kick:
 	MVI	A,0C8h
 	STA	watchdog_count
 	RET

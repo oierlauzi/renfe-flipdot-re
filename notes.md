@@ -20,6 +20,58 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Naming labels, a second character set, and a backslash
+
+**Did:** worked the unnamed labels in the generated listing, starting with the
+most-referenced call targets, and timed the delay routines on the emulator rather
+than guessing from cycle counts.
+
+**Found — the delay ladder, measured:**
+
+| Routine | Cost | Note |
+| --- | --- | --- |
+| `delay_76us` `0x190D` | 235 cyc, 76 us | most-called routine in the ROM, 25 sites |
+| `delay_90us` `0x1B4F` | 277 cyc, 90 us | **this is the "90 us unit"** already in the docs |
+| `delay_183ms` `0x1B58` | 564 231 cyc, 184 ms | per unit in `B` |
+| `sod_pulse` `0x1994` | 62 cyc, 20 us | pulses the 8085 SOD pin |
+
+`delay_183ms` with `B=5` is **918 ms**, which makes the attribute alternator's
+period about 1.84 s — a real, checkable number for when the panel runs.
+
+**Found — a second character set.** A 128-entry pointer table at `0x2692` feeding
+43 nine-byte entries at `0x2792-0x2914`, ending exactly where code resumes. The
+codes with real data are precisely `0-9 :;<=>? A-Z` — a reduced set, no lowercase
+or accents. It belongs to panel types `0x10`/`0x12`, not this unit's `0x11`. The
+9-byte layout is *not* decoded: bit 7 is used, every entry starts `03h`, and the
+obvious orientations render as noise. Recorded as such rather than guessed at.
+
+Practical consequence: **"the font" is ambiguous in this ROM** and any claim about
+glyphs should say which table it means.
+
+**The backslash.** After adding those data regions the build broke with a
+5-byte label shift that took a while to corner. Cause: the `db` gutter comment for
+glyph `0x209F` renders bytes `5C 62 02 62 5C` as `\b.b\` — and **AS treats a
+trailing backslash as a line continuation**, so it swallowed the following line and
+lost its 5 bytes.
+
+**This is the whole argument for using an established assembler, demonstrated.**
+My generator's self-check passed the entire time — its accounted byte spans
+reconstructed the ROM exactly — because the bug was not in the decode, it was in
+what AS did with the text I emitted. A homemade assembler would have agreed with
+me and the error would have shipped. The independent tool caught it in one run.
+
+Fixed by sanitising the gutter to a safe character set. Also added a check that
+every symbol lands at the address `symbols.csv` claims, which is what finally
+localised it: 10 symbols were exactly 5 low, and the last correct one bounded the
+search to the font table.
+
+**Concluded:** 551 labels, 100 named, all at correct addresses, still byte-exact.
+**[C]**
+
+**Next:** the remaining 451 `LXXXX` labels, and the 9-byte character set's layout.
+
+---
+
 ## 2026-08-06 — Matching disassembly: byte-identical, verified by AS
 
 **Did:** generated `src/firmware.asm` and put it through Macro Assembler AS.
