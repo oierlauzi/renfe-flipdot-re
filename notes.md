@@ -20,6 +20,55 @@ Entry template:
 
 ---
 
+## 2026-08-06 — U20's identity was assumed, and the assumption has a contradiction
+
+**Prompted by a question:** had the analysis assumed what U20 is? Yes — and
+checking properly turned an unconfirmed guess into an active conflict.
+
+**Did:** enumerated every write to `0xE0` in the ROM. There are exactly two, and
+both were decoded against the 8155 command register rather than taken on trust.
+
+**Found:**
+
+| Site | Value | PA | PB | PC mode | Timer |
+| --- | --- | --- | --- | --- | --- |
+| `0x03FD` | `0xCF` | out | out | **ALT4** | start |
+| `0x06EC` | `0x0D` | out | **in** | **ALT4** | NOP |
+
+**Both select ALT4**, in which an 8155 commits all six port C pins to handshake
+duty: `PC4` is driven by the handshake logic and `PC5` is an *input*. The flip-dot
+decode needs software control of precisely `PC4` as the shift clock and `PC5` as
+serial data. Those cannot both be true.
+
+`0x06EC` also configures **PB as an input**, which nothing in the current
+interpretation accounts for.
+
+**Concluded:** either U20 is not a plain 81C55 — a DIP40 with the same register
+offsets but general-purpose port C would satisfy everything — or `0xE3` is a
+discrete latch rather than the 8155's port C. The latter is less unlikely than it
+sounds: `0xE7` is *already* established as a separate latch inside this same
+address range, so the decode demonstrably holds more than one device. Recorded as
+assumption **A7** with the contradiction stated explicitly, and `0xE0-0xE5`
+downgraded from **[L]** to **[?]** in the I/O map.
+
+**Why the FF validation does not rescue it.** The solid-block render was the
+strongest confirmation in the project, but it confirms the *firmware's intent*, not
+the hardware's response — the emulator models `0xE3` as a plain readable latch, so
+that check could never have caught this. A validation is only as strong as the
+weakest thing it does not model. Worth remembering before treating any emulator
+result as hardware truth.
+
+**What survives untouched:** everything derived from what the firmware writes —
+the command protocol, buffer and shadow, repaint interlock, address arithmetic,
+glyph bit order and polarity, the 74-bit frame. Only the final step, register
+writes becoming ribbon signals, is in question.
+
+**Next:** U20's top marking, promoted to the highest-value chip reading on the
+boards; and a clock-edge count on the ribbon (74 per character) to check the pins
+follow the register.
+
+---
+
 ## 2026-08-06 — EOT, BS and SI: three commands finish decoding, one surprise each
 
 **Did:** worked the remaining "what does this command actually do" items with the

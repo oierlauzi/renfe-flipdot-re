@@ -15,7 +15,7 @@ Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
 | `0xA0-0xA5` | U2 M81C55-5 I/O section | DIP switches + baud-rate timer | **[C]** |
 | `0xC0-0xCF` | *unidentified* | LED matrix interface (board absent) | **[L]** |
 | `0xDE` | *unidentified input* | Active-low hardware status; sampled every RST7.5 tick | **[L]** |
-| `0xE0-0xE5` | 8155-class device | Flip-dot interface | **[L]** |
+| `0xE0-0xE5` | 8155-class device (U20) | Flip-dot interface — but see the ALT4 contradiction | **[?]** |
 | `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
 | `0xE8-0xEF` | 8155-class device | Second display bank / LED matrix | **[L]** |
 
@@ -120,7 +120,40 @@ Two register groups initialised by `FUN_ram_03F2` in a way that matches the
 ```
 
 Runtime write counts (`0xE1`: 33, `0xE2`: 39, `0xE3`: 39) put the hot loop on
-ports A/B/C of group 1 — the flip-dot row/column drive.
+ports A/B/C of group 1 — the flip-dot drive.
+
+### The ALT4 problem: this may not be an 8155 after all **[!]**
+
+The register *layout* argues strongly for an 8155. The *command word* argues
+against it, and the conflict is unresolved.
+
+Only two command words are ever written to `0xE0`:
+
+| Site | Value | PA | PB | PC mode | Timer |
+| --- | --- | --- | --- | --- | --- |
+| `0x03FD` | `0xCF` | out | out | **ALT4** | start |
+| `0x06EC` | `0x0D` | out | **in** | **ALT4** | NOP |
+
+Both select **ALT4**, which on an 8155 commits all six port C pins to handshake
+duty — `PC0/PC1/PC3/PC4` outputs driven by the handshake logic, `PC2/PC5`
+*inputs*. None is software-settable.
+
+But the flip-dot driver needs software control of exactly `PC4` (shift clock) and
+`PC5` (serial data), reading and writing `0xE3` on every bit. On a genuine 8155 in
+ALT4 that is impossible: `PC4` is not software-driven and `PC5` is an input.
+
+Note also that `0x06EC` configures **PB as an input**, which no part of the
+flip-dot interpretation accounts for.
+
+The most economical explanations are that U20 is a DIP40 with 8155-compatible
+register offsets but a general-purpose port C, or that `0xE3` is a discrete latch
+rather than the 8155's port C — which is less unlikely than it sounds, given that
+`0xE7` is already known to be a separate latch inside this same address range.
+
+**Everything derived from what the firmware writes is unaffected**; what is in
+question is whether those writes reach ribbon pins as a clock and data line. See
+[flipdot-interface.md](flipdot-interface.md#a7-has-a-contradiction-in-it-and-it-is-not-resolved-)
+for the full argument and what settles it.
 
 ## 0xE7 — expansion memory bank register **[C]**
 

@@ -212,8 +212,18 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Part number:**
 - **PCB:** Daughter 2
 - **Datasheet:** []
-- **Notes:** DIP40 package. **Strong 81C55/8155 candidate**: the firmware
-  initialises a register group at I/O `0xE0` in exactly the 8155 layout
-  (command, PA, PB, PC, timer LSB, timer MSB), and an 8155 is a DIP40 part.
-  Reading the top marking would confirm the whole `0xE0` interpretation in
-  [../docs/io-map.md](../docs/io-map.md).
+- **Notes:** DIP40 package. **81C55/8155 candidate, but the evidence now cuts
+  both ways** — reading the top marking is the single highest-value chip
+  identification left on the boards.
+
+  **For:** the firmware initialises a register group at I/O `0xE0` in exactly the
+  8155 layout (command, PA, PB, PC, timer LSB, timer MSB), and an 8155 is DIP40.
+
+  **Against:** both command words the firmware writes (`0xCF` at `0x03FD`, `0x0D`
+  at `0x06EC`) select port C mode **ALT4**, in which all six port C pins are
+  handshake lines — `PC4` a hardware-driven output, `PC5` an *input*. Yet the
+  flip-dot drive needs software control of `PC4` as a shift clock and `PC5` as
+  serial data. On a genuine 81C55 that cannot work, so either this is a different
+  DIP40 with the same register offsets and a general-purpose port C, or `0xE3` is
+  a separate latch rather than the 8155's port C.
+  → [../docs/flipdot-interface.md](../docs/flipdot-interface.md#a7-has-a-contradiction-in-it-and-it-is-not-resolved-)

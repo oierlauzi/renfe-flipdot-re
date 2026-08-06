@@ -150,10 +150,17 @@ third is a safety precondition.
 
 ## P3 — Settles specific open questions
 
-- [ ] **U20 top marking** (DIP40, daughter 2). The whole flip-dot interpretation
-      rests on this being an 81C55 — see
-      [docs/io-map.md](docs/io-map.md#0xe0-0xef--display-interface-l).
-      - Result:
+- [ ] **U20 top marking** (DIP40, daughter 2) — **now the highest-value chip
+      reading on the boards, and promoted from "confirm a guess" to "resolve a
+      contradiction".** The register layout at `0xE0-0xE5` says 81C55, but both
+      command words the firmware writes select port C mode **ALT4**, in which
+      `PC4` is not software-drivable and `PC5` is an input — while the flip-dot
+      drive needs software control of exactly those two as clock and data. On a
+      genuine 81C55 that cannot work, so either U20 is a different DIP40 with
+      8155-compatible offsets, or `0xE3` is a separate latch.
+      → [docs/flipdot-interface.md](docs/flipdot-interface.md#a7-has-a-contradiction-in-it-and-it-is-not-resolved-)
+      - Result — top marking:
+      - Result — does port C behave as GPIO (does `PC5` drive the ribbon)?
 - [x] ~~U19 marking.~~ It is a **third ULN2003A** (ST), so daughter 2 has 21
       Darlington sinks against the 81C55's 22 output bits — near enough
       one-for-one to look deliberate.
