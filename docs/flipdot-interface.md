@@ -58,11 +58,64 @@ Two readings worth testing:
 * `0xE2` receiving only a 4-bit value suggests port B carries a **column or
   character address**, not pixel data — 4 bits addresses 16 characters exactly. **[L]**
 
+## Power-on behaviour: the panel is zeroed **[C] observed**
+
+**Observation (owner, 2026-08):** on power-up a brief buzzing sound *sweeps
+across the display*. No visual change on this unit, because its dots were already
+all showing black.
+
+That single observation settles several things:
+
+* **The rest state is black**, and power-on drives every dot to it.
+* **The sweep is sequential**, not simultaneous — the sound moves across the
+  panel. Coils are energised in groups small enough to be heard travelling, which
+  is what the current budget of two ULN2003A packages would force anyway.
+* **The firmware does not know the panel state at power-on and does not try to.**
+  Flip-dots are bistable, so after a power cut the physical dots are wherever they
+  were left, while the frame buffer in RAM is cleared to zero. Forcing every dot
+  unconditionally is the only way to make the two agree. A controller therefore
+  **cannot rely on the panel retaining content across a power cycle**.
+* It is audible proof the drive electronics and at least some coils work — a
+  useful bring-up signal before any serial work succeeds.
+
+### It is not reproduced in emulation **[C]**
+
+Running the real ROM in [pit100_sim.py](../tools/pit100_sim.py) produces only
+**eight** display-port writes during boot, whatever the switch settings:
+
+```
+PC=0x03FB  0xE0 <- 0xCF     command: PA/PB out, PC ALT4, timer start
+PC=0x03FF  0xE1 <- 0x80     the short pulse on ports A and B
+PC=0x0401  0xE2 <- 0x80
+PC=0x0407  0xE1 <- 0x00
+PC=0x0409  0xE2 <- 0x00
+PC=0x040B  0xE3 <- 0x00
+PC=0x068D  0xE1 <- 0x00     a second clear later in startup
+PC=0x068F  0xE2 <- 0x00
+PC=0x0691  0xE3 <- 0x00
+```
+
+No sweep, over four million instructions and with the periodic interrupt driven
+at several rates. So the full-panel drive is **gated on something the model does
+not provide** — most likely a hardware handshake the render path waits on, since
+the `0xC0` device and the panel's own status lines are stubbed. The `0x80`-then-
+`0x00` pulse at `0x03FF` remains the best candidate for the *trigger*: it may
+strobe a sequencer on daughter 2 that does the sweep in hardware, which would
+explain both the audible scan and the absence of per-dot writes from the CPU.
+
+**Concrete follow-up: time the buzz.** Duration divided by 560 dots gives the
+per-dot drive time directly, which is the open question below. A one-second sweep
+would mean roughly 1.8 ms per dot.
+
 ## Open questions
 
 - [ ] Count the ribbon conductors and match them to the port bits.
 - [ ] Determine the pulse width used to flip a dot, and whether the firmware
-      relies on the 81C55 timer or on software delay loops.
+      relies on the 81C55 timer or on software delay loops. **Timing the
+      power-on sweep gives this almost for free** — see above.
+- [ ] Does daughter 2 contain a hardware sequencer that performs the power-on
+      sweep autonomously? The CPU issues only a short pulse at `0x03FF`, yet the
+      panel scans audibly.
 - [ ] Does it repaint the whole panel or only changed dots? (Matters for how
       fast an external controller can push updates, and for coil heating.)
 - [ ] Where is the frame buffer in the `0xA000` RAM, and in what layout?

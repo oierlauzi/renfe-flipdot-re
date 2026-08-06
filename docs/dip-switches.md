@@ -173,9 +173,23 @@ status frame carries as its last byte, so the two protocols share one addressing
 scheme: handler B addresses with `GS <0x30|addr>`, handler A embeds
 `0x60|addr` as its frame delimiter.
 
+## Port C bits 4:0 — display type **[C]**
+
+At `0x055A` the startup path reads port C, masks `0x1F`, and dispatches 32 ways
+on the result — a jump per value from `0x00` to `0x1F`. Most land on a common
+default (`0x060F`), but `0x02`, `0x03`, `0x0D`, `0x12`, `0x13`, `0x14` and `0x15`
+have their own targets, so those are the distinct configured variants.
+
+The same `IN 0xA3 / ANI 0x1F` dispatch appears again at `0x09FF`.
+
+This is almost certainly a **panel model/geometry selector**, letting one
+firmware serve several PI-T100 variants. Which value corresponds to this
+16-character panel is unknown until the switches are read — another reason to
+record their as-found positions before touching anything.
+
 ## Still unmapped
 
-Port B bits 1:0, and port C bits other than 5. **[?]**
+Port B bits 1:0. **[?]**
 
 ## Recording the physical state — do this first
 

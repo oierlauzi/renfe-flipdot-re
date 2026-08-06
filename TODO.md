@@ -112,6 +112,10 @@ third is a safety precondition.
 - [ ] **Panel ribbon conductor count.** Discriminates the row/column drive
       arrangement immediately.
       - Result:
+- [ ] **Time the power-on buzz** with a stopwatch or a phone recording. Divided
+      by 560 dots it gives the per-dot drive time directly, which is otherwise an
+      open question. → [docs/flipdot-interface.md](docs/flipdot-interface.md)
+      - Result — sweep duration:
 - [ ] **Solder-side photos** of the motherboard and both daughter boards, for
       tracing the chip selects.
 
@@ -172,7 +176,15 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       character, bit 6 protocol select, bit 7 a render option. The address also
       forms handler A's start-of-frame byte as `0x60 | addr`, which is the same
       value the status frame carries.
-- [ ] **Port A bit 7's exact render effect** (`0x0753`, `0x0831`).
+- [ ] **Port A bit 7's exact render effect** (`0x0753`, `0x0831`). Sweeping it
+      in the simulator changes nothing observable, so its effect is downstream of
+      hardware the model stubs.
+- [ ] **Which port C bits 4:0 value matches this panel?** They select the display
+      type via a 32-way dispatch at `0x055A`; seven values have distinct
+      handlers. → [docs/dip-switches.md](docs/dip-switches.md)
+- [ ] **Why does the panel sweep at power-on but the CPU issue no per-dot
+      writes?** Suspect a hardware sequencer on daughter 2 strobed by the pulse
+      at `0x03FF`. → [docs/flipdot-interface.md](docs/flipdot-interface.md)
 
 - [x] **Status frame explained**: `CAN CAN RS NAK <0x60|addr>`, with the
       address coming from port A. Two variants differing in bits 7:6 of the last

@@ -20,6 +20,52 @@ Entry template:
 
 ---
 
+## 2026-08-05 — Power-on sweep, and what the emulator says about it
+
+**Observed (owner):** on power-up a brief buzzing sound sweeps across the panel.
+No visual change on this unit because its dots were already all black.
+
+**What it settles:**
+
+* The rest state is **black**, and power-on drives every dot to it.
+* The sweep is **sequential** — the sound travels, so coils fire in small groups.
+  Two ULN2003A packages could not drive 560 dots at once anyway.
+* The firmware **does not know the panel state at power-on and does not try to**.
+  Flip-dots are bistable, so after a power cut the dots are wherever they were
+  left while RAM comes up cleared. Forcing every dot is the only way to make the
+  two agree. A controller therefore cannot assume the panel survives a power
+  cycle.
+* It is audible proof the drive electronics work — a bring-up signal available
+  before any serial success.
+
+**Checked it against the emulator, and got a useful negative.** Booting the real
+ROM produces only **eight** display-port writes, regardless of switch settings,
+over four million instructions and with the periodic interrupt driven at several
+rates: the `0xE0` command word, a `0x80`-then-`0x00` pulse on ports A and B
+around `0x03FF`, and three zeros at `0x068D`. **No sweep.**
+
+**Concluded:**
+
+* The observation is **[C]**; the emulator's silence is **[C]** as a fact about
+  the model, not about the hardware.
+* Best explanation **[L]**: daughter 2 carries a **hardware sequencer** that
+  performs the sweep autonomously, strobed by that short pulse at `0x03FF`. That
+  would explain both the audible scan and the complete absence of per-dot writes
+  from the CPU. Previously the pulse was guessed to be a "reset/home pulse" — the
+  buzz corroborates that reading and sharpens it.
+* Alternatively the render path waits on a hardware handshake the model stubs.
+  Distinguishing the two needs a scope on the ribbon.
+
+**Also found while chasing this:** port C bits 4:0 are a **display-type
+selector** — a 32-way dispatch at `0x055A`, with seven values having distinct
+handlers. One firmware, several PI-T100 variants.
+
+**Cheap follow-up worth doing:** time the buzz. Duration / 560 dots gives the
+per-dot drive time, which `docs/flipdot-interface.md` has been carrying as an
+open question. A one-second sweep would mean ~1.8 ms per dot.
+
+---
+
 ## 2026-08-05 — Operational context, and the display computes nothing
 
 **Did:** Recorded how the sign works in service, and checked whether any of that
