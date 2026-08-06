@@ -90,9 +90,61 @@ an inverted `¿`, `0xAD` an inverted `¡`, and `0x82` an `é`.
 
 In Python, `text.encode("cp437")` produces the right bytes directly.
 
-### The two substitutions
+### The two substitutions: `ñ` and `Ñ`, reachable over a 7-bit link **[C]**
 
-`0x24` and `0x25` are **not** `$` and `%`. Both are accented Latin capitals;
+`0x24` and `0x25` are **not** `$` and `%`. They are **`ñ` and `Ñ`**, deliberate
+duplicates of CP437's `0xA4` and `0xA5`, placed so that **stripping bit 7 lands on
+the right glyph**:
+
+```
+0xA4 & 0x7F = 0x24      n-tilde
+0xA5 & 0x7F = 0x25      N-tilde
+```
+
+That is the whole explanation, and it is not a coincidence of two arbitrary
+positions: it is the *only* pair of characters Spanish cannot do without, put
+exactly where a 7-bit link would deliver them.
+
+The glyphs are redrawn rather than copied — same letters, different artwork:
+
+```
+    0x24  ñ       0xA4  ñ           0x25  Ñ       0xA5  Ñ
+    .###.         .#.#.             .###.         .##.#
+    .....         #.#..             .....         #..#.
+    #.##.         .....             #...#         .....
+    ##..#         ###..             ##..#         ##..#
+    #...#         #..#.             #.#.#         #.#.#
+    #...#         #..#.             #..##         #..##
+    #...#         #..#.             #...#         #...#
+```
+
+The `0x2x` pair use a full-width tilde on row 0 with the letter below; the CP437
+originals squeeze a smaller tilde into rows 0-1. In each pair the letter body is
+identical — compare the raw bytes, where `0x25` is `7c **09 11 21** 7c` against
+`0xA5`'s `7a **09 11 22** 79`.
+
+`0x24` and `0x25` differ from each other exactly where lowercase differs from
+uppercase: `0x24`'s body is an `n` shoulder-and-stem, `0x25`'s carries the
+diagonal that both `N` glyphs show.
+
+**Three findings now agree**, arrived at independently:
+
+1. The DIP switches as found decode, under the most plausible reading, to **7 data
+   bits** ([dip-switches.md](dip-switches.md#as-found-c-for-the-readings--for-the-mapping)).
+2. The firmware masks with `ANI 0x7F` wherever it takes a parameter — the `GS`
+   address at `0x1060`, `VT`'s row and column at `0x0CD0`/`0x0D00`, `EOT`'s
+   sub-mode at `0x1123`.
+3. The font table duplicates precisely `ñ` and `Ñ` at their bit-7-stripped
+   positions.
+
+A 7-bit link physically cannot carry `0xA5`. The duplicates are not a curiosity,
+they are what makes the display usable in Spanish over the link it was given.
+
+The original reading of this section — "both are accented Latin capitals, `0x24`
+unidentified" — was half right and is superseded. **[C]**
+
+### The original observation, for the record
+
 `0x25` reads clearly as a second **Ñ**:
 
 ```
@@ -106,17 +158,8 @@ In Python, `text.encode("cp437")` produces the right bytes directly.
       #...#                       #...#
 ```
 
-A second `Ñ` inside the 7-bit range is exactly what a Spanish installation needs
-when the link, the controller or an intermediate system is not 8-bit clean. The
-identity of `0x24` is less certain — another accented capital, but which one is
-**[?]**.
-
-**This now has independent support.** The DIP switches as found decode, under the
-most plausible reading, to **7 data bits** on the serial link
-([dip-switches.md](dip-switches.md#as-found-c-for-the-readings--for-the-mapping)).
-A 7-bit link physically cannot carry `0xA5`, the CP437 `Ñ` — so a duplicate below
-`0x80` is not a curiosity, it is a requirement. Two findings arrived at from
-opposite directions agreeing is worth more than either on its own. **[L]**
+These were first read as "two accented Latin capitals, `0x24` unidentified". The
+`& 0x7F` relationship above supersedes that: they are `ñ` and `Ñ`.
 
 ### CP437's gap: uppercase accented vowels
 
@@ -128,18 +171,22 @@ the uppercase ones only **`É` (0x90)**, plus `Ä Å Ö Ü Æ` and `Ñ (0xA5)`.
 it has to be `CHAMARTIN`, or use one of the two substitute glyphs. `Ñ` and `É`
 are the two that do work — fortunately the two Spanish most needs.
 
-This is very likely *why* `0x24` and `0x25` exist. `0x25` is a second `Ñ` for the
-7-bit link; `0x24` is plausibly one of the missing accented capitals, which would
-explain both substitutions as filling real gaps rather than being arbitrary.
-**[?]**
+Note this is a *different* gap from the one `0x24`/`0x25` fill. Those two exist so
+that `ñ` and `Ñ` survive a 7-bit link; they do nothing for the missing accented
+capitals, which simply cannot be displayed at all.
 
 `tools/pit100.py` refuses to encode a character with no glyph rather than
 silently sending the wrong one, and offers `fold=True` to drop the impossible
 accents.
 
-**Consequence for a controller:** do not send `$` or `%` expecting them to
-appear, and fold or avoid uppercase `Á Í Ó Ú`. Everything else in `0x20-0x7E`
-matches ASCII as far as the glyph map shows.
+**Consequence for a controller:**
+
+* Do not send `$` or `%` expecting them to appear — they are `ñ` and `Ñ`.
+* Over a **7-bit link**, send `ñ` as `0x24` and `Ñ` as `0x25`; `0xA4`/`0xA5` will
+  have their top bit stripped and arrive at those codes anyway, so either works.
+  `tools/pit100.py`'s `encode(seven_bit=True)` does the mapping explicitly.
+* Fold or avoid uppercase `Á Í Ó Ú`, which have no glyph at any code point.
+* Everything else in `0x20-0x7E` matches ASCII as far as the glyph map shows.
 
 Two firmware references worth following if the table is ever indexed
 differently: `LXI HL,0x1C0D` (3 sites) and `LXI HL,0x1C5D` (3 sites, = table

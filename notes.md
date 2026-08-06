@@ -20,6 +20,47 @@ Entry template:
 
 ---
 
+## 2026-08-06 — 0x24 and 0x25 are n-tilde and N-tilde (owner's insight)
+
+**The owner supplied the answer and it is obviously right once stated:** `0x24` is
+`ñ`, `0x25` is `Ñ`, and they shadow CP437's `0xA4`/`0xA5` because
+
+```
+0xA4 & 0x7F = 0x24
+0xA5 & 0x7F = 0x25
+```
+
+A 7-bit link strips bit 7, so the two characters Spanish cannot do without are
+duplicated at exactly the codes they arrive as. Verified: the byte pairs share
+their letter bodies (`0x25` = `7c 09 11 21 7c`, `0xA5` = `7a 09 11 22 79`) and
+differ only in how the tilde is drawn — full-width on row 0 for the `0x2x` pair,
+compressed into rows 0-1 for the CP437 originals. Rendered both through the
+emulated panel side by side; `AÑO ñ` comes out correctly either way.
+
+**What I had wrong, and why.** I read `0x25` as `Ñ` correctly but called `0x24`
+"another accented capital, unidentified", and marked the pair `[?]`. Two errors:
+I assumed both were the *same case* because they sit adjacent, and I never checked
+them against `0xA4`/`0xA5` despite having already written in the same document that
+a 7-bit link cannot carry `0xA5`. The masking relationship was one subtraction away
+from a claim I had already made.
+
+Third time this session that the evidence was already in the document. The pattern
+is specific enough to name: I check a hypothesis against *new* evidence and forget
+to check it against what I have already written down.
+
+**Concluded:** `0x24` = `ñ`, `0x25` = `Ñ`, duplicated for 7-bit transport. **[C]**
+Three independent lines agree — the switch decode (7 data bits), the firmware's
+`ANI 0x7F` on every parameter, and the font table itself.
+
+`encode(seven_bit=True)` now maps them explicitly. Strictly redundant on a real
+7-bit link, which strips the bit in hardware, but it makes the wire bytes
+unambiguous.
+
+**Next:** the matching disassembly — the last firmware item. The owner does not
+want a glyph editor, so that is dropped.
+
+---
+
 ## 2026-08-06 — Port A bit 7, and three options frozen into the code
 
 **Did:** decoded port A bit 7's two branches, then — having noticed the same odd

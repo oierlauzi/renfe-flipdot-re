@@ -369,9 +369,12 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
       pictograms, accented Latin, box drawing, Greek and maths. `Ñ` is `0xA5`,
       and `text.encode("cp437")` produces correct bytes.
       → [docs/font.md](docs/font.md)
-- [ ] **What is `0x24`?** `0x24` and `0x25` are accented capitals, not `$`/`%`.
-      `0x25` reads as a second `Ñ`; `0x24` is unidentified.
-- [ ] A friendlier glyph tool: generating and editing 5-byte glyphs by hand.
+- [x] **`0x24` and `0x25` identified: `ñ` and `Ñ`.** They duplicate CP437's
+      `0xA4`/`0xA5` at exactly the codes a 7-bit link delivers them to
+      (`0xA4 & 0x7F = 0x24`, `0xA5 & 0x7F = 0x25`) — the two characters Spanish
+      cannot do without, placed so they survive the link. Agrees with the switches
+      decoding to 7 data bits and with the firmware's pervasive `ANI 0x7F`.
+      → [docs/font.md](docs/font.md#the-two-substitutions-ñ-and-ñ-reachable-over-a-7-bit-link-c)
 - [x] **8085 disassembler with symbol annotation and cross-reference search** —
       `tools/disasm.py`. Reproduces the hand-annotated listings in the docs
       exactly, and is the tool the matching disassembly in `src/` will need.

@@ -75,13 +75,18 @@ def escape_controls(payload):
     return bytes(out)
 
 
-def encode(text, fold=False):
+# The ROM duplicates n-tilde and N-tilde below 0x80, at exactly the codes a 7-bit
+# link delivers them to: 0xA4 & 0x7F = 0x24, 0xA5 & 0x7F = 0x25. See docs/font.md.
+SEVEN_BIT = {0xA4: 0x24, 0xA5: 0x25}
+
+
+def encode(text, fold=False, seven_bit=False):
     """Encode text for the panel: CP437, with the panel's quirks guarded.
 
     Two things differ from plain cp437:
 
-    * ROM 0x24 and 0x25 hold accented capitals, not '$' and '%'. Sending either
-      produces the wrong glyph, so refuse rather than surprise the caller.
+    * ROM 0x24 and 0x25 are 'n' and 'N' with tildes, not '$' and '%'. Sending
+      either produces the wrong glyph, so refuse rather than surprise the caller.
     * CP437 has no uppercase A/I/O/U-acute. `Ñ` and `É` are fine, the rest are
       not, which matters because station names are usually uppercase. Pass
       fold=True to strip those accents instead of raising.
@@ -89,6 +94,12 @@ def encode(text, fold=False):
     Control codes are *not* escaped here, because the escape only makes sense in
     a command stream -- use escape_controls() for that, or message(), which
     applies it.
+
+    seven_bit=True maps n-tilde and N-tilde to their duplicates at 0x24/0x25.
+    Strictly this is belt and braces: a 7-bit link strips bit 7 in hardware and
+    lands on the same codes. It matters when you want the bytes on the wire to be
+    unambiguous, or when the link turns out to be 8-bit after all and you still
+    want the alternate glyphs.
 
     See docs/font.md.
     """
@@ -98,9 +109,10 @@ def encode(text, fold=False):
         if bad in text:
             raise ValueError(
                 f"{bad!r} has no glyph on this panel - ROM 0x24/0x25 hold "
-                f"accented capitals instead. See docs/font.md")
+                f"n-tilde and N-tilde instead. See docs/font.md")
     try:
-        return text.encode("cp437")
+        out = text.encode("cp437")
+        return bytes(SEVEN_BIT.get(b, b) for b in out) if seven_bit else out
     except UnicodeEncodeError as exc:
         ch = exc.object[exc.start:exc.end]
         hint = ""
