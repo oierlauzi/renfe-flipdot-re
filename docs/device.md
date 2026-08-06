@@ -28,23 +28,43 @@ date — and it dates the *firmware*, which is the date that matters most here.
 
 Everything is consistent with a **mid-1990s build**.
 
-### Why a German company's label on a Spanish sign
+### Why a German company's marks on a Spanish sign
 
 **Telenorma** descends from **Telefonbau und Normalzeit** of Frankfurt — literally
 "telephone construction and standard time". Alongside telephone systems the firm
 built **public and station clock and time-distribution installations**; it later
 became part of Bosch Telecom. **[L]**, and worth verifying properly.
 
-The label is on the *programmed EPROM*, not the chassis, so the most economical
-reading is that **the firmware came from Telenorma while PAGE Ibérica built the
-sign** — a licensed design, an OEM arrangement, or PAGE Ibérica as the Spanish
-partner in a Telenorma installation. **[?]**
+**The electronics are Telenorma's, not just the firmware.** Two independent marks:
+
+| Evidence | What it covers |
+| --- | --- |
+| `TELENORMA 18 JUN 96` sticker on the EPROM | the **firmware** |
+| **Telenorma logo on the motherboard silkscreen** | the **hardware design and build** |
+
+Together with German-industrial part numbering across all three boards
+(`300-48.0216.5586`, `324-40.0219.9078`, `11.0238.4030` …, see
+[../hardware/pcbs.md](../hardware/pcbs.md#telenorma-part-numbers-c--but-verify-the-digits-against-the-board))
+that settles the division of labour much more sharply than the EPROM label alone
+did:
+
+* **Telenorma designed and manufactured the control electronics** and wrote the
+  firmware.
+* **PAGE Ibérica supplied the sign** — the enclosure, the flip-dot panel, the
+  fluorescent lighting, the Spanish market — and put its plate on the outside.
+  The plate does say `FABRICADO`, so manufacture under licence, or assembly
+  around bought-in Telenorma boards, are both plausible. **[?]**
+* `MAESTRA` is PAGE Ibérica's Spanish terminology layered over a Telenorma
+  product.
+
+This revises the earlier reading, which had Telenorma supplying only the ROM.
 
 Three consequences worth carrying:
 
-1. **This is probably not a RENFE one-off.** A time-and-information distribution
-   system from a clock-systems company implies a product family with a documented
-   bus, deployed in more than one country.
+1. **This is not a RENFE one-off.** Telenorma-designed hardware means a product
+   family with a documented bus, deployed wherever Telenorma sold — most likely
+   including German stations. Identical or near-identical boards may survive under
+   Telenorma part numbers, which is a far wider search than Spanish rail sources.
 2. **Documentation should be hunted under Telenorma and Bosch Telecom too**, not
    only PAGE Ibérica — see [references.md](references.md).
 3. **It quietly supports the current-loop theory.** German time-distribution and

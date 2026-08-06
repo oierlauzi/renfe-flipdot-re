@@ -2,11 +2,50 @@
 
 Three boards. Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 
+## Telenorma part numbers **[C] — but verify the digits against the board**
+
+**The motherboard carries the Telenorma logo.** Combined with the EPROM's
+`TELENORMA 18 JUN 96` label, that makes the electronics a **Telenorma design and
+build**, not merely Telenorma firmware in a PAGE Ibérica board — see
+[../docs/device.md](../docs/device.md#dating-and-the-telenorma-connection-c-for-the-label).
+
+The silkscreen numbering is consequently German-industrial in style, and these are
+**the most searchable identifiers on the whole unit**. Transcribed from
+[photos/mother_pcb_top.jpg](photos/mother_pcb_top.jpg) and
+[photos/daughter_pcb1_top.jpg](photos/daughter_pcb1_top.jpg) — read off
+photographs, so **check each against the board before quoting it anywhere**:
+
+| Board | Silkscreen | Rev |
+| --- | --- | --- |
+| Mother | `300-48.0216.5586` | `A.2` |
+| Mother | `324-48.0216.5586` | `A.2` |
+| Mother | `41.0222.0026`, `L1` | `A.1` |
+| Daughter 1 | `300-40.0219.9078` | `A.3` |
+| Daughter 1 | `324-40.0219.9078` | `A.3` |
+| Daughter 1 | `11.0238.4030`, `L1` | `A.3` |
+| Daughter 1 | `37623.6`, `BR1` / `L1` | `A.3` |
+| DC-DC module | `970593-960119980401` | |
+
+The paired `300-` and `324-` prefixes on the *same* number are worth noting: in
+German practice that usually distinguishes the **bare board** from the **populated
+assembly**. If so, `48.0216.5586` and `40.0219.9078` are the real design numbers.
+**[L]**
+
+Other silkscreen markings: connector designators `STA`, `STB`, `STC`, `STD`;
+`ASTU1`; `S17` beside a two-pin blue component; adhesive labels `A 965` and
+`BAR ?065`.
+
 ## Motherboard
 
 Largest of the three. Carries the CPU and its peripherals: U1 MSM80C85AH with its
 6.144 MHz crystal, U2 M81C55-5, U3 M82C51A-2, U4 M27256 EPROM, U5 MC14584BCP,
 U6 7555, U7 6N139, and the unidentified U8/U9/U10. See [chips.md](chips.md).
+
+Two 8-position blue DIP switch banks sit immediately beside the M81C55-5,
+confirming they are the ports A and B configuration switches
+([../docs/dip-switches.md](../docs/dip-switches.md)). The lone separate switch is
+designated **`S17`** on the silkscreen. Two TO-220 regulators on gold heatsinks
+supply the logic rails.
 
 ## Daughter 1 — serial interface
 

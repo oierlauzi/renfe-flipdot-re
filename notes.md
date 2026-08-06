@@ -20,6 +20,55 @@ Entry template:
 
 ---
 
+## 2026-08-06 — The motherboard carries the Telenorma logo
+
+**Recorded (owner):** the mother PCB bears the Telenorma logo.
+
+**This is a bigger shift than the EPROM sticker was.** Yesterday's reading had
+Telenorma supplying only the *firmware*, with PAGE Ibérica having built the board.
+A logo on the silkscreen moves them to **hardware designer and manufacturer**.
+Two independent marks now:
+
+| Evidence | Covers |
+| --- | --- |
+| `TELENORMA 18 JUN 96` on the EPROM | the firmware |
+| Telenorma logo on the motherboard | the hardware design and build |
+
+**Revised division of labour:** Telenorma designed and made the control
+electronics and wrote the firmware; PAGE Ibérica supplied the *sign* — enclosure,
+flip-dot panel, fluorescent lighting, the Spanish market — and put its plate on the
+outside. The plate does read `FABRICADO`, so manufacture under licence or assembly
+around bought-in Telenorma boards are both plausible. `MAESTRA` is PAGE Ibérica's
+Spanish label on a Telenorma product.
+
+**The practical payoff: the silkscreen numbering is German-industrial and highly
+searchable.** Read off the photographs (and needing verification against the
+board):
+
+* Mother: `300-48.0216.5586` / `324-48.0216.5586` rev `A.2`, `41.0222.0026 L1 A.1`
+* Daughter 1: `300-40.0219.9078` / `324-40.0219.9078` rev `A.3`, `11.0238.4030`,
+  `37623.6`
+
+The paired `300-`/`324-` prefixes on the same number probably distinguish bare
+board from populated assembly, in which case `48.0216.5586` and `40.0219.9078`
+are the real design numbers. **[L]** These are far more specific than any product
+name and are now the best documentation lever the project has — daughter 2 has
+not been transcribed at all yet.
+
+**Also read from the motherboard photo:** the two 8-position DIP banks sit
+immediately beside the M81C55-5, confirming they are the ports A and B switches;
+the lone separate switch is designated **`S17`**; connector designators are
+`STA`-`STD` plus `ASTU1`.
+
+**And a consequence worth stating:** this is definitively *not* a RENFE one-off.
+Telenorma-designed hardware implies a product family deployed wherever Telenorma
+sold, very plausibly including German stations — so identical boards may survive
+elsewhere, and the protocol is a documented product bus rather than a bespoke
+Spanish arrangement. That also keeps nudging the electrical question towards the
+20 mA current loop common in German time-distribution installations.
+
+---
+
 ## 2026-08-06 — Switch positions as found, and a convergence on 7 data bits
 
 **Recorded (owner)** — the P0 item, the one piece of state no amount of later work

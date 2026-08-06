@@ -37,6 +37,7 @@ inconsistente.
 | | |
 | --- | --- |
 | Model | PAGE Ibérica PI-T100-M ("MAESTRA" — master unit) |
+| Electronics | **Telenorma** (Telefonbau und Normalzeit, Frankfurt) — logo on the motherboard, EPROM labelled `TELENORMA 18 JUN 96` |
 | Display | 16 characters, 5x7 dots each (80x7 = 560 dots), 100 mm high |
 | CPU | OKI MSM80C85AH (Intel 8085 clone) |
 | Firmware | 32 KiB M27256 EPROM, 12.3 KiB used, version `AK0052.139U1` |

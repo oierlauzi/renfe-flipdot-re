@@ -201,12 +201,25 @@ MAX3490, **not** the 5 V MAX485/MAX490 on most cheap breakouts.
 - [ ] PAGE Ibérica still operates in Tres Cantos. A polite email asking for
       PI-T100 documentation costs nothing —
       see [docs/references.md](docs/references.md).
-- [ ] **Chase the TELENORMA lead.** The EPROM is labelled `TELENORMA 18 JUN 96`,
-      so the firmware plausibly originates with the German clock and
-      time-distribution firm rather than PAGE Ibérica. That reframes the
-      documentation hunt — search Telenorma / Telefonbau und Normalzeit / Bosch
-      Telecom passenger-information and clock-bus material, not only Spanish
-      sources. → [docs/references.md](docs/references.md)
+- [ ] **Transcribe every silkscreen part number from the boards, carefully.**
+      These are Telenorma drawing numbers and are the **single best lever for
+      finding documentation** — far more specific than any product name. Read from
+      photos so far and needing verification: `300-48.0216.5586` /
+      `324-48.0216.5586` (mother), `300-40.0219.9078` / `324-40.0219.9078`
+      (daughter 1), `41.0222.0026`, `11.0238.4030`, `37623.6`. Also check
+      daughter 2, which has not been transcribed at all.
+      → [hardware/pcbs.md](hardware/pcbs.md#telenorma-part-numbers-c--but-verify-the-digits-against-the-board)
+      - Result — mother:
+      - Result — daughter 1:
+      - Result — daughter 2:
+- [ ] **Photograph the Telenorma logo** on the motherboard silkscreen, for the
+      record.
+- [ ] **Chase the TELENORMA lead.** Both the EPROM label and the motherboard logo
+      are Telenorma, so hardware *and* firmware originate with the German clock
+      and time-distribution firm; PAGE Ibérica supplied the sign around them. The
+      documentation hunt is therefore German, not Spanish — Telenorma /
+      Telefonbau und Normalzeit / Bosch Telecom passenger-information and
+      clock-bus material. → [docs/references.md](docs/references.md)
 - [ ] Verify the Telenorma corporate history properly (Telefonbau und Normalzeit
       → Telenorma → Bosch Telecom, clock systems). Currently recorded from
       recollection and marked **[L]**.
