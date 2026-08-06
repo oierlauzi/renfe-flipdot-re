@@ -37,6 +37,14 @@ modern LED/LCD signage. Photos below (Google Maps contributions) show the
 | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnpDItrdE-jffbQzwgDOmBl3eBJsfrWeRIwUOu4PRUU-6UetTpRR4sGQvcV132kxajOcKpNw4lsv0qbUnxs4Rc7jBR-V3Ycl3R9sf9Pio3Wk6Pi036VEk2yvCTzaVt-lRIpQuU7=w480" width="260" alt="Vía display at Las Rozas">](https://maps.app.goo.gl/UtGVrC6zMScknKGb8) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn8hKNYQuLIZa8VCoKam4xc6gy935AlYsH69e-by3c4ZkdvUhzFSQn45frfmGF6cQSo0SKHmEScAodaDCHz1cgGm9BaNnHH5aEMidmlVOjYCf--HT3oZyubCppA8_vkdR3dqbm3=w480" width="260" alt="Vía display at Cantoblanco Universidad">](https://maps.app.goo.gl/gkyVJaivqFrVrPYh8) | [<img src="https://lh3.googleusercontent.com/gps-cs-s/AHRPTWksNsfaIbK51xFdfq2uRg9pGEUd41QC-cA2u6JiGHyDItdHZ6m-IvAlsGf-zE9AxOgDBnmAAhmwR8MbYs1D6YBGs0G0SPIZtCADX8jCFW0WC08OkxbCOTYv5HKZjAT_IzpjSh5iRg=w480" width="260" alt="Vía display at Collado Mediano">](https://maps.app.goo.gl/yveuFPEbi5sjoSSv5) |
 | Las Rozas | Cantoblanco Universidad | Collado Mediano |
 
+## Character font
+
+All 256 glyphs of the panel's 5x7 font, extracted straight from the ROM and
+rendered flip-dot style. See [docs/font.md](docs/font.md) for the derivation
+and [tools/extract_font.py](tools/extract_font.py) (`--png`) to regenerate it.
+
+![256-glyph flip-dot font map, 5x7 dots each, arranged 16 per row](docs/font-map.png)
+
 ## Status
 
 | Area | State |
@@ -102,6 +110,7 @@ notes.md     Dated lab notebook - every experiment, including the failures
 make                # list targets
 make check          # verify the ROM dump and the symbol table
 make font           # render all 256 glyphs
+make font-map       # regenerate docs/font-map.png
 make verify         # reassemble src/ and prove it matches the ROM (once src/ exists)
 ```
 

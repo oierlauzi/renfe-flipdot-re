@@ -48,6 +48,96 @@ def label(code):
     return repr(chr(code)) if 0x20 <= code < 0x7F else "--"
 
 
+# Flip-dot panel palette: a near-black bezel and "reflective" yellow discs
+# (base + offset highlight, so the on-dots read as lit rather than flat-filled).
+PNG_BG        = (8, 8, 7)
+PNG_OFF_FILL  = (28, 26, 22)
+PNG_ON_EDGE   = (196, 168, 0)
+PNG_ON_FILL   = (255, 225, 0)
+PNG_ON_HILITE = (255, 252, 180)
+PNG_TEXT      = (130, 126, 114)
+
+PNG_FONT_CANDIDATES = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
+)
+
+
+def render_png(rom, codes, path, cols=16, supersample=4):
+    """Render `codes` as a grid of flip-dot glyphs, `cols` per row.
+
+    Drawn at `supersample`x and downscaled, so the discs anti-alias instead
+    of coming out jagged.
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        sys.exit("--png requires Pillow: pip install pillow")
+
+    dot, gap, pad, margin, header = 7, 3, 16, 26, 22
+    pitch = dot + gap
+    cell_w = GLYPH_BYTES * pitch + pad
+    cell_h = GLYPH_ROWS * pitch + pad
+    rows = -(-len(codes) // cols)
+
+    width = margin * 2 + header + cols * cell_w
+    height = margin * 2 + header + rows * cell_h
+
+    ss = supersample
+    img = Image.new("RGB", (width * ss, height * ss), PNG_BG)
+    d = ImageDraw.Draw(img)
+
+    font = None
+    for candidate in PNG_FONT_CANDIDATES:
+        try:
+            font = ImageFont.truetype(candidate, 12 * ss)
+            break
+        except OSError:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+
+    grid_x, grid_y = margin + header, margin + header
+
+    for c in range(cols):
+        x = (grid_x + c * cell_w + cell_w / 2) * ss
+        y = (margin + header / 2) * ss
+        d.text((x, y), f"{c:X}", font=font, fill=PNG_TEXT, anchor="mm")
+    for r in range(rows):
+        i = r * cols
+        if i >= len(codes):
+            break
+        x = (margin + header / 2) * ss
+        y = (grid_y + r * cell_h + cell_h / 2) * ss
+        d.text((x, y), f"{codes[i] >> 4:X}_", font=font, fill=PNG_TEXT, anchor="mm")
+
+    for i, code in enumerate(codes):
+        r, c = divmod(i, cols)
+        ox = (grid_x + c * cell_w) * ss
+        oy = (grid_y + r * cell_h) * ss
+        cols_bytes = glyph(rom, code)
+        rad = dot / 2 * ss
+        corner = rad * 0.3
+        for col, byte in enumerate(cols_bytes):
+            for row in range(GLYPH_ROWS):
+                cx = ox + (col * pitch + pitch / 2) * ss
+                cy = oy + (row * pitch + pitch / 2) * ss
+                box = [cx - rad, cy - rad, cx + rad, cy + rad]
+                if (byte >> row) & 1:
+                    d.rounded_rectangle(box, radius=corner, fill=PNG_ON_FILL,
+                                         outline=PNG_ON_EDGE, width=max(1, ss // 2))
+                    hr = rad * 0.45
+                    hx, hy = cx - rad * 0.3, cy - rad * 0.3
+                    d.rounded_rectangle([hx - hr, hy - hr, hx + hr, hy + hr],
+                                         radius=hr * 0.3, fill=PNG_ON_HILITE)
+                else:
+                    d.rounded_rectangle(box, radius=corner, fill=PNG_OFF_FILL)
+
+    img = img.resize((width, height), Image.LANCZOS)
+    img.save(path)
+    return width, height
+
+
 def check(rom):
     """Verify the table is where and what we think it is."""
     end = FONT_BASE + GLYPH_COUNT * GLYPH_BYTES
@@ -79,6 +169,10 @@ def main():
                     help="character codes to emit (default: 0x00-0xFF)")
     ap.add_argument("--ascii", action="store_true",
                     help="render with '#' and '.' instead of block characters")
+    ap.add_argument("--png", metavar="PATH",
+                    help="write a glyph-map PNG (flip-dot style) instead of printing text")
+    ap.add_argument("--cols", type=int, default=16,
+                    help="glyphs per row in --png output (default: 16)")
     args = ap.parse_args()
 
     charset = ASCII if args.ascii else BLOCK
@@ -89,6 +183,11 @@ def main():
     lo, _, hi = args.range.partition("-")
     lo, hi = int(lo, 0), int(hi or lo, 0)
     codes = range(lo, min(hi, GLYPH_COUNT - 1) + 1)
+
+    if args.png:
+        w, h = render_png(rom, list(codes), args.png, cols=args.cols)
+        print(f"wrote {args.png} ({w}x{h}, {len(codes)} glyphs)")
+        return
 
     if args.json:
         json.dump(

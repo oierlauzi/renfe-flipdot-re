@@ -50,6 +50,10 @@ symbols-check:  ## Validate ghidra/symbols.csv
 font:  ## Render the 5x7 glyph table
 	$(PYTHON) tools/extract_font.py
 
+.PHONY: font-map
+font-map:  ## Regenerate docs/font-map.png (flip-dot glyph map for the README)
+	$(PYTHON) tools/extract_font.py --png docs/font-map.png
+
 $(BUILD):
 	mkdir -p $(BUILD)
 
