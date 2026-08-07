@@ -201,7 +201,10 @@ USED_END = 0x3048           # rom_info.py asserts everything above this is 0xFF
 # one table entry. Getting a region wrong costs readability, not correctness: a
 # mis-decoded stretch still re-assembles to the same bytes.
 DATA_REGIONS = [
-    (0x0040, 0x0064, "tbl_0040", "unclassified table", 8),
+    # 0x0040-0x0063 was listed here as an "unclassified table". It is not data:
+    # it is twelve 3-byte JMP trampolines, ten to fatal_or_init and one each to
+    # isr_rst55 and isr_rst75 -- a second copy of the vector table, in a layout
+    # that does not match the 8085's. Left as code so it reads as what it is.
     (0x0064, 0x0090, "id_block",
      "SUB reply: version string then the config block", 8),
     (0x00D2, 0x00E6, "reply_affixes",

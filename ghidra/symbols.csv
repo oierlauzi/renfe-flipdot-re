@@ -12,9 +12,21 @@
 # comment: free text, ends up as a Ghidra plate/EOL comment
 #
 space,addr,name,kind,comment
-mem,0000,reset,func,Reset vector: DI then jump to fatal_or_init
+mem,0000,reset,func,"Reset vector: DI then jump to vec_tab_rst0, which trampolines to fatal_or_init"
 mem,002c,vec_rst55,label,RST5.5 hardware interrupt vector
 mem,003c,vec_rst75,label,RST7.5 hardware interrupt vector
+mem,0040,vec_tab_rst0,label,"Second-stage vector table: 12 JMP trampolines in RST0-7 / TRAP / 5.5 / 6.5 / 7.5 order. Every 8085 hardware vector jumps into it"
+mem,0043,vec_tab_rst1,label,RST1 slot
+mem,0046,vec_tab_rst2,label,RST2 slot
+mem,0049,vec_tab_rst3,label,RST3 slot
+mem,004c,vec_tab_rst4,label,RST4 slot
+mem,004f,vec_tab_rst5,label,RST5 slot
+mem,0052,vec_tab_rst6,label,RST6 slot
+mem,0055,vec_tab_rst7,label,RST7 slot
+mem,0058,vec_tab_trap,label,TRAP slot
+mem,005b,vec_tab_rst55,label,RST5.5 slot - the only one besides RST7.5 with a real handler
+mem,005e,vec_tab_rst65,label,RST6.5 slot
+mem,0061,vec_tab_rst75,label,RST7.5 slot
 mem,0064,fw_version_string,data,"ASCII ""AK0052.139U1"""
 mem,0070,cfg_block,data,Build-time configuration constants 0x0070-0x008B. See docs/serial-protocol.md
 mem,0072,cfg_proto_enable,data,Nonzero enables the handler B ETX reply

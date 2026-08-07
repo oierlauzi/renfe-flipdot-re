@@ -121,54 +121,71 @@ report_prefix_sub	equ	00D5h
 
 reset:
 	DI
-	JMP	tbl_0040
+	JMP	vec_tab_rst0
 	RST	7
 	RST	7
 	RST	7
 	RST	7
-	JMP	0043h
-	RST	7
-	RST	7
-	RST	7
-	RST	7
-	RST	7
-	JMP	0046h
+	JMP	vec_tab_rst1
 	RST	7
 	RST	7
 	RST	7
 	RST	7
 	RST	7
-	JMP	0049h
+	JMP	vec_tab_rst2
 	RST	7
 	RST	7
 	RST	7
 	RST	7
 	RST	7
-	JMP	004Ch
+	JMP	vec_tab_rst3
 	RST	7
-	JMP	0058h
 	RST	7
-	JMP	004Fh
+	RST	7
+	RST	7
+	RST	7
+	JMP	vec_tab_rst4
+	RST	7
+	JMP	vec_tab_trap
+	RST	7
+	JMP	vec_tab_rst5
 	RST	7
 vec_rst55:
-	JMP	005Bh
+	JMP	vec_tab_rst55
 	RST	7
-	JMP	0052h
+	JMP	vec_tab_rst6
 	RST	7
-	JMP	005Eh
+	JMP	vec_tab_rst65
 	RST	7
-	JMP	0055h
+	JMP	vec_tab_rst7
 	RST	7
 vec_rst75:
-	JMP	0061h
+	JMP	vec_tab_rst75
 	RST	7
-tbl_0040:
-	; unclassified table  (36 bytes)
-	db	0C3h,4Bh,03h,0C3h,4Bh,03h,0C3h,4Bh	; 0040  .K..K..K
-	db	03h,0C3h,4Bh,03h,0C3h,4Bh,03h,0C3h	; 0048  ..K..K..
-	db	4Bh,03h,0C3h,4Bh,03h,0C3h,4Bh,03h	; 0050  K..K..K.
-	db	0C3h,4Bh,03h,0C3h,60h,02h,0C3h,4Bh	; 0058  .K.....K
-	db	03h,0C3h,0A9h,02h	; 0060  ....
+vec_tab_rst0:
+	JMP	fatal_or_init
+vec_tab_rst1:
+	JMP	fatal_or_init
+vec_tab_rst2:
+	JMP	fatal_or_init
+vec_tab_rst3:
+	JMP	fatal_or_init
+vec_tab_rst4:
+	JMP	fatal_or_init
+vec_tab_rst5:
+	JMP	fatal_or_init
+vec_tab_rst6:
+	JMP	fatal_or_init
+vec_tab_rst7:
+	JMP	fatal_or_init
+vec_tab_trap:
+	JMP	fatal_or_init
+vec_tab_rst55:
+	JMP	isr_rst55
+vec_tab_rst65:
+	JMP	fatal_or_init
+vec_tab_rst75:
+	JMP	isr_rst75
 fw_version_string:
 	; SUB reply: version string then the config block  (44 bytes)
 	db	41h,4Bh,30h,30h,35h,32h,2Eh,31h	; 0064  AK0052.1
@@ -1263,7 +1280,7 @@ select_rx_protocol_br10:
 	CALL	xram_write
 	LXI	H,0E083h
 	CALL	xram_write
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	LXI	H,msg_buffer
 	LXI	D,shadow_buffer
 	IN	sw_port_a
@@ -1385,7 +1402,7 @@ init_clear_state_br4:
 	ANI	80h
 	JNZ	init_clear_state_br5
 	LXI	H,msg_buffer
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 init_clear_state_loop2:
 	MVI	A,20h
 	CALL	xram_write
@@ -1395,7 +1412,7 @@ init_clear_state_loop2:
 	ORA	C
 	JNZ	init_clear_state_loop2
 	LXI	H,shadow_buffer
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 init_clear_state_loop3:
 	MVI	A,23h
 	CALL	xram_write
@@ -1409,7 +1426,7 @@ init_clear_state_loop3:
 	CPI	01h
 	JNZ	init_clear_state_br5
 	LXI	H,msg_buffer2
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 init_clear_state_loop4:
 	SUB	A
 	CALL	xram_write
@@ -1419,7 +1436,7 @@ init_clear_state_loop4:
 	ORA	C
 	JNZ	init_clear_state_loop4
 	LXI	H,shadow_buffer2
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 init_clear_state_loop5:
 	MVI	A,0FFh
 	CALL	xram_write
@@ -1899,7 +1916,7 @@ cmd_dc2_right_loop1:
 	JNZ	rx_b_return
 check_buffer_bounds:
 	LXI	H,msg_buffer
-	LXI	D,tbl_0040
+	LXI	D,vec_tab_rst0
 	DAD	D
 	XCHG
 	LHLD	rx_write_ptr_b
@@ -1977,7 +1994,7 @@ cmd_vt_position_br1:
 	MOV	D,A
 	STA	cursor_row
 	LXI	H,msg_buffer
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 cmd_vt_position_loop1:
 	MOV	A,D
 	CPI	00h
@@ -2074,7 +2091,7 @@ cmd_dc3_left_br1:
 	JMP	cmd_dc2_right_loop1
 cmd_dc4_down:
 	LHLD	rx_write_ptr_b
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	DAD	B
 	LDA	cursor_row
 	CPI	00h
@@ -2158,7 +2175,7 @@ cmd_si_read_screen:
 	DAD	D
 	PUSH	H
 	LXI	H,shadow_buffer
-	LXI	D,tbl_0040
+	LXI	D,vec_tab_rst0
 	DAD	D
 	MVI	A,0FFh
 	CALL	xram_write
@@ -2374,7 +2391,7 @@ cmd_ff_fill_loop1:
 clear_buffer:
 	LXI	H,msg_buffer
 clear_buffer_loop1:
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	MVI	A,02h
 	STA	0A045h
 clear_buffer_loop2:
@@ -2530,7 +2547,7 @@ cmd_eot_br2:
 	JZ	rx_b_return
 	CPI	31h
 	JNZ	cmd_eot_br9
-	LXI	H,tbl_0040
+	LXI	H,vec_tab_rst0
 	SHLD	0A05Bh
 	MVI	A,06h
 	STA	state_eot
@@ -2713,7 +2730,7 @@ render_pass_paged_loop3:
 	MVI	A,03h
 	STA	frame_end_char
 	LXI	H,msg_buffer
-	LXI	D,tbl_0040
+	LXI	D,vec_tab_rst0
 	DAD	D
 	CALL	xram_write
 	INX	H
@@ -2834,7 +2851,7 @@ clear_shadow_br1:
 	OUT	disp0_port_c
 clear_shadow_br2:
 	LXI	H,shadow_buffer
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 clear_shadow_loop1:
 	SUB	A
 	CALL	xram_write
@@ -2945,7 +2962,7 @@ render_pass_disp1_br1:
 	DCR	B
 	JZ	render_pass_disp1_br2
 	PUSH	B
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	DAD	B
 	XCHG
 	DAD	B
@@ -2971,7 +2988,7 @@ render_pass_disp1_br3:
 	STA	panel_dirty
 	LHLD	render_ptr
 	INX	H
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	MOV	A,H
 	CMP	B
 	JNZ	render_pass_disp1_br4
@@ -3062,7 +3079,7 @@ disp1_paint_loop4:
 	STA	block_index
 	CPI	01h
 	JZ	disp1_paint_br3
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	DAD	B
 	XCHG
 	DAD	B
@@ -3282,14 +3299,14 @@ packed_buffer_init_loop2:
 	DCR	B
 	JZ	packed_buffer_init_br3
 	PUSH	B
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	DAD	B
 	XCHG
 	DAD	B
 	XCHG
 	PUSH	H
 	LHLD	0A068h
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	DAD	B
 	LDA	0A063h
 	CPI	03h
@@ -3445,7 +3462,7 @@ packed_pack_mode1:
 	POP	H
 	PUSH	H
 	PUSH	D
-	LXI	D,tbl_0040
+	LXI	D,vec_tab_rst0
 	MVI	B,05h
 packed_pack_mode1_loop1:
 	MOV	A,M
@@ -3497,7 +3514,7 @@ packed_pack_mode2_loop1:
 	MOV	M,A
 	XCHG
 	PUSH	B
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 	DAD	B
 	POP	B
 	CALL	xram_read
@@ -3532,7 +3549,7 @@ packed_pack_mode3_loop1:
 	POP	H
 	PUSH	H
 	PUSH	D
-	LXI	D,tbl_0040
+	LXI	D,vec_tab_rst0
 	MVI	B,05h
 packed_pack_mode3_loop2:
 	MOV	A,M
@@ -3570,7 +3587,7 @@ packed_pack_mode3_br2:
 	SUB	A
 	STA	0A06Eh
 	LXI	H,msg_buffer
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 packed_pack_mode3_loop3:
 	MOV	A,D
 	CALL	xram_write
@@ -3580,7 +3597,7 @@ packed_pack_mode3_loop3:
 	ORA	C
 	JNZ	packed_pack_mode3_loop3
 	LXI	H,shadow_buffer
-	LXI	B,tbl_0040
+	LXI	B,vec_tab_rst0
 packed_pack_mode3_loop4:
 	MOV	A,D
 	CALL	xram_write
