@@ -57,8 +57,6 @@ did:
 * `MAESTRA` is PAGE Ibérica's Spanish terminology layered over a Telenorma
   product.
 
-This revises the earlier reading, which had Telenorma supplying only the ROM.
-
 Three consequences worth carrying:
 
 1. **This is not a RENFE one-off.** Telenorma-designed hardware means a product
@@ -131,18 +129,12 @@ content at all:
 * So the **countdown is pushed from upstream**, one text update at a time. The
   sign does not tick down on its own; something re-sends the line every minute.
 
-**Correction, 2026-08-06.** An earlier version of this section said there was "no
-minutes-to-ASCII conversion anywhere in the ROM" and that the only two `ADI 0x30`
-instructions were in the `TAB` report. **That is wrong**, and it was wrong because
-it was argued from one instruction rather than from what the code does:
-`clock_read_time` ORs `0x30` into four digits to make ASCII, and
-`clock_inc_minute`/`clock_inc_hour` do ASCII digit arithmetic with mod-60 and
-mod-24 carries — see [io-map.md](io-map.md#0xc0-0xcf--a-clock-with-keys-c).
-
-The conclusion survives intact, but for a narrower reason: **that arithmetic is
-the wall clock, not the message.** The digits come from and go back to the clock
-board, land in display positions 0-3, and never touch the text a host sends.
-Nothing local computes an ETA.
+The one piece of ASCII digit arithmetic in the ROM belongs to the **wall clock,
+not the message**: `clock_read_time` ORs `0x30` into four digits to make ASCII,
+and `clock_inc_minute`/`clock_inc_hour` do mod-60 and mod-24 carries — see
+[io-map.md](io-map.md#0xc0-0xcf--a-clock-with-keys-c). Those digits come from and
+go back to the clock board, land in display positions 0-3, and never touch the
+text a host sends. Nothing local computes an ETA.
 
 What *is* local to this unit:
 
@@ -160,12 +152,11 @@ including the digits, and re-send it as the ETA changes.
 RENFE Cercanías station platform signage. The station-list scrolling and notice
 text belong to the LED panel or to the upstream controller, not to this board.
 
-An earlier version of this section offered I/O `0xC0` as a possible LED matrix
-interface. **It is not** — `0xC0-0xCF` is a clock board, four `HHMM` digit
-registers plus a time-setting keypad
-([io-map.md](io-map.md#0xc0-0xcf--a-clock-with-keys-c)). The remaining candidates
-for the LED panel are the `0xE8-0xEF` port group and the upper half of the
-character bus; see
+I/O `0xC0-0xCF` is not the LED matrix interface — it is a clock board, four
+`HHMM` digit registers plus a time-setting keypad
+([io-map.md](io-map.md#0xc0-0xcf--a-clock-with-keys-c)). The candidates for the
+LED panel are the `0xE8-0xEF` port group and the upper half of the character bus;
+see
 [flipdot-interface.md](flipdot-interface.md#the-led-panel-is-probably-characters-16-63-of-the-same-buffer-l).
 
 ## Variants of this generation **[C] observed in service, by the owner**

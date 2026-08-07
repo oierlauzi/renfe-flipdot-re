@@ -140,17 +140,18 @@ From inspecting the panel (owner, 2026-08):
 * The modules hang off a **common bus**, the ribbon. They are **not daisy-chained**:
   the ribbon passes across them without being interrupted and re-emitted per
   module.
-* **No module carries address-setting switches or links.**
+* **No address-setting switches or links are visible on the rear of the
+  modules** — the only side inspected so far (the front needs extensive
+  disassembly). Whether the modules carry addressing configuration elsewhere is
+  still open — see below.
 * The ribbon **exits the unit** after passing all sixteen characters, and was
   spliced to remove the display. It almost certainly continued to the **second
   LED panel**.
 
-### Correction: the address is ENCODED, not one-hot **[C]**
+### The module address is encoded across 64 positions, not one-hot **[C]**
 
-An earlier revision of this document claimed the ribbon carried **16 one-hot
-select lines**, one per module. **That was wrong**, and the evidence was already in
-hand when it was written: port B takes **49 distinct values**, which an 8-bit
-one-hot scheme cannot produce.
+Port B does not carry sixteen dedicated select lines, one per module — it takes
+**49 distinct values**, which no 8-bit one-hot scheme can produce.
 
 Undoing the `CMA` shows what port B actually carries:
 
@@ -182,11 +183,9 @@ fall into place:
 
 If the address is encoded and broadcast, each module has to know which position it
 is. That requires per-module configuration — switches, straps, or a wired-in code.
-
-**Only the rear of the modules has been inspected** (the front needs extensive
-disassembly), so the earlier statement that the modules carry no address switches
-is **not established**. It should be treated as an open question, and the front
-faces are now worth looking at specifically. **[?]**
+**Only the rear of the modules has been inspected**, so whether that
+configuration is visible externally is open; the front faces are worth looking at
+specifically. **[?]**
 
 ### What that forces
 
@@ -238,9 +237,8 @@ those writes appear on ribbon pins as a clock and a data line depends on
 assumption **A7**, which currently has an unresolved contradiction — see
 [below](#a7-has-a-contradiction-in-it-and-it-is-not-resolved-).
 
-This overturns the earlier working assumption of a parallel row/column matrix, and
-it dissolves the "21 lines cannot address 560 dots" problem: the panel is fed
-**serially**.
+The panel is fed **serially**, which dissolves the "21 lines cannot address 560
+dots" problem entirely.
 
 | Port | Bit | Function |
 | --- | --- | --- |
@@ -440,10 +438,9 @@ to the host in the `SUB` identify block, while the code itself uses a literal
 
 ### Port C bits 1:0 are the display attribute lines **[C]**
 
-Previously recorded as "preserved across every write; function unknown". They are
-the **display attribute, driven out to the panel as two hardware lines**, and the
-reason the shift loop carefully preserves them is that they hold state between
-glyph frames.
+They are the **display attribute, driven out to the panel as two hardware
+lines**, and the reason the shift loop carefully preserves them is that they hold
+state between glyph frames.
 
 The path is short. `BEL <param>` stores `param & 0x07` into `0xA014`
 (`0x10D0`). Whenever that value *changes*, `0x09F3` dispatches on the panel family
@@ -476,8 +473,7 @@ states on two lines. Bit 2 does something different (below).
   there is nothing to dim.
 * **Not the fluorescent tube.** The tube is **not coupled to the electronics in
   any way** (owner, 2026-08) — it has its own mains feed and its own ballast, so
-  the firmware cannot switch it. An earlier draft of this document guessed
-  illumination control; that is ruled out.
+  the firmware cannot switch it.
 
 What remains, in rough order of plausibility:
 
@@ -723,11 +719,10 @@ If it *does* display text with the panel gone, this reasoning is wrong and the
 informative, and it costs nothing beyond powering the unit up and sending one
 message.
 
-### Solved: message text now renders **[C]**
+### Message text renders correctly **[C]**
 
-This section previously recorded a failure — `STX AB ETX` painting the fill
-character instead of letters. **Both causes are found, and neither was in the
-frame format.** `panel_view.py --text "HOLA MUNDO"` now produces:
+Neither of the two things that gate this is in the frame format itself.
+`panel_view.py --text "HOLA MUNDO"` produces:
 
 ```
    #...#  .###.  #....  .###.  #...#  #...#  #...#  ####.  .###.

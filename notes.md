@@ -20,6 +20,38 @@ Entry template:
 
 ---
 
+## 2026-08-06 — Docs cleanup: correction narratives moved out of docs/, into here
+
+**Did:** the owner pointed out that `docs/` had accumulated many "corrections" —
+passages of the form "previously X was thought, but it turns out to be Y" —
+where the convention should be that `docs/` states only the current best theory,
+rewritten in place, and the history of how a claim changed lives here instead.
+Searched every file in `docs/` and `hardware/` for that pattern (`grep` for
+"previously", "earlier", "correction", "retracted", "invented", "for the
+record", and similar) and checked each hit against whether the story was
+already captured in this file.
+
+**Found:** every case was already covered by an existing dated entry above —
+the clock-board/`0xC0` retraction, the `ñ`/`Ñ` font correction, the one-hot →
+encoded module address correction, the `U18a`/`U18b` → `U17`/`U18` designator
+fix, the invented `U12`-`U17` designators, and the port-C-attribute-lines and
+illumination-guess corrections. So nothing needed to be *added* here — only
+removed from `docs/`.
+
+**Concluded:** trimmed `docs/device.md`, `docs/io-map.md`, `docs/font.md`,
+`docs/flipdot-interface.md`, `docs/serial-protocol.md` and
+`hardware/chips.md` to state the current model directly, dropping the
+"earlier version said X, that was wrong" framing (and, in `flipdot-interface.md`,
+one real inconsistency this exposed: the physical-topology section flatly
+claimed "no address-setting switches on the modules" as **[C] observed**, while
+a later section correctly walked that back to **[?]** since only the rear of the
+modules has been inspected — the topology bullet now says exactly that). **[C]**
+
+**Next:** watch for the same pattern creeping back in as new corrections happen
+— write the story here first, then update `docs/` to just state the new belief.
+
+---
+
 ## 2026-08-06 — Every label named, and the unit turns out to be a clock
 
 **Did:** Killed all 449 auto-generated `LXXXX` labels in `src/firmware.asm`, two

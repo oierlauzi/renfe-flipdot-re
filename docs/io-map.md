@@ -222,9 +222,8 @@ Every boundary here is written by identifiable code, not inferred from a dump:
 
 ### The second buffer pair is a disabled feature **[C]**
 
-`0xE084` is not an attribute plane, as an earlier draft guessed. It is a **second
-buffer and shadow with exactly the same `0x42` stride** as the first pair, and the
-firmware substitutes one for the other wholesale:
+`0xE084` is a **second buffer and shadow with exactly the same `0x42` stride** as
+the first pair, and the firmware substitutes one for the other wholesale:
 
 ```
 0x1498  LXI  H,0xE001      ; buffer 1
@@ -281,9 +280,8 @@ Two consequences worth being explicit about:
 
 ## 0xC0-0xCF — a clock, with keys **[C]**
 
-**This window is a clock board.** Two earlier readings of it were wrong and are
-retracted: it is not an LED matrix interface, and `0xC0`-`0xC5` are not "written
-once at init" — nothing in the init path touches them at all.
+**This window is a clock board**, not an LED matrix interface, and none of
+`0xC0`-`0xC5` is touched by the init path at all.
 
 | Port | Direction | Contents |
 | --- | --- | --- |

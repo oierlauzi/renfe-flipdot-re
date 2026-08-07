@@ -143,28 +143,25 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
   yellow bodies** and are the likely optocouplers; they are the candidates for the
   serial isolation, see [connectors.md](connectors.md).
 
-  **They carry no reference designators on the silkscreen.** Earlier revisions of
-  this file gave them numbers (`U12`-`U17`) — those were invented here, not read
-  from the board, and have been removed. Identify them by position and body colour
-  until real markings are read.
+  **They carry no reference designators on the silkscreen.** Identify them by
+  position and body colour until real markings are read.
 
 ## U17 — 7 NPN Darlington Pairs
 - **Manufacturer:** Texas Instruments
 - **Part number:** ULN2003AN
 - **PCB:** Daughter 2
 - **Datasheet:** [https://www.ti.com/lit/ds/symlink/uln2003a.pdf]
-- **Notes:** Previously recorded as "U18b". With U18 and U19 this makes **21
-  Darlington sinks** on daughter 2 — see
-  [../docs/flipdot-interface.md](../docs/flipdot-interface.md).
+- **Notes:** With U18 and U19 this makes **21 Darlington sinks** on daughter 2 —
+  see [../docs/flipdot-interface.md](../docs/flipdot-interface.md).
 
 ## U18 — 7 NPN Darlington Pairs
 - **Manufacturer:** Texas Instruments
 - **Part number:** ULN2003A
 - **PCB:** Daughter 2
 - **Datasheet:** [https://www.ti.com/lit/ds/symlink/uln2003a.pdf]
-- **Notes:** Previously recorded as "U18a". Drives the flip-dot coils. Being
-  current *sinks* is consistent with the firmware complementing (`CMA`) every
-  value before writing it to the display ports — i.e. active-low drive.
+- **Notes:** Drives the flip-dot coils. Being current *sinks* is consistent with
+  the firmware complementing (`CMA`) every value before writing it to the display
+  ports — i.e. active-low drive.
 
 ## U19 — 7 NPN Darlington Pairs
 - **Manufacturer:** STMicroelectronics

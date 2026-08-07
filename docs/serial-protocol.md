@@ -71,8 +71,7 @@ output — possibly a heartbeat or an external watchdog strobe. **[L]**
 `0x03A0` in the main loop performs an atomic swap on `0xA012` under `DI`/`EI`:
 write `0x4E`, and branch on whether the old value was `0x4A`. Combined with the
 ISR writing `0x4E`, **`0x4A` and `0x4E` are ISR/main-loop handshake tokens, not
-framing bytes** — an earlier guess that they might be `'J'`/`'N'` delimiters is
-wrong.
+framing bytes** and not `'J'`/`'N'` delimiters.
 
 ## Frame format, receive handler A (`0x08B7`) **[C]**
 

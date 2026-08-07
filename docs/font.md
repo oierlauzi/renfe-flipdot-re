@@ -140,27 +140,6 @@ diagonal that both `N` glyphs show.
 A 7-bit link physically cannot carry `0xA5`. The duplicates are not a curiosity,
 they are what makes the display usable in Spanish over the link it was given.
 
-The original reading of this section — "both are accented Latin capitals, `0x24`
-unidentified" — was half right and is superseded. **[C]**
-
-### The original observation, for the record
-
-`0x25` reads clearly as a second **Ñ**:
-
-```
-0x24  7c 09 05 05 78        0x25  7c 09 11 21 7c
-      .###.                       .###.
-      .....                       .....
-      #.##.                       #...#
-      ##..#                       ##..#
-      #...#                       #.#.#
-      #...#                       #..##
-      #...#                       #...#
-```
-
-These were first read as "two accented Latin capitals, `0x24` unidentified". The
-`& 0x7F` relationship above supersedes that: they are `ñ` and `Ñ`.
-
 ### CP437's gap: uppercase accented vowels
 
 Worth knowing before writing station names, because they are usually uppercase.
