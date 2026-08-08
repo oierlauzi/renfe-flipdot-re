@@ -1,4 +1,4 @@
-# renfe-flipdot-re
+<img src=".github/title.svg" alt="renfe-flipdot-re, rendered as a flip-dot destination sign">
 
 <img src=".github/renfe-galleta-glyph.png" width="90" align="right" alt="RENFE's 'galleta' logo, hand-drawn as a single 5x7 flip-dot glyph -- a fan mockup, not ROM data">
 
