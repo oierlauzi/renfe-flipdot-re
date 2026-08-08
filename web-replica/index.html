@@ -119,6 +119,59 @@
     border-radius: 4px;
     font-size: 14px;
   }
+  .download-row {
+    max-width: 1200px;
+    margin: 16px auto 0;
+    padding: 0 24px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+  .download-row button {
+    padding: 8px 16px;
+    background: #8a5a2b;
+    color: #f4f2e9;
+    border: 0;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .download-row button:hover { background: #6d4520; }
+  .embed-box {
+    max-width: 760px;
+    margin: 16px auto 0;
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+  .embed-box-inner {
+    position: relative;
+    border: 1px solid #c9c6bd;
+    border-radius: 8px;
+    padding: 12px 16px;
+    background: #eceae4;
+  }
+  .embed-box pre {
+    margin: 0;
+    padding-right: 64px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .embed-box-inner button {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    padding: 4px 10px;
+    background: #8a5a2b;
+    color: #f4f2e9;
+    border: 0;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .embed-box-inner button:hover { background: #6d4520; }
 </style>
 </head>
 <body>
@@ -132,6 +185,18 @@
     <div class="stage" id="stage">
       <iframe id="frame" src="display.html" title="Flip-dot display preview"></iframe>
     </div>
+  </div>
+</div>
+
+<div class="download-row">
+  <button type="button" id="download-btn">Download SVG</button>
+  <button type="button" id="embed-btn">&lt;/&gt; Embed</button>
+</div>
+
+<div class="embed-box" id="embed-box" hidden>
+  <div class="embed-box-inner">
+    <pre id="embed-code"></pre>
+    <button type="button" id="copy-btn">Copy</button>
   </div>
 </div>
 
@@ -214,12 +279,10 @@
   const dotSwatch = document.getElementById('dot-swatch');
   const ledcSwatch = document.getElementById('ledc-swatch');
   const speedVal = document.getElementById('speed-val');
+  const embedCode = document.getElementById('embed-code');
 
-  function apply() {
-    dotSwatch.style.background = els.dot.value;
-    ledcSwatch.style.background = els.ledc.value;
-    speedVal.textContent = els.speed.value + ' col/s';
-    const p = new URLSearchParams({
+  function buildParams() {
+    return new URLSearchParams({
       text: els.text.value,
       min: els.min.value,
       showmin: els.showmin.checked ? '1' : '0',
@@ -231,7 +294,23 @@
       speed: els.speed.value,
       via: els.via.value
     });
+  }
+
+  function updateEmbedCode(params) {
+    const url = new URL('display.html', location.href);
+    url.search = params.toString();
+    embedCode.textContent = '<iframe src="' + url.href + '"\n' +
+      '        width="1200" height="520" style="border:0"\n' +
+      '        title="RENFE Cercanias flip-dot display"></iframe>';
+  }
+
+  function apply() {
+    dotSwatch.style.background = els.dot.value;
+    ledcSwatch.style.background = els.ledc.value;
+    speedVal.textContent = els.speed.value + ' col/s';
+    const p = buildParams();
     frame.src = 'display.html?' + p.toString();
+    updateEmbedCode(p);
   }
 
   let debounceTimer;
@@ -255,6 +334,146 @@
   window.addEventListener('resize', scaleStage);
   scaleStage();
   apply();
+
+  // --- SVG export: reuses the glyph table already embedded in display.html ---
+  // (fetched + parsed at runtime instead of pasting a third copy of it here).
+  let fontPromise = null;
+  function loadFont() {
+    if (!fontPromise) {
+      fontPromise = fetch('display.html').then((r) => r.text()).then((src) => {
+        const glyphsSrc = src.match(/const GLYPHS = (\{[^;]*\});/)[1];
+        const cpSrc = src.match(/const CP437 = (\{[^;]*\});/)[1];
+        const GLYPHS = {};
+        for (const m of glyphsSrc.matchAll(/(\d+):"([0-9a-f]+)"/g)) GLYPHS[+m[1]] = m[2];
+        const CP437 = {};
+        for (const m of cpSrc.matchAll(/'(.)':0x([0-9A-Fa-f]{2})/g)) CP437[m[1]] = parseInt(m[2], 16);
+        return { GLYPHS, CP437 };
+      });
+    }
+    return fontPromise;
+  }
+
+  const escapeXml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const f = (n) => +n.toFixed(2);
+
+  // Mirrors display.html's own rendering; the LED matrix is exported as a
+  // single centered frame (no scroll animation in a static image).
+  function buildSignSvg(GLYPHS, CP437) {
+    const PITCH = 11, DOT = 4.3, GAP = 6, COLS = 5, ROWS = 7, CELLS = 16;
+    const LW = 1040, LH = 95, LP = 12, LROWS = 7;
+    const code = (ch) => CP437[ch] !== undefined ? CP437[ch] : (ch.charCodeAt(0) < 256 ? ch.charCodeAt(0) : 0x20);
+
+    const lit = els.dot.value;
+    const offColor = els.showoff.checked ? '#26261e' : null;
+    const ledLit = els.ledc.value;
+
+    const cells = String(els.text.value).slice(0, CELLS).split('');
+    while (cells.length < CELLS) cells.push(' ');
+    if (els.showmin.checked && els.min.value) {
+      const m = String(els.min.value);
+      for (let i = 0; i < m.length; i++) cells[CELLS - m.length + i] = m[i];
+    }
+
+    let flip = '';
+    for (let i = 0; i < CELLS; i++) {
+      const hex = GLYPHS[code(cells[i] || ' ')];
+      const cx0 = i * (COLS * PITCH + GAP);
+      for (let c = 0; c < COLS; c++) {
+        const byte = hex ? parseInt(hex.slice(c * 2, c * 2 + 2), 16) : 0;
+        for (let r = 0; r < ROWS; r++) {
+          const on = (byte >> r) & 1;
+          if (!on && !offColor) continue;
+          const x = cx0 + c * PITCH + PITCH / 2 - DOT, y = r * PITCH + PITCH / 2 - DOT;
+          const s = DOT * 2, k = DOT * 0.5;
+          const pts = [[x + k, y], [x + s - k, y], [x + s, y + k], [x + s, y + s - k], [x + s - k, y + s], [x + k, y + s], [x, y + s - k], [x, y + k]]
+            .map((p) => f(p[0]) + ',' + f(p[1])).join(' ');
+          flip += '<polygon points="' + pts + '" fill="' + (on ? lit : offColor) + '"/>' +
+            '<line x1="' + f(x + 0.4) + '" y1="' + f(y + s - 0.4) + '" x2="' + f(x + s - 0.4) + '" y2="' + f(y + 0.4) + '" stroke="' + (on ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.07)') + '" stroke-width="0.7"/>';
+        }
+      }
+    }
+
+    const bmp = [];
+    for (const ch of String(els.led.value)) {
+      const hex = GLYPHS[code(ch)];
+      for (let c = 0; c < COLS; c++) bmp.push(hex ? parseInt(hex.slice(c * 2, c * 2 + 2), 16) : 0);
+      bmp.push(0);
+    }
+    const lcols = Math.floor((LW - 12) / LP);
+    const pad = Math.max(0, Math.floor((lcols - bmp.length) / 2));
+    const lx0 = (LW - lcols * LP) / 2, ly0 = (LH - LROWS * LP) / 2;
+    let led = '';
+    for (let c = 0; c < lcols; c++) {
+      const byte = bmp[c - pad] || 0;
+      for (let r = 0; r < LROWS; r++) {
+        const on = (byte >> r) & 1;
+        led += '<circle cx="' + f(lx0 + c * LP + LP / 2) + '" cy="' + f(ly0 + r * LP + LP / 2) + '" r="' + (on ? 3.1 : 2.3) + '" fill="' + (on ? ledLit : '#40101a') + '"/>';
+      }
+    }
+
+    const pageUrl = (location.origin + location.pathname).replace(/--/g, '- -');
+    return '<!-- Automatically generated at ' + pageUrl + ' -->\n' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">' +
+      '<rect width="1200" height="520" rx="58" fill="#24221f"/>' +
+      '<rect x="14" y="14" width="1172" height="492" rx="46" fill="#1a1917"/>' +
+      '<g transform="translate(34,34)">' +
+      '<clipPath id="glass"><rect width="1132" height="452" rx="30"/></clipPath>' +
+      '<g clip-path="url(#glass)">' +
+      '<rect width="1132" height="452" rx="30" fill="#0d1210"/>' +
+      '<g transform="translate(60,21) scale(0.45667)"><circle cx="150" cy="150" r="150" fill="rgb(239,44,48)"/><path d="M150,100C177.429,100 200,122.571 200,150C200,177.429 177.429,200 150,200C122.571,200 100,177.429 100,150L50,150C50,204.858 95.142,250 150,250C204.858,250 250,204.858 250,150C250,95.142 204.858,50 150,50L150,100Z" fill="#fff"/></g>' +
+      '<text x="286" y="145" fill="#f4f2e9" font-size="156" font-weight="700" letter-spacing="1">Vía</text>' +
+      '<text x="561" y="145" fill="#f4f2e9" font-size="156" font-weight="700" letter-spacing="1">' + escapeXml(els.via.value) + '</text>' +
+      '<text x="1092" y="71" fill="#f4f2e9" font-size="56" text-anchor="end">Próxima</text>' +
+      '<text x="1092" y="138" fill="#f4f2e9" font-size="56" text-anchor="end">Llegada</text>' +
+      '<rect x="70.5" y="178.5" width="991" height="94" fill="#080a08" stroke="#34342c"/>' +
+      '<g transform="translate(81,187)">' + flip + '</g>' +
+      '<text x="1072" y="232" fill="' + lit + '" font-size="30" font-weight="500">min</text>' +
+      '<rect x="46" y="307" width="' + LW + '" height="' + LH + '" rx="2" fill="#2c0a11"/>' +
+      '<g transform="translate(46,307)">' + led + '</g>' +
+      '</g>' +
+      '</g>' +
+      '</svg>';
+  }
+
+  document.getElementById('download-btn').addEventListener('click', () => {
+    loadFont().then(({ GLYPHS, CP437 }) => {
+      const svg = buildSignSvg(GLYPHS, CP437);
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'display.svg';
+      a.click();
+      URL.revokeObjectURL(url);
+    }).catch((err) => {
+      console.error(err);
+      alert('Could not build the SVG download.');
+    });
+  });
+
+  const embedBox = document.getElementById('embed-box');
+  const embedBtn = document.getElementById('embed-btn');
+  document.getElementById('embed-btn').addEventListener('click', () => {
+    embedBox.hidden = !embedBox.hidden;
+    embedBtn.textContent = embedBox.hidden ? '</> Embed' : '</> Hide';
+  });
+
+  const copyBtn = document.getElementById('copy-btn');
+  copyBtn.addEventListener('click', async () => {
+    const original = copyBtn.textContent;
+    try {
+      await navigator.clipboard.writeText(embedCode.textContent);
+      copyBtn.textContent = 'Copied!';
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(embedCode);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      copyBtn.textContent = 'Selected — press Ctrl+C';
+    }
+    setTimeout(() => { copyBtn.textContent = original; }, 1500);
+  });
 })();
 </script>
 
