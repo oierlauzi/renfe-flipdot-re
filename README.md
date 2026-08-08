@@ -190,3 +190,8 @@ instead of through this firmware. See
 [MIT](LICENSE) for the documentation, tools and any code here. The original
 firmware in [original/](original/) is the property of its authors and is included
 solely for interoperability research and preservation.
+
+This is an unofficial fan project, not affiliated with, endorsed by, or
+sponsored by RENFE, PAGE Ibérica, or Telenorma. Any trademarks, logos, and
+brand names mentioned or shown are the property of their respective owners,
+used here only to identify the hardware being documented.
