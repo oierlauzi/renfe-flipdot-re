@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #d9d7d2; }
+  a { color: #8a5a2b; }
+  a:hover { color: #6d4520; }
+</style>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#24221f"></rect><rect x="18" y="42" width="64" height="16" rx="2" fill="#0d1210"></rect><rect x="24" y="46" width="6" height="8" fill="#e2d14a"></rect><rect x="34" y="46" width="6" height="8" fill="#e2d14a"></rect><rect x="44" y="46" width="6" height="8" fill="#e2d14a"></rect><circle cx="30" cy="30" r="8" fill="#ef2c30"></circle></svg></template>
+</helmet>
+<div style="width: 1200px; height: 520px; position: relative; background: #24221f; border-radius: 58px; box-sizing: border-box; padding: 34px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <div style="position: absolute; inset: 14px; border-radius: 46px; background: #1a1917;"></div>
+  <div style="position: relative; width: 1132px; height: 452px; border-radius: 30px; background: #0d1210; overflow: hidden;">
+
+    <svg viewBox="0 0 300 300" style="position: absolute; left: 60px; top: 21px; width: 137px; height: 140px">
+      <circle cx="150" cy="150" r="150" style="fill: rgb(239,44,48);"></circle>
+      <path d="M150,100C177.429,100 200,122.571 200,150C200,177.429 177.429,200 150,200C122.571,200 100,177.429 100,150L50,150C50,204.858 95.142,250 150,250C204.858,250 250,204.858 250,150C250,95.142 204.858,50 150,50L150,100Z" style="fill: white;"></path>
+    </svg>
+
+    <div style="position: absolute; left: 286px; top: 5px; display: flex; align-items: baseline; gap: 34px; color: #f4f2e9; font-size: 112px; line-height: 1.1; font-weight: 400; letter-spacing: 1px">
+      
+      <span style="width: 241px; height: 167px; font-size: 156px; font-weight: 700">Vía</span><span style="font-size: 156px; font-weight: 700">{{ platform }}</span>
+    </div>
+
+    <div style="position: absolute; right: 40px; top: 18px; text-align: right; color: #f4f2e9; font-size: 42px; line-height: 1.2; font-weight: 400;">
+      <div style="font-size: 56px">Próxima</div>
+      <div style="font-size: 56px">Llegada</div>
+    </div>
+
+    <div style="position: absolute; left: 70px; top: 178px; padding: 8px 10px; background: #080a08; border: 1px solid #34342c; border-radius: 3px;">{{ flipDots }}</div>
+    <span style="position: absolute; left: 1072px; top: 208px; color: {{ dotColor }}; font-size: 30px; line-height: 1; font-weight: 500">min</span>
+
+    <div style="position: absolute; left: 46px; top: 307px; width: 1040px; height: 95px; background: #2c0a11; border-radius: 2px; overflow: hidden;">{{ ledDots }}</div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:560},&quot;text&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;SIN PARADA&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;minutes&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;1&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;showMinutes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;dotColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e2d14a&quot;,&quot;options&quot;:[&quot;#e2d14a&quot;,&quot;#d9e04a&quot;,&quot;#e8a53a&quot;,&quot;#eae4d2&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;showOffDots&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;ledText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;PROHIBIDO CRUZAR LAS VIAS&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;ledColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ff3b2e&quot;,&quot;options&quot;:[&quot;#ff3b2e&quot;,&quot;#ff6a1a&quot;,&quot;#ff2b55&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;ledScroll&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;ledSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:14,&quot;min&quot;:2,&quot;max&quot;:30,&quot;step&quot;:1,&quot;unit&quot;:&quot;col/s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;1&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Sign&quot;}}">
+const CP437 = {'Ç':0x80,'ü':0x81,'é':0x82,'â':0x83,'ä':0x84,'à':0x85,'å':0x86,'ç':0x87,'ê':0x88,'ë':0x89,'è':0x8A,'ï':0x8B,'î':0x8C,'ì':0x8D,'Ä':0x8E,'Å':0x8F,'É':0x90,'æ':0x91,'Æ':0x92,'ô':0x93,'ö':0x94,'ò':0x95,'û':0x96,'ù':0x97,'ÿ':0x98,'Ö':0x99,'Ü':0x9A,'¢':0x9B,'£':0x9C,'¥':0x9D,'á':0xA0,'í':0xA1,'ó':0xA2,'ú':0xA3,'ñ':0xA4,'Ñ':0xA5,'ª':0xA6,'º':0xA7,'¿':0xA8,'¡':0xAD,'«':0xAE,'»':0xAF,'Á':0x41,'Í':0x49,'Ó':0x4F,'Ú':0x55,'À':0x41,'È':0x45,'Ì':0x49,'Ò':0x4F,'Ù':0x55};
+
+// --- Edit these when using the file standalone (or pass ?text=...&min=...&via=... in the URL) ---
+const DEFAULT_TEXT = 'SIN PARADA';   // up to 16 characters
+const DEFAULT_MINUTES = '1';         // shown right-aligned in the same row; '' for none
+const DEFAULT_PLATFORM = '1';
+const DEFAULT_LED_TEXT = 'PROHIBIDO CRUZAR LAS VIAS';
+const LED_GAP_COLS = 24;             // blank columns between the end and the restart of the loop
+const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new Map();
+
+const PITCH = 11, DOT = 4.3, COLS = 5, ROWS = 7, CELLS = 16, GAP = 6;
+const MIN_CELLS = 0;
+const CELL_W = COLS * PITCH;
+
+// 5x7 flip-dot glyphs (from font-map.txt): code page byte -> 5 column bytes, bit0 = top row
+const GLYPHS = {0:"0000000000",1:"7f4551457f",2:"7f6b4f6b7f",3:"0e1f7c1f0e",4:"0c1e3f1e0c",5:"0c1e7f1e0c",6:"1c3e5f3e1c",7:"0000080000",8:"7f7f777f7f",9:"1c2222221c",10:"635d5d5d63",11:"38283a060e",12:"0629792906",13:"60603f0304",14:"101f457e00",15:"2a1c361c2a",16:"3e1c1c0808",17:"08081c1c3e",18:"14227f2214",19:"005f005f00",20:"067f017f01",21:"025d555d20",22:"1c1c1c1c1c",23:"404a5f4a40",24:"04027f0204",25:"10207f2010",26:"08082a1c08",27:"081c2a0808",28:"0e08080808",29:"081c081c08",30:"181c1f1c18",31:"0c1c7c1c0c",32:"0000000000",33:"00005f0000",34:"0007000700",35:"7f7f7f7f7f",36:"7c09050578",37:"7c0911217c",38:"3649562050",39:"0000070000",40:"1c22410000",41:"000041221c",42:"22147f1422",43:"08083e0808",44:"0040300000",45:"0808080808",46:"0000400000",47:"2010080402",48:"3e4141413e",49:"00427f4000",50:"6251494946",51:"2241494936",52:"1814127f10",53:"2745454539",54:"3c4a494930",55:"0171090503",56:"3649494936",57:"064949291e",58:"0000140000",59:"0040340000",60:"0814224100",61:"1414141414",62:"0041221408",63:"0201590502",64:"3e415d594e",65:"7e0909097e",66:"7f49494936",67:"3e41414122",68:"7f4141413e",69:"7f49494941",70:"7f09090901",71:"3e41494978",72:"7f0808087f",73:"00417f4100",74:"204040403f",75:"7f08142241",76:"7f40404040",77:"7f020c027f",78:"7f0408107f",79:"3e4141413e",80:"7f09090906",81:"3e4151215e",82:"7f09192946",83:"4649494931",84:"01017f0101",85:"3f4040403f",86:"0f3040300f",87:"7f2018207f",88:"6314081463",89:"0304780403",90:"6151494543",91:"7f7f414141",92:"0204081020",93:"4141417f7f",94:"1008040810",95:"4040404040",96:"0001020400",97:"2054545478",98:"7f48444438",99:"3844444444",100:"384444487f",101:"3854545408",102:"00087e0902",103:"485454543c",104:"7f08040478",105:"00007d0000",106:"2040403d00",107:"7f10284400",108:"003f402000",109:"7c0438047c",110:"7c08040478",111:"3844444438",112:"7c14141408",113:"081414147c",114:"7c08040408",115:"4854545424",116:"043f442400",117:"3c4040403c",118:"0c3040300c",119:"3c4030403c",120:"4428102844",121:"0448300804",122:"4464544c44",123:"0836414100",124:"00007f0000",125:"0041413608",126:"0201020402",127:"1814121418",128:"0e5151310a",129:"3d40403d40",130:"007c565d00",131:"2255553a40",132:"2154543940",133:"2055563840",134:"2054553840",135:"0e5151310a",136:"3a55551a00",137:"3855541900",138:"3855561800",139:"00457c4100",140:"004a794200",141:"00497a4000",142:"7924222479",143:"702a252a70",144:"7c54564500",145:"3454385458",146:"7c0a7f4949",147:"3249493200",148:"3944443900",149:"3845463800",150:"3a41413a40",151:"3841423840",152:"4429100904",153:"3944444439",154:"3d4040403d",155:"18247e2400",156:"487e494142",157:"2b2c782c2b",158:"7f05157a50",159:"487e090102",160:"2054563940",161:"00487a4100",162:"3844463900",163:"3c40423d40",164:"7a090a7100",165:"7a09112279",166:"4855554f50",167:"4e51514e00",168:"3048454020",169:"3808080808",170:"0808080818",171:"17084c6a59",172:"1728347a21",173:"0000790000",174:"08142a1422",175:"22142a1408",176:"5500550055",177:"552a552a55",178:"2a552a552a",179:"00007f0000",180:"08087f0000",181:"14147f0000",182:"087f007f00",183:"0878087800",184:"14147c0000",185:"1477007f00",186:"007f007f00",187:"1474047c00",188:"1417101f00",189:"080f080f00",190:"141f000000",191:"0808780000",192:"00000f0808",193:"08080f0808",194:"0808780808",195:"00007f0808",196:"0808080808",197:"08087f0808",198:"00007f1414",199:"007f007f08",200:"001f101714",201:"007c047414",202:"1417101714",203:"1474047414",204:"007f007714",205:"1414141414",206:"1477007714",207:"1414171414",208:"080f080f08",209:"1414741414",210:"0878087808",211:"000f080f08",212:"00001f1414",213:"00007c1414",214:"0078087808",215:"087f087f08",216:"14147f1414",217:"08080f0000",218:"0000780808",219:"7f7f7f7f7f",220:"7878787878",221:"7f7f7f0000",222:"00007f7f7f",223:"0f0f0f0f0f",224:"3844443844",225:"7e01251a00",226:"7e02020600",227:"047c047c04",228:"4163554963",229:"3844443c04",230:"403e101e10",231:"0804780404",232:"005d775d00",233:"1c2a492a1c",234:"5c6202625c",235:"304a4d3902",236:"1824182418",237:"5c322a261d",238:"1c2a494900",239:"7c0202027c",240:"2a2a2a2a2a",241:"44445f4444",242:"00514a4400",243:"00444a5100",244:"00007c020c",245:"18201f0000",246:"086b6b0800",247:"2412241224",248:"0609090600",249:"000c0c0000",250:"0008080000",251:"0818203f01",252:"001f013e00",253:"3229260000",254:"003c3c3c00",255:"0000000000"};
+
+class Component extends DCLogic {
+  state = { ledOff: 0 };
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      if ((this.props.ledScroll ?? true) === false) return;
+      this.setState(s => ({ ledOff: s.ledOff + 1 }));
+    }, 1000 / (this.props.ledSpeed ?? 14));
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+
+  code(ch) {
+    if (CP437[ch] !== undefined) return CP437[ch];
+    const c = ch.charCodeAt(0);
+    return c < 256 ? c : 0x20;
+  }
+
+  row() {
+    const src = Q.get('text') ?? this.props.text ?? DEFAULT_TEXT;
+    const cells = String(src).slice(0, CELLS).split('');
+    while (cells.length < CELLS) cells.push(' ');
+    if (this.props.showMinutes ?? true) {
+      const end = CELLS - MIN_CELLS;
+      const m = String(Q.get('min') ?? this.props.minutes ?? DEFAULT_MINUTES).slice(-end);
+      for (let i = 0; i < m.length; i++) cells[end - m.length + i] = m[i];
+    }
+    return cells;
+  }
+
+  flipDots() {
+    const glyphs = GLYPHS;
+    const lit = this.props.dotColor || '#e2d14a';
+    const off = this.props.showOffDots === false ? null : '#26261e';
+    const cells = this.row();
+    const w = CELLS * CELL_W + (CELLS - 1) * GAP;
+    const h = ROWS * PITCH;
+    const kids = [];
+    for (let i = 0; i < CELLS; i++) {
+      const hex = glyphs ? glyphs[this.code(cells[i] || ' ')] : null;
+      const x0 = i * (CELL_W + GAP);
+      for (let c = 0; c < COLS; c++) {
+        const byte = hex ? parseInt(hex.slice(c * 2, c * 2 + 2), 16) : 0;
+        for (let r = 0; r < ROWS; r++) {
+          const on = (byte >> r) & 1;
+          if (!on && !off) continue;
+          const x = x0 + c * PITCH + PITCH / 2 - DOT;
+          const y = r * PITCH + PITCH / 2 - DOT;
+          const s = DOT * 2, k = DOT * 0.5;
+          const key = i + '_' + c + '_' + r;
+          kids.push(React.createElement('polygon', {
+            key: key,
+            points: [
+              (x + k) + ',' + y, (x + s - k) + ',' + y,
+              (x + s) + ',' + (y + k), (x + s) + ',' + (y + s - k),
+              (x + s - k) + ',' + (y + s), (x + k) + ',' + (y + s),
+              x + ',' + (y + s - k), x + ',' + (y + k)
+            ].join(' '),
+            fill: on ? lit : off
+          }));
+          kids.push(React.createElement('line', {
+            key: key + 'a',
+            x1: x + 0.4, y1: y + s - 0.4, x2: x + s - 0.4, y2: y + 0.4,
+            stroke: on ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.07)',
+            strokeWidth: 0.7
+          }));
+        }
+      }
+    }
+    return React.createElement('svg', { width: w, height: h, viewBox: '0 0 ' + w + ' ' + h, style: { display: 'block' } }, kids);
+  }
+
+  bitmap(text) {
+    const cols = [];
+    for (const ch of String(text)) {
+      const hex = GLYPHS[this.code(ch)];
+      for (let c = 0; c < COLS; c++) cols.push(hex ? parseInt(hex.slice(c * 2, c * 2 + 2), 16) : 0);
+      cols.push(0);
+    }
+    return cols;
+  }
+
+  ledDots() {
+    const w = 1040, h = 95, pitch = 12, rows = 7;
+    const cols = Math.floor((w - 12) / pitch);
+    const gw = cols * pitch, gh = rows * pitch;
+    const x0 = (w - gw) / 2, y0 = (h - gh) / 2;
+    const lit = this.props.ledColor || '#ff3b2e';
+    const bmp = this.bitmap(Q.get('led') ?? this.props.ledText ?? DEFAULT_LED_TEXT);
+    const scrolling = bmp.length > cols;
+    const total = bmp.length + LED_GAP_COLS;
+    const off = scrolling ? this.state.ledOff % total : 0;
+    const pad = scrolling ? 0 : Math.floor((cols - bmp.length) / 2);
+    const kids = [];
+    for (let c = 0; c < cols; c++) {
+      const byte = scrolling ? (bmp[(off + c) % total] || 0) : (bmp[c - pad] || 0);
+      for (let r = 0; r < rows; r++) {
+        const on = (byte >> r) & 1;
+        kids.push(React.createElement('circle', {
+          key: r + '_' + c,
+          cx: x0 + c * pitch + pitch / 2,
+          cy: y0 + r * pitch + pitch / 2,
+          r: on ? 3.1 : 2.3,
+          fill: on ? lit : '#40101a'
+        }));
+      }
+    }
+    return React.createElement('svg', { width: w, height: h, viewBox: '0 0 ' + w + ' ' + h, style: { display: 'block' } }, kids);
+  }
+
+  renderVals() {
+    return {
+      platform: Q.get('via') ?? this.props.platform ?? DEFAULT_PLATFORM,
+      dotColor: this.props.dotColor || '#e2d14a',
+      flipDots: this.flipDots(),
+      ledDots: this.ledDots()
+    };
+  }
+}
+
+</script>
+</body>
+</html>
