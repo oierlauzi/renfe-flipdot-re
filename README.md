@@ -8,8 +8,9 @@ as used in RENFE Cercanías stations, for preservation and play.
 **Goal:** drive arbitrary text onto the panel from a modern host, over the
 existing DB37 serial link, with **no hardware modification**.
 
-Nothing is soldered, nothing is patched, and [original/](original/) stays
-byte-for-byte as it came off the EPROM.
+Nothing is soldered, nothing is patched, and the 
+[original firmaware](original/firmware.bin) stays byte-for-byte as it came off 
+the EPROM.
 
 I document this project in **English**: it's the language I'm used to
 developing software in, and working in other languages has proven
@@ -25,8 +26,9 @@ divulgar.
 **Objetivo:** enviar texto arbitrario al panel desde un ordenador moderno, a
 través del enlace serie DB37 existente, **sin modificar el hardware**.
 
-No se suelda nada, no se parchea nada, y el código [original/](original/) se 
-mantiene idéntico, byte a byte, tal como salió de la EPROM.
+No se suelda nada, no se parchea nada, y el 
+[código original](original/firmware.bit) se mantiene idéntico, byte a byte, tal 
+como salió de la EPROM.
 
 Este proyecto se desarrolla en **inglés**: es el idioma en el que estoy
 acostumbrado a programar, y desarrollar en otros idiomas me resulta
