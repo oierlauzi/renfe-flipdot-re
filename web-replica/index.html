@@ -40,14 +40,46 @@
     box-sizing: border-box;
   }
   .stage-wrap {
+    position: relative;
     width: 100%;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .stage-wrap:fullscreen,
+  .stage-wrap.fake-fullscreen {
+    background: #d9d7d2;
+  }
+  .stage-wrap.fake-fullscreen {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 999;
   }
   .stage {
     width: 1200px;
     height: 520px;
-    transform-origin: top left;
+    flex: none;
+    transform-origin: center center;
   }
+  .fs-exit {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.5);
+    color: #f4f2e9;
+    border: 0;
+    border-radius: 50%;
+    font-size: 16px;
+    line-height: 32px;
+    cursor: pointer;
+  }
+  .fs-exit:hover { background: rgba(0, 0, 0, 0.75); }
   .stage iframe {
     display: block;
     width: 1200px;
@@ -187,6 +219,7 @@
 
 <header>
   <h1>RENFE Cercanías flip-dot display replica</h1>
+  <p>Réplica del teleindicador flip-dot de RENFE Cercanías</p>
 </header>
 
 <div class="stage-outer">
@@ -194,12 +227,14 @@
     <div class="stage" id="stage">
       <iframe id="frame" src="display.html" title="Flip-dot display preview"></iframe>
     </div>
+    <button type="button" id="fs-exit-btn" class="fs-exit" title="Exit full screen" hidden>&#10005;</button>
   </div>
 </div>
 
 <div class="download-row">
   <button type="button" id="download-btn">Download SVG</button>
   <button type="button" id="embed-btn">&lt;/&gt; Embed</button>
+  <button type="button" id="fullscreen-btn">&#9974; Full screen</button>
 </div>
 
 <div class="embed-box" id="embed-box" hidden>
@@ -339,16 +374,74 @@
     el.addEventListener(evt, el.type === 'text' ? debouncedApply : apply);
   }
 
+  const stageWrap = document.querySelector('.stage-wrap');
+  const stage = document.getElementById('stage');
+
+  function isFullscreenActive() {
+    return document.fullscreenElement === stageWrap || stageWrap.classList.contains('fake-fullscreen');
+  }
+
   function scaleStage() {
-    const wrap = document.querySelector('.stage-wrap');
-    const stage = document.getElementById('stage');
-    const scale = Math.min(1, wrap.clientWidth / 1200);
-    stage.style.transform = 'scale(' + scale + ')';
-    wrap.style.height = (520 * scale) + 'px';
+    if (isFullscreenActive()) {
+      stageWrap.style.height = '';
+      const margin = 48; // breathing room around the display in full screen only
+      const scale = Math.min((window.innerWidth - margin * 2) / 1200, (window.innerHeight - margin * 2) / 520);
+      stage.style.transform = 'scale(' + scale + ')';
+    } else {
+      const scale = Math.min(1, stageWrap.clientWidth / 1200);
+      stage.style.transform = 'scale(' + scale + ')';
+      stageWrap.style.height = (520 * scale) + 'px';
+    }
   }
   window.addEventListener('resize', scaleStage);
   scaleStage();
   apply();
+
+  // --- Full screen: real Fullscreen API when available, falling back to a
+  // fixed-position CSS overlay ("fake-fullscreen") otherwise. ---
+  const fsBtn = document.getElementById('fullscreen-btn');
+  const fsExitBtn = document.getElementById('fs-exit-btn');
+
+  function setFullscreenUi(active) {
+    fsBtn.textContent = active ? '⛶ Exit' : '⛶ Full screen';
+    fsExitBtn.hidden = !active;
+    scaleStage();
+  }
+
+  function activateFakeFullscreen() {
+    stageWrap.classList.add('fake-fullscreen');
+    setFullscreenUi(true);
+  }
+
+  function enterFullscreen() {
+    const req = stageWrap.requestFullscreen || stageWrap.webkitRequestFullscreen;
+    if (!req) { activateFakeFullscreen(); return; }
+    try {
+      Promise.resolve(req.call(stageWrap)).catch(activateFakeFullscreen);
+    } catch {
+      activateFakeFullscreen();
+    }
+  }
+
+  function exitFullscreen() {
+    if (document.fullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    }
+    if (stageWrap.classList.contains('fake-fullscreen')) {
+      stageWrap.classList.remove('fake-fullscreen');
+      setFullscreenUi(false);
+    }
+  }
+
+  fsBtn.addEventListener('click', () => {
+    isFullscreenActive() ? exitFullscreen() : enterFullscreen();
+  });
+  fsExitBtn.addEventListener('click', exitFullscreen);
+  document.addEventListener('fullscreenchange', () => setFullscreenUi(!!document.fullscreenElement));
+  document.addEventListener('webkitfullscreenchange', () => setFullscreenUi(!!document.webkitFullscreenElement));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && stageWrap.classList.contains('fake-fullscreen')) exitFullscreen();
+  });
 
   // --- SVG export: reuses the glyph table already embedded in display.html ---
   // (fetched + parsed at runtime instead of pasting a third copy of it here).
