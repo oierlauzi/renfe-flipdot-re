@@ -9,7 +9,7 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 
 | Range | Size | Contents | Conf. |
 | --- | --- | --- | --- |
-| `0x0000-0x7FFF` | 32 KiB | U4 M27256 EPROM (only `0x0000-0x3047` used) | **[C]** |
+| `0x0000-0x7FFF` | 32 KiB | U4 M27256F1 EPROM (only `0x0000-0x3047` used) | **[C]** |
 | `0x8000-0x9FFF` | 8 KiB | unmapped | **[L]** |
 | `0xA000-0xA0FF` | 256 B | U2 M81C55-5 static RAM | **[C]** |
 | `0xA100-0xDFFF` | — | unmapped / aliases of the above | **[?]** |
@@ -35,11 +35,14 @@ exported listing reads `rom:ram:0000` — ignore the `ram` part.
 
 | Range | Contents | Conf. |
 | --- | --- | --- |
-| `0x0000-0x003F` | 8085 RST/TRAP vector table (8-byte slots) | **[C]** |
-| `0x0040-0x0063` | Vector trampolines; all but three jump to `0x034B` | **[C]** |
+| `0x0000-0x003F` | 8085 hardware vectors; each is one `JMP` into the table below | **[C]** |
+| `0x0040-0x0063` | Second-stage vector table, 12 x `JMP`; **all but two** go to `0x034B` | **[C]** |
 | `0x0064-0x006F` | Version/ID string `AK0052.139U1` | **[C]** |
-| `0x0070-0x00xx` | Small constant tables and default parameters | **[L]** |
-| `0x00xx-0x1C0C` | Code | **[C]** |
+| `0x0070-0x008B` | Build-time configuration block, reported by `SUB` | **[C]** |
+| `0x0092-0x00D1` | `tbl_halve`, a 64-entry *i* → *i*/2 lookup | **[C]** |
+| `0x00D2-0x00E5` | Reply prefixes/suffixes, `0xFF`-terminated | **[C]** |
+| `0x00E6-0x025F` | 377 bytes of zero fill — reserved space before a hand-placed `ORG` | **[C]** |
+| `0x0260-0x1C0C` | Code | **[C]** |
 | `0x1C0D-0x210C` | 5x7 glyph table, 256 entries — see [font.md](font.md) | **[C]** |
 | `0x210D-0x3047` | Code and tables | **[C]** |
 | `0x3048-0x7FFF` | Erased (`0xFF` fill) | **[C]** |
@@ -48,7 +51,7 @@ exported listing reads `rom:ram:0000` — ignore the `ram` part.
 
 | Vector | Address | Trampoline | Target |
 | --- | --- | --- | --- |
-| RESET | `0x0000` | `DI` / `JMP 0x034B` | `0x034B` |
+| RESET | `0x0000` | `DI` / `JMP 0x0040` | `0x034B` |
 | RST1 | `0x0008` | `JMP 0x0043` | `0x034B` |
 | RST2 | `0x0010` | `JMP 0x0046` | `0x034B` |
 | RST3 | `0x0018` | `JMP 0x0049` | `0x034B` |
@@ -67,9 +70,11 @@ Only two hardware interrupts are actually used. `0x034B` is the catch-all
 - **RST5.5 → `0x0260`** — the **serial receive interrupt**. Gated by DIP switch
   port C bit 5, and dispatches to one of two receive handlers (`0x08B7` or
   `0x0ACB`) on the value of `0xA00C`. **[C]**
-- **RST7.5 → `0x02A9`** — a periodic tick and **watchdog**: services the `0xC0`
-  device and jumps to `fatal_or_init` when the counter at `0xA01E` expires. Also
-  drives the 8085 SOD pin as a GPIO output. **[C]**
+- **RST7.5 → `0x02A9`** — the periodic tick. It decrements the watchdog at
+  `0xA01E` and jumps to `fatal_or_init` when it expires, samples `0xDE` into the
+  sticky status accumulator, debounces the clock board's keypad on `0xCD` over
+  201 ticks, ages the display attributes, counts down `wait_ticks`, and drives
+  the 8085 SOD pin. **[C]**
 
 See [serial-protocol.md](serial-protocol.md#receive-architecture-c).
 
@@ -92,14 +97,14 @@ Variables identified so far:
 | `0xA004` | 81C55 timer preload MSB | **[C]** |
 | `0xA005` | Cached 8251 mode word | **[C]** |
 | `0xA012` | Mailbox between the RST5.5 receive ISR and the main loop; tokens `0x4A` and `0x4E`, swapped atomically at `0x03A0` | **[C]** |
-| `0xA07C` | Status flags; bit 0 polled in the main loop | **[L]** |
-| `0xA07E` | Status flags; bits 7:6 polled for `0b01` in the main loop | **[L]** |
-| `0xA07F` | Loop/repeat count for the 0x61-iteration render loop at `0x03CE` | **[L]** |
-| `0xA039-` | Buffer walked by that render loop | **[L]** |
+| `0xA07C` | Handler C event flags; bit 0 gates `main_loop` | **[C]** |
+| `0xA07E` | Handler C state; `main_loop` runs only while bits 7:6 read `0b01` | **[C]** |
+| `0xA07F` | Byte count handler C staged at `0xA039` (`rx_c_stage_len`) | **[C]** |
+| `0xA039-` | Handler C's staging buffer; `main_loop` replays it through `rx_a_store_byte` | **[C]** |
 | `0xA00C` | Selects between the two receive handlers (`0x08B7` / `0x0ACB`); set at `0x0689` | **[C]** |
 | `0xA01E` | RST7.5 watchdog counter; reaching 1 jumps to `fatal_or_init` | **[C]** |
 | `0xA059` | Saved expansion memory page, for restore after a banked access | **[C]** |
 | `0xA05A` | Re-entrancy flag; set to 1 inside the ISRs (`0x0271`, `0x0296`) so banked accessors save and restore the page | **[C]** |
 
-The stack pointer initialisation and the full variable map are still to be
-recovered; see [open-questions.md](open-questions.md).
+The full variable map is still incomplete; `ghidra/symbols.csv` is the live list
+and is always ahead of this table.

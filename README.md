@@ -112,9 +112,9 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
 * Messages are **64 bytes at `0xE001`**; overflow is detected and NAKed rather
   than silently truncated. `CAN` clears the display, `DLE` resets the unit, and
   `BEL` + one byte selects one of 8 display effects.
-* **DIP switch port A bits 4:0 are the display address**, and **port C bit 5 is
-  the serial enable** — with it clear the unit runs standalone and never receives
-  anything at all.
+* **DIP switch port A bits 4:0 are the display address**, and **port C bit 5
+  picks the protocol family** — set for the ASCII command protocol below, clear
+  for an unrelated binary protocol (`rx_handler_c`) at a hardwired 9600 8E1.
 * **The command protocol is fully mapped and validated in emulation.** A unit is
   selected with `GS <addr>` (`0x7F` broadcasts), then accepts a small
   cursor-addressable terminal command set, and answers queries with real data:

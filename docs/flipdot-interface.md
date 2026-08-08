@@ -1,9 +1,29 @@
 # Flip-dot drive interface
 
-**Status: barely started.** This document is about how the firmware physically
-flips dots — the inner loop between the frame buffer and the coils.
+How a character in the message buffer becomes moving dots. The path is closed end
+to end and validated in emulation: glyphs sent to the virtual panel come back
+legible.
 
-Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
+Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess, **[!]** known
+contradiction.
+
+## What is settled
+
+| | |
+| --- | --- |
+| **Topology** | 16 independent character modules on a shared 26-conductor bus, not daisy-chained **[C]** |
+| **Addressing** | encoded binary position `0x00-0x3F` on port B, active low, `0x80` = idle **[C]** |
+| **Data path** | serial shift register: port C bit 4 clock, bit 5 data (active low) **[C]** |
+| **Frame** | 74 bits per character: 37 idle, 1 marker, 35 glyph, 1 trailing **[C]** |
+| **Update model** | differential — only changed characters are redrawn **[C]** |
+| **Attributes** | port C bits 1:0, four states, set by `BEL` **[C]** |
+| **Driver** | `panel_11_draw` (`0x29D7`), selected by port C bits 4:0 = 3 **[C]** |
+| **Electrical** | ULN2003A sinks only; how the high side is driven is unknown **[?]** |
+| **U20's identity** | the ALT4 command word contradicts the 8155 reading **[!]** |
+
+**Reading order.** [The panel is a serial shift register](#the-panel-is-a-serial-shift-register-c-from-the-rom)
+is the core; everything before it is context and everything after is either a
+consequence or an open question.
 
 ## Signal chain
 
@@ -15,14 +35,16 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
                                                                     (16 x 5 x 7)
 ```
 
-The 81C55's three ports give 8 + 8 + 6 = **22 output bits**, against **21 sinks**.
-That near-match is unlikely to be coincidence: it suggests the ports drive the
-Darlington inputs almost one-for-one, with a single bit left over for a strobe or
-an enable.
+Three ULN2003A packages — U17, U18 and U19 — give **21 Darlington sinks**,
+against 8 + 8 + 6 = **22 output bits** from the three ports.
 
-**Three** ULN2003A packages — U17, U18 and U19 — give **21 Darlington sinks**.
+> That near-match was once read as evidence the ports drive the Darlington inputs
+> almost one-for-one. **That reading is dead.** The panel is fed *serially* — two
+> port C bits carry a 74-bit-per-character bit stream, and port B carries an
+> encoded address. The bit count is a coincidence. Kept here only because the
+> one-for-one idea is the obvious first guess and this says why it is wrong.
 
-Two facts about that part constrain the topology more than the count does:
+Two facts about the part constrain the topology more than the count does:
 
 * **The ULN2003A contains free-wheel clamp diodes** (common cathode on pin 9).
   Those exist for inductive loads. Their presence is good confirmation the panel
@@ -42,45 +64,35 @@ Option 2 is the tidiest fit for what is actually on the board, but it is **[?]**
 until the ribbon is traced. 21 lines cannot address 560 dots directly under any
 scheme, so the panel must carry its own decoding or shift registers.
 
-## What the firmware does
+## Initialisation **[C]**
 
-Initialisation (`FUN_ram_03F2`, see [io-map.md](io-map.md#0xe0-0xef--display-interface-l)):
+`init_display_ifaces` (`0x03F2`) sets both display port groups up, and does
+nothing panel-specific:
 
 * Timer preload `0x4600` → mode `01` (continuous square wave), count `0x600` =
   1536. A second, much slower timebase than the UART one — plausibly the
   dot-pulse or refresh clock. **[L]**
 * Command `0xCF` → port A output, port B output, port C in ALT4, timer running.
+  (The ALT4 part is the [known contradiction](#a7-has-a-contradiction-in-it-and-it-is-not-resolved-).)
 * Ports A and B are pulsed `0x80` then `0x00` with three `NOP`s in between — a
   deliberate short pulse, i.e. a **reset/home pulse to the panel**. **[L]**
 
-Runtime write counts: `0xE1` 33, `0xE2` 39, `0xE3` 39. The hot path is at
-`0x210D`:
+`CMA` before every data `OUT` says the drive is **active low**, as Darlington
+*sinks* require. **[C]**
 
-```
-0x210D  PUSH DE / PUSH HL
-0x210F  CALL 0x1B69        ; banked read of (HL) - see docs/io-map.md
-0x2112  CMA                ; complement
-0x2113  OUT 0xE1           ; port A  <- inverted value
-0x2115  MVI C,0x10         ; 16 ...
-0x2117  LDA 0xA021
-0x211A  CPI 0x01
-0x211C  JNZ 0x2121
-0x211F  MVI C,0x20         ; ... or 32
-0x2121  LDA 0xA00A
-0x2124  CMA
-0x2125  ANI 0x0F           ; low nibble only
-0x2127  OUT 0xE2           ; port B  <- inverted low nibble
-```
-
-Two readings worth testing:
-
-* `CMA` before every `OUT` says the drive is **active low** — expected with
-  Darlington *sinks*. **[L]**
-* `C = 0x10` or `0x20` (16 or 32) selected by `0xA021` looks like a
-  **character count**: 16 for this panel, 32 if a second board is present.
-  That would make `0xA021` the "panel width" configuration. **[L]**
-* `0xE2` receiving only a 4-bit value suggests port B carries a **column or
-  character address**, not pixel data — 4 bits addresses 16 characters exactly. **[L]**
+> **Removed 2026-08-08.** This section used to present `0x210D` as "the hot path",
+> and drew two conclusions from it: that `0xE2` carrying a 4-bit value meant port
+> B addressed 16 characters, and that `0xA021` was a panel-width configuration
+> holding 16 or 32.
+>
+> Both are wrong, and the first mistake caused the second. **`0x210D` is
+> `panel_0a_draw` — the driver for panel family `0x0A`, not for this unit**, which
+> selects family `0x11` and `panel_11_draw` at `0x29D7`. Port B carries a
+> **6-bit** encoded position over `0x00-0x3F`, not a 4-bit one; family `0x0A`
+> happens to mask it to four bits because *that* panel is 16 characters wide.
+> `0xA021` is the phase index of `render_pass_direct`, which runs its loop twice —
+> phase 0 over `msg_buffer`, phase 1 over `0xE03D` — and has nothing to do with
+> width.
 
 ## Power-on behaviour: the panel is zeroed **[C] observed**
 
@@ -93,7 +105,7 @@ That single observation settles several things:
 * **The rest state is black**, and power-on drives every dot to it.
 * **The sweep is sequential**, not simultaneous — the sound moves across the
   panel. Coils are energised in groups small enough to be heard travelling, which
-  is what the current budget of two ULN2003A packages would force anyway.
+  is what the current budget of three ULN2003A packages would force anyway.
 * **The firmware does not know the panel state at power-on and does not try to.**
   Flip-dots are bistable, so after a power cut the physical dots are wherever they
   were left, while the frame buffer in RAM is cleared to zero. Forcing every dot
@@ -150,8 +162,11 @@ From inspecting the panel (owner, 2026-08):
 
 ### The module address is encoded across 64 positions, not one-hot **[C]**
 
-Port B does not carry sixteen dedicated select lines, one per module — it takes
-**49 distinct values**, which no 8-bit one-hot scheme can produce.
+Port B does not carry sixteen dedicated select lines, one per module. It takes
+**far more than sixteen distinct values** — a repaint of the whole buffer walks
+all 64 — which no 8-bit one-hot scheme can produce. (The exact count depends on
+how many characters changed, so it is not a property worth quoting: a full `FF`
+fill produces 62 values, 61 positions plus the idle code.)
 
 Undoing the `CMA` shows what port B actually carries:
 
@@ -161,8 +176,8 @@ pre-CMA, the value   : 7F 3D 7F 3E 7F 3F 7F 00 7F 01 7F 02 7F 03 7F 04 ...
 with 0x7F removed    : 3D 3E 3F 00 01 02 03 04 05 06 07 08 09 0A 0B 0C ...
 ```
 
-A plain **incrementing counter over `0x00-0x3F`** — 48 distinct values seen, of
-which only 6 happen to be one-hot. The `0x7F` between each is now identified: it
+A plain **incrementing counter over `0x00-0x3F`**, of which only 6 values happen
+to be one-hot. The `0x7F` between each is now identified: it
 is a literal `MVI A,0x80 / OUT 0xE2` at `0x2A5B` that **deselects** at the end of
 every character. See
 [how an individual character is addressed](#how-an-individual-character-is-addressed-c-from-the-rom).
@@ -604,8 +619,7 @@ Every character then differs from it, so the next pass repaints everything. It
 does that when:
 
 * the panel type is `0x08` — and it also pulses `0x36` to port C first; or
-* **port C bit 5 is clear**, i.e. the serial link is disabled — a standalone unit
-  repaints continuously; or
+* **port C bit 5 is clear**, i.e. the unit is running the handler C protocol; or
 * `0xA023 = 0xFF`.
 
 It explicitly does **not** for panel type `0x12`, which returns immediately.

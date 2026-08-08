@@ -71,31 +71,40 @@ So port B is now fully accounted for: bits 7:5 baud, bit 4 word length, bits 3:2
 parity. The `0x7E` literal used on the hardwired path (8E1) is what these
 switches produce in their common setting.
 
-## Port C bit 5 — SERIAL ENABLE **[C]**
+## Port C bit 5 — protocol family select **[C]**
 
-This bit does far more than pick an init path. **It gates reception entirely.**
-
-Two separate places test it:
+This bit picks **which of two unrelated serial protocols the unit speaks**, and
+the line settings that go with it. It is tested in two places:
 
 | Site | Test | Effect |
 | --- | --- | --- |
-| `0x0430` (init) | bit 5 clear → `0x0437` | hardwired config: timer preload `0x4014`, 8251A mode `0x7E` (**9600 8E1**) |
-| `0x0430` (init) | bit 5 set → `0x0468` | switch-derived config: baud from port B bits 7:5, mode word built at `0x0533` |
-| `0x0268` (RST5.5 ISR) | bit 5 clear → return immediately | **no serial data is ever received** |
-
-The two combine into a single meaningful setting:
+| `0x0430` (init) | bit 5 clear | hardwired line config: timer preload `0x4014`, 8251A mode `0x7E` (**9600 8E1**) |
+| `0x0430` (init) | bit 5 set | switch-derived config: baud from port B bits 7:5, mode word built at `0x0533` |
+| `0x0268` (RST5.5 ISR) | bit 5 clear | `JZ 0x02A3` → **`CALL rx_handler_c`** (`0x2C80`) |
+| `0x0268` (RST5.5 ISR) | bit 5 set | dispatch on `rx_handler_sel` to handler **A** or **B** |
 
 | Bit 5 | Meaning |
 | --- | --- |
-| **clear** | **Standalone / test mode.** Hardwired 9600 8E1, and the receive ISR returns without touching the UART. The unit will not respond to anything on the serial line. |
-| **set** | **Normal operation.** Baud rate and character format come from the port B switches, and reception is enabled. |
+| **clear** | **Handler C**, at a hardwired 9600 8E1. A different, binary protocol — see [serial-protocol.md](serial-protocol.md#handler-c-a-third-protocol-c). |
+| **set** | **Handlers A / B**, the ASCII control-code protocol, with baud and character format from the switches. |
 
-Verified in the simulator: with port C bit 5 clear, no command produces any
-reply; with it set, the unit answers correctly.
+> **Corrected 2026-08-08.** This section previously read "SERIAL ENABLE", and
+> claimed bit 5 clear made the receive ISR "return immediately" so that "no serial
+> data is ever received". **That is wrong.** `0x026C` is `JZ 0x02A3`, and `0x02A3`
+> is `CALL 0x2C80` — a 930-byte third receive handler that reads the UART, latches
+> framing and parity errors, drives RTS through `line_turnaround`, and transmits
+> replies. The unit receives perfectly well with bit 5 clear; it just does not
+> speak the protocol the tooling was sending.
+>
+> The simulator observation behind the old claim — *"with bit 5 clear, no command
+> produces any reply"* — was real. It was the **explanation** that was invented:
+> the handler-B command set gets no reply because handler C is not handler B.
 
-**Consequence:** the documented "9600 8E1" default is the configuration of a
-unit that *cannot receive*. A working installation is running whatever the port B
-switches select. Read those switches before assuming a baud rate.
+**Consequence for a replacement controller:** the "9600 8E1" configuration is not
+a dead-end test mode, it is the line setting for the other protocol. An installed
+unit could be running either family, and the switch that decides is on port C, not
+port B. Read port C bit 5 first — it determines which half of
+[serial-protocol.md](serial-protocol.md) applies.
 
 ## Port A bits 4:0 — display address **[C]**
 

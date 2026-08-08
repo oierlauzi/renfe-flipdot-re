@@ -73,6 +73,7 @@ effect_duration2	equ	0A018h
 tick_wait_flags	equ	0A01Bh
 tick_wait_count	equ	0A01Ch
 watchdog_count	equ	0A01Eh
+direct_pass_phase	equ	0A021h
 panel_dirty	equ	0A022h
 refresh_mode	equ	0A023h
 hw_status_acc	equ	0A024h
@@ -99,9 +100,10 @@ second_display_sel	equ	0A057h
 xram_saved_page	equ	0A059h
 in_isr_flag	equ	0A05Ah
 state_eot	equ	0A05Dh
+uart_rx_byte	equ	0A07Bh
 status_flags_a	equ	0A07Ch
 status_flags_b	equ	0A07Eh
-render_count	equ	0A07Fh
+rx_c_stage_len	equ	0A07Fh
 msg_buffer	equ	0E001h
 msg_terminator	equ	0E041h
 shadow_buffer	equ	0E043h
@@ -658,7 +660,7 @@ isr_rst55:
 	JMP	isr_rst55_br2
 isr_rst55_br1:
 	CALL	rx_handler_b
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	MOV	B,A
 	LDA	0A054h
 	XRA	B
@@ -829,10 +831,11 @@ main_loop:
 	LDA	status_flags_a
 	ANI	01h
 	JNZ	main_loop
+main_loop_replay:
 	LXI	H,state_vt
-	LDA	render_count
+	LDA	rx_c_stage_len
 	MOV	B,A
-main_loop_loop1:
+main_loop_replay_loop1:
 	PUSH	H
 	PUSH	B
 	MVI	B,61h
@@ -844,7 +847,7 @@ main_loop_loop1:
 	POP	H
 	INX	H
 	DCR	B
-	JNZ	main_loop_loop1
+	JNZ	main_loop_replay_loop1
 	LDA	status_flags_b
 	ANI	1Fh
 	ORI	20h
@@ -1756,7 +1759,7 @@ attr_split_br3:
 	RET
 rx_handler_b:
 	SUB	A
-	STA	0A07Bh
+	STA	uart_rx_byte
 	LDA	selected
 	CPI	00h
 	JNZ	rx_handler_b_br1
@@ -1809,7 +1812,7 @@ rx_handler_b_br1:
 	CPI	00h
 	JNZ	rx_b_return_br4
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 rx_handler_b_loop1:
 	PUSH	PSW
 	LDA	0070h
@@ -1984,11 +1987,11 @@ cmd_vt_position_br1:
 	INR	A
 	STA	state_vt
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	LDA	0A06Fh
 	CPI	00h
 	JZ	rx_b_return
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	ANI	7Fh
 	SUI	30h
 	MOV	D,A
@@ -2007,11 +2010,11 @@ cmd_vt_position_br2:
 	STA	state_vt
 	LHLD	rx_write_ptr_b
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	LDA	0A06Fh
 	CPI	00h
 	JZ	rx_b_return
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	ANI	7Fh
 	SUI	30h
 	STA	cursor_col
@@ -2212,7 +2215,7 @@ cmd_esc:
 	JMP	rx_b_return
 cmd_esc_br1:
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	ANI	7Fh
 	LHLD	0A04Dh
 	MOV	M,A
@@ -2361,14 +2364,14 @@ build_address_byte_br4:
 	JMP	build_address_byte_loop1
 build_address_byte_br5:
 	SUB	A
-	STA	0A07Bh
+	STA	uart_rx_byte
 	MVI	A,01h
 	STA	0A053h
 	JMP	rx_b_return
 build_address_byte_br6:
 	SUB	A
 	STA	0A053h
-	STA	0A07Bh
+	STA	uart_rx_byte
 	IN	uart_data
 	MOV	B,A
 	LDA	0A054h
@@ -2421,7 +2424,7 @@ cmd_enq:
 	JMP	check_buffer_bounds
 param_enq:
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	CPI	12h
 	JNZ	param_enq_br1
 	MVI	A,23h
@@ -2474,7 +2477,7 @@ select_unit:
 	JMP	param_gs_address_loop1
 cmd_rs:
 	SUB	A
-	STA	0A07Bh
+	STA	uart_rx_byte
 	LDA	007Ah
 	CPI	00h
 	JZ	rx_b_return
@@ -2495,7 +2498,7 @@ cmd_bel:
 	JMP	check_buffer_bounds
 param_bel_attr:
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	ANI	07h
 	STA	display_attr
 	SUB	A
@@ -2530,7 +2533,7 @@ cmd_eot_br1:
 	INR	A
 	STA	state_eot
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	ANI	7Fh
 	STA	0A056h
 	CPI	33h
@@ -2566,7 +2569,7 @@ cmd_eot_br3:
 	STA	state_eot
 	LHLD	0A06Ch
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	MOV	H,A
 	SHLD	0A06Ch
 	LDA	0A06Fh
@@ -2582,7 +2585,7 @@ cmd_eot_br4:
 	STA	state_eot
 	LHLD	0A06Ch
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	MOV	L,A
 	LXI	B,msg_buffer2
 	DAD	B
@@ -2595,7 +2598,7 @@ cmd_eot_br5:
 	STA	state_eot
 	LHLD	0A05Bh
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	MOV	H,A
 	SHLD	0A05Bh
 	JMP	rx_b_return
@@ -2606,7 +2609,7 @@ cmd_eot_br6:
 	STA	state_eot
 	LHLD	0A05Bh
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	MOV	L,A
 	SHLD	0A05Bh
 	JMP	rx_b_return
@@ -2615,11 +2618,11 @@ cmd_eot_br7:
 	JNZ	cmd_eot_br11
 	LHLD	0A06Ch
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	LDA	0A06Fh
 	CPI	00h
 	JZ	cmd_eot_br8
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	CALL	xram_write
 cmd_eot_br8:
 	INX	H
@@ -2651,11 +2654,11 @@ cmd_eot_br11:
 	MVI	A,30h
 	STA	0A056h
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	LDA	0A06Fh
 	CPI	00h
 	JZ	rx_b_return
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	JMP	rx_command_dispatch_loop1
 render_task:
 	LDA	rx_handler_sel
@@ -2867,7 +2870,7 @@ render_pass_direct:
 	LXI	H,msg_buffer
 	CALL	clock_service
 	SUB	A
-	STA	0A021h
+	STA	direct_pass_phase
 	STA	char_pos
 	CALL	render_loop_direct
 	LXI	D,0E07Fh
@@ -2886,7 +2889,7 @@ render_pass_direct:
 	CPI	0Eh
 	CZ	clear_char_pos
 	MVI	A,01h
-	STA	0A021h
+	STA	direct_pass_phase
 	CALL	render_loop_direct
 	LDA	refresh_mode
 	CPI	0FFh
@@ -4349,7 +4352,7 @@ panel_0a_draw:
 	CMA
 	OUT	disp0_port_a
 	MVI	C,10h
-	LDA	0A021h
+	LDA	direct_pass_phase
 	CPI	01h
 	JNZ	panel_0a_draw_br1
 	MVI	C,20h
@@ -4383,7 +4386,7 @@ panel_0a_flush:
 	SUB	A
 	STA	panel_dirty
 	MVI	C,40h
-	LDA	0A021h
+	LDA	direct_pass_phase
 	CPI	00h
 	JZ	panel_0a_flush_br1
 	MVI	C,80h
@@ -4412,7 +4415,7 @@ panel_0103_draw_br1:
 	CMA
 	OUT	disp0_port_a
 	MVI	C,80h
-	LDA	0A021h
+	LDA	direct_pass_phase
 	CPI	01h
 	JNZ	panel_0103_draw_br2
 	MVI	C,40h
@@ -5074,7 +5077,7 @@ panel_0e_flush_br3:
 	LDA	render_pass_sel
 	CPI	00h
 	JZ	panel_0e_flush_br4
-	LDA	0A021h
+	LDA	direct_pass_phase
 	CPI	00h
 	JZ	panel_0e_flush_ret1
 panel_0e_flush_br4:
@@ -5804,13 +5807,13 @@ rx_handler_c_br1:
 	STA	status_flags_a
 	IN	uart_data
 	SUB	A
-	STA	0A07Bh
+	STA	uart_rx_byte
 	MVI	A,37h
 	OUT	uart_ctrl
 	JMP	rx_handler_c_br3
 rx_handler_c_br2:
 	IN	uart_data
-	STA	0A07Bh
+	STA	uart_rx_byte
 	LDA	frame_start_char
 	ANI	1Fh
 	MOV	B,A
@@ -5851,7 +5854,7 @@ rx_handler_c_br3:
 	MOV	A,B
 	ANI	40h
 	JNZ	rx_handler_c_br21
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	CPI	18h
 	JZ	rx_handler_c_br16
 	CPI	03h
@@ -5974,7 +5977,7 @@ rx_handler_c_br6:
 rx_handler_c_br7:
 	CPI	02h
 	JNZ	rx_handler_c_br8
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	CPI	06h
 	JNZ	rx_handler_c_loop5
 	MVI	A,03h
@@ -5993,11 +5996,11 @@ rx_handler_c_br8:
 	LDA	0A086h
 	ANI	1Fh
 	MOV	B,A
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	ANI	1Fh
 	CMP	B
 	JNZ	rx_handler_c_loop5
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	STA	0A086h
 	LDA	0A088h
 	CPI	00h
@@ -6018,7 +6021,7 @@ rx_handler_c_br9:
 	STA	0A089h
 	JMP	rx_handler_c_loop1
 rx_handler_c_br10:
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	CPI	1Dh
 	JNZ	rx_handler_c_br11
 	MOV	A,B
@@ -6034,7 +6037,7 @@ rx_handler_c_br11:
 	ANI	02h
 	RZ
 rx_handler_c_br12:
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	ANI	1Fh
 	MOV	C,A
 	LDA	0A07Dh
@@ -6060,7 +6063,7 @@ rx_handler_c_br13:
 	RET
 rx_handler_c_br14:
 	LHLD	0A08Ah
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	MOV	M,A
 	LDA	0A085h
 	XRA	M
@@ -6095,7 +6098,7 @@ rx_handler_c_br17:
 	JZ	rx_handler_c_br18
 	MVI	A,01h
 	STA	0A088h
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	STA	0A085h
 	ANI	1Fh
 	MOV	C,A
@@ -6108,9 +6111,9 @@ rx_handler_c_br17:
 rx_handler_c_br18:
 	LXI	H,state_vt
 	SHLD	0A08Ah
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	STA	0A084h
-	STA	render_count
+	STA	rx_c_stage_len
 	MOV	C,A
 	LDA	0A085h
 	XRA	C
@@ -6134,7 +6137,7 @@ rx_handler_c_br19:
 	STA	0A089h
 	MVI	A,02h
 	STA	0A088h
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	STA	0A086h
 	JMP	rx_handler_c_loop1
 rx_handler_c_loop6:
@@ -6154,7 +6157,7 @@ rx_handler_c_br20:
 	ANI	0DFh
 	MOV	B,A
 	STA	status_flags_a
-	LDA	0A07Bh
+	LDA	uart_rx_byte
 	MOV	C,A
 	LDA	0A085h
 	CMP	C
@@ -6179,7 +6182,7 @@ rx_handler_c_br21:
 	ANI	0BFh
 	STA	status_flags_a
 	MVI	A,01h
-	STA	render_count
+	STA	rx_c_stage_len
 	LDA	status_flags_b
 	ANI	1Fh
 	ORI	40h

@@ -177,9 +177,11 @@ layer proves intractable, not the first choice.
 
 ## Notes for whatever you build
 
-* **The display transmits continuously.** Its status frame goes out forever with
-  no prompting, so the host must tolerate a constant inbound stream and should
-  not treat unexpected bytes as an error.
+* **The display only speaks when spoken to.** An earlier note here said its
+  status frame "goes out forever with no prompting"; that is retracted — the
+  firmware transmits nothing unprompted. Still allow for unexpected inbound bytes,
+  because a shared bus may carry another unit's replies, but do not rely on a
+  constant stream to prove the link is alive.
 * **Allow at least 4 ms before the first reply byte.** The firmware runs a fixed
   line-turnaround delay of 3.9 ms before answering, then the frame itself takes
   5.7 ms at 9600 baud and 183 ms at 300. Budget generously — a `SUB` reply at

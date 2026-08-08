@@ -91,7 +91,16 @@ third is a safety precondition.
       - Result — idle level (gives the polarity):
 - [ ] **Decode the captured frame against the known answer** `18 18 1E 15 <addr>`
       where `<addr>` = `0x60 | (port A & 0x1F)`. A match confirms baud, polarity
-      and framing simultaneously.
+      and framing simultaneously. **But the unit must be polled first** — that
+      frame belongs to `rx_handler_c`, which only ever replies; re-checked
+      2026-08-08, the firmware transmits nothing unprompted. The earlier note
+      claiming it transmits continuously is retracted.
+      → [docs/serial-protocol.md](docs/serial-protocol.md#the-transmitted-status-frame-c)
+      - Result:
+- [ ] **So what drove the transitions seen on the DB37 pins?** They were
+      attributed to the unit's own status frame; that explanation is now dead and
+      nothing replaces it. Re-scope with the link quiet and note whether the
+      activity is periodic.
       - Result:
 - [ ] **Identify the electrical standard — diode test, power OFF, no scope
       needed.** Multimeter in diode mode across each pair, both polarities:
@@ -304,8 +313,10 @@ Detail in [docs/open-questions.md](docs/open-questions.md).
 - [x] **Addressing understood and validated**: `GS <addr>` selects a unit,
       `0x7F` broadcasts, `RS` deselects, and until selected only EOT/VT/GS are
       accepted. A wrong address leaves the unit silent.
-- [x] **Port C bit 5 is the serial enable**, not merely an init-path selector.
-      Clear = standalone with hardwired 9600 8E1 and reception disabled.
+- [x] **Port C bit 5 selects the protocol family**, not merely an init path, and
+      **not** a "serial enable" as recorded until 2026-08-08. Clear routes RST5.5
+      to `rx_handler_c` (`0x2C80`) at a hardwired 9600 8E1 — a different binary
+      protocol, not silence. → [docs/serial-protocol.md](docs/serial-protocol.md)
 - [x] **`0x04` EOT sub-modes decoded and verified.** `'1'` writes 64 bytes to
       `0xE084`; `'2'` takes a 16-bit offset and count and block-writes at
       `0xE084 + offset`; **`'3'` stores the next byte verbatim, bypassing the

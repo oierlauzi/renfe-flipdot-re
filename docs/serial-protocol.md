@@ -50,21 +50,32 @@ something else — see [dip-switches.md](dip-switches.md).
 
 1. `MVI A,0x0B / SIM` masks RST5.5 and RST6.5 but leaves RST7.5 unmasked, then
    `EI` — so the timer tick can preempt the receive path.
-2. `IN 0xA3 / ANI 0x20` — checks DIP switch port C bit 5 and does nothing if it
-   is clear. **The mode switch gates reception entirely.**
+2. `IN 0xA3 / ANI 0x20` — checks DIP switch port C bit 5. **Clear routes the
+   whole interrupt to a third handler**, `rx_handler_c` at `0x2C80`
+   (`JZ 0x02A3` → `CALL 0x2C80`), and the steps below never run. See
+   [handler C](#handler-c-a-third-protocol-c).
 3. Writes token `0x4E` to the mailbox byte `0xA012`.
 4. Sets `0xA05A = 1` for the duration, so banked memory accessors save and
    restore their page (see [io-map.md](io-map.md#0xe7--expansion-memory-bank-register-c)).
-5. Dispatches on `0xA00C`: **two different receive handlers**, `0x08B7` and
-   `0x0ACB`. Both touch the 8251A. `0xA00C` is set at `0x0689` from either the
-   expansion board or DIP switch port A bit 6 — so the unit implements **two
-   protocols or two link roles**, selected by configuration.
+5. Dispatches on `0xA00C`: handler **A** (`0x08B7`) or handler **B** (`0x0ACB`).
+   `0xA00C` is set at `0x0689` from either the expansion board or DIP switch
+   port A bit 6.
 
-RST7.5 (`0x02A9`) is a periodic tick, not part of the receive path: it services
-the `0xC0` device and decrements a counter at `0xA01E` that jumps to
-`fatal_or_init` on expiry — i.e. a **watchdog**. It also drives the 8085's SOD
-pin (`SIM` with `0xC0` sets it, `0x0344` clears it), so SOD is used as a GPIO
-output — possibly a heartbeat or an external watchdog strobe. **[L]**
+**So there are three receive handlers, not two**, and two independent switches
+choose between them:
+
+| port C bit 5 | `0xA00C` | Handler | Protocol |
+| --- | --- | --- | --- |
+| set | `!= 1` | **A** (`0x08B7`) | delimited byte stream into the buffer |
+| set | `== 1` | **B** (`0x0ACB`) | the ASCII control-code command set, most of this document |
+| **clear** | — | **C** (`0x2C80`) | a binary poll/select protocol, barely decoded |
+
+RST7.5 (`0x02A9`) is a periodic tick, not part of the receive path: it decrements
+a counter at `0xA01E` that jumps to `fatal_or_init` on expiry — i.e. a
+**watchdog** — samples the status input `0xDE`, and debounces the clock board's
+keypad ([io-map.md](io-map.md#0xc0-0xcf--a-clock-with-keys-c)). It also drives the
+8085's SOD pin (`SIM` with `0xC0` sets it, `0x0344` clears it), so SOD is used as
+a GPIO output — possibly a heartbeat or an external watchdog strobe. **[L]**
 
 ### The 0xA012 mailbox
 
@@ -142,17 +153,22 @@ The unit does transmit. Two send routines, both polling TxRDY (`IN 0x81`,
 * `0x303F`, via `0x3027` — called from 21 sites across `0x2D00-0x3000`, a whole
   transmit subsystem. It uses the watchdog counter `0xA01E` as a TxRDY timeout.
 
-Run under emulation with default switches, the firmware continuously emits a
-repeating **5-byte frame**:
+The `0x3027` subsystem belongs to **handler C**, and it emits a **5-byte frame**:
 
 ```
-18 18 1E 15 7F      and periodically      18 18 1E 15 BF
+18 18 1E 15 7F      and                   18 18 1E 15 BF
 ```
 
-The two variants differ only in bits 7:6 of the last byte. Given the MAESTRA
-label this looks like a **poll or beacon** — the master soliciting from slaves,
-with the last byte carrying an address or a flag. `0x7F` is also the value found
-in `0xA006` (the start-of-frame byte), which is unlikely to be a coincidence.
+The two variants differ only in bits 7:6 of the last byte; the low five bits are
+the port A address, so `0x7F` is the `0x60 | 0x1F` form a unit reading all-ones
+switches produces.
+
+> **Not a beacon.** An earlier draft recorded this as continuously emitted and
+> read it as a master polling slaves. Re-checked 2026-08-08 across both port C
+> bit 5 settings: **the firmware transmits nothing unprompted**, and never even
+> enters `isr_rst55` without received data. Every handler C transmit path hangs
+> off the received-byte dispatch. See
+> [the transmitted status frame](#the-transmitted-status-frame-c).
 
 Reproduce with:
 
@@ -642,19 +658,74 @@ reply to `SUB` — 45 payload bytes plus preamble — takes about 1.8 seconds.
 
 ## The transmitted status frame **[C]**
 
-Independently of either handler, the unit continuously emits:
+The five-byte frame
 
 ```
-18 18 1E 15 <0x60 | address>        and      18 18 1E 15 <0xA0 | address>
+18 18 1E 15 <addr>          CAN CAN RS NAK <addr>
 ```
 
-`CAN CAN RS NAK <addr>`. The address is DIP switch port A bits 4:0, verified by
-sweeping it in the simulator. The two variants differ only in bits 7:6 of the
-last byte, so those are flags — status, or "have data" versus "idle".
+is **real and in the code** — `0x2D45` sends `18`, falls into the sequence at
+`0x2D52` that sends `18 1E 15` and then `0xA07D`. Two variants were recorded,
+`0x60 | address` and `0xA0 | address`, differing only in bits 7:6 of the last
+byte, so those are flags.
 
-This is a slave announcing itself on a shared bus, not a master polling. Worth
+> **Retracted 2026-08-08: it is not emitted continuously, and not
+> "independently of either handler".** It belongs to **handler C**, and handler C
+> is entirely reactive — every one of its transmit paths runs from the
+> received-byte dispatch and is preceded by `line_turnaround`.
+>
+> Re-checked in the simulator across `port A` = `0x45`/`0xFF` and both settings of
+> port C bit 5, two million instructions each: **zero bytes transmitted, and
+> `isr_rst55` never entered at all** without fed input. The original note recorded
+> this frame as something the firmware "transmits continuously"; nothing in the
+> current model reproduces that, and the code says a poll must arrive first.
+>
+> This matters beyond bookkeeping: [TODO.md](../TODO.md) offered the frame as a
+> **known-answer test** for baud, polarity and framing on a powered unit. It is
+> still a known answer — but the unit has to be *asked*, and the transitions seen
+> on a scope with nothing driving the link remain unexplained.
+
+Either way this is a slave answering on a shared bus, not a master polling. Worth
 weighing against the MAESTRA label: this unit may be the master *of its display
 chain* while still being a slave *on the serial bus*.
+
+## Handler C — a third protocol **[C]**
+
+Selected when **DIP switch port C bit 5 is clear**, at a hardwired **9600 8E1**.
+930 bytes at `0x2C80`, and *not* a variant of the command set above: it is binary,
+polled, and shares nothing with handlers A and B but the UART.
+
+What is established:
+
+* **Entirely reactive.** Every transmit path runs from the received-byte
+  dispatch at `0x2D06`, and each is preceded by `line_turnaround` (RTS) and
+  followed by `reply_cleanup`. Nothing is sent unprompted.
+* **It reads the UART properly** — `IN 0x81 / ANI 0x78` separates a clean byte
+  from a parity/overrun/framing error, and latches the error into
+  `status_flags_a`.
+* **Command bytes** dispatch on `uart_rx_byte`: `0x00`, `0x01`, `0x02` (STX),
+  `0x03` (ETX), `0x0C`, `0x0F`, `0x18` (CAN), `0x1D` (GS), `0x1E` (RS). `0x0C`
+  jumps straight to `fatal_or_init` — a **reset command**.
+* **Replies** are short binary frames: `0x0F <addr>` to command `0x01`,
+  `0x1D <byte>`, `0x02 <addr> …`, and the `18 18 1E 15 <addr>` status frame.
+* **`<addr>` is `0xA07D`**, whose low 5 bits come from the port A switches — the
+  same address the other handlers use.
+* **Message delivery is length-prefixed.** At `0x2F14` the handler takes the
+  received byte as a **count**, stores it in `rx_c_stage_len`, and stages the
+  following bytes at `0xA039`. `main_loop` (`0x03C7`) then replays exactly that
+  many bytes through `rx_a_store_byte` into the message buffer, using `0x61` as
+  the start delimiter and `0x03` as the end delimiter.
+
+  That closes an old loose end: the "0x61-iteration render loop" recorded in
+  earlier drafts was a misreading. `0x61` is a **delimiter constant** passed in
+  `B`, not an iteration count; the count is `rx_c_stage_len`.
+
+Not established: the frame layout, the checksum (if any), and which command
+begins a transaction. Nobody has driven handler C in the simulator successfully —
+single bytes produce silence, so it wants a sequence.
+
+**Why it matters.** An installed unit may well have been running this, not the
+ASCII protocol. Read port C bit 5 before assuming anything.
 
 ## Still unknown
 
@@ -662,21 +733,10 @@ chain* while still being a slave *on the serial bus*.
   unattributed. A master/slave addressing scheme on the serial bus is therefore
   likely, meaning frames probably carry a **display address** taken from those
   switches. **[L]**
-* The main loop at `0x03B2` waits for `0xA07E & 0xC0 == 0x40` and
-  `0xA07C & 0x01 == 0` before rendering 0x61 (97) items from a buffer at
-  `0xA039`. Those are almost certainly the "message ready" flags. **[L]**
-
-### Where to look next
-
-1. **Disassemble `0x08B7` and `0x0ACB` fully.** These are the two receive
-   handlers; everything about the framing is inside them. This is the single
-   highest-value piece of work left and it needs no hardware.
-2. Work out what selects between them, i.e. what `0xA00C` means, and which one
-   a unit with no expansion board and default switches actually uses.
-3. Look for the usual framing bytes in those routines: `STX` `0x02`, `ETX`
-   `0x03`, `SOH` `0x01`, `EOT` `0x04`, `ACK` `0x06`, `NAK` `0x15`.
-4. Check whether the reply path (`OUT 0x80`, only 2 sites) sends an ACK/NAK —
-   if it does, the frame format becomes cheap to confirm by experiment.
+* **Handler C's frame layout** — see above. This is now the largest undecoded
+  region of the ROM and needs no hardware.
+* **What produced the transitions seen on the DB37 pins** with nothing driving
+  the link. The status frame was the standing explanation and it no longer fits.
 
 ## Protocol scratchpad
 

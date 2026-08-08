@@ -17,7 +17,7 @@ Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
 | `0xDE` | *unidentified input* | Active-low hardware status; sampled every RST7.5 tick | **[L]** |
 | `0xE0-0xE5` | 8155-class device (U20) | Flip-dot interface — but see the ALT4 contradiction | **[?]** |
 | `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
-| `0xE8-0xEF` | 8155-class device | Second display bank / LED matrix | **[L]** |
+| `0xE8-0xEF` | 8155-class device | Second display group. Initialised, but never painted on this unit | **[C]** |
 
 ## 0x80-0x81 — M82C51A-2 USART **[C]**
 
@@ -74,7 +74,7 @@ registers:
 | `0xA0` | W | Command/status register | `0x00` then `0xC0` (all ports input, timer run) |
 | `0xA1` | R | Port A | read-only in firmware → **input, DIP switch bank** |
 | `0xA2` | R | Port B | read-only → **input, DIP switch bank**; bits 7:5 select baud rate |
-| `0xA3` | R | Port C (6 bit) | read-only → **input**; bit 5 selects an alternate init path at `0x0430` **and gates serial reception in the RST5.5 ISR** |
+| `0xA3` | R | Port C (6 bit) | read-only → **input**; bit 5 picks the line config at `0x0430` **and the receive handler in the RST5.5 ISR** |
 | `0xA4` | W | Timer count LSB | `0x14` |
 | `0xA5` | W | Timer count MSB | `0x40` |
 
@@ -95,7 +95,7 @@ banks of DIP switches are visible in
 
 ## 0xE0-0xEF — display interface **[L]**
 
-Two register groups initialised by `FUN_ram_03F2` in a way that matches the
+Two register groups initialised by `init_display_ifaces` (`0x03F2`) in a way that matches the
 81C55 register layout exactly (offset 0 = command, 1 = PA, 2 = PB, 3 = PC,
 4 = timer LSB, 5 = timer MSB):
 
@@ -119,8 +119,8 @@ Two register groups initialised by `FUN_ram_03F2` in a way that matches the
 0x042C  A=0xE0 -> 0xE7
 ```
 
-Runtime write counts (`0xE1`: 33, `0xE2`: 39, `0xE3`: 39) put the hot loop on
-ports A/B/C of group 1 — the flip-dot drive.
+Ports A/B/C of group 1 carry the flip-dot drive; group 2 is never painted on
+this unit. See [flipdot-interface.md](flipdot-interface.md).
 
 ### The ALT4 problem: this may not be an 8155 after all **[!]**
 

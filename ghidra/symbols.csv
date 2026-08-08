@@ -110,8 +110,8 @@ mem,a014,display_attr,data,Display attribute byte set by in-band control charact
 mem,a016,effect_duration,data,16-bit duration set by 0x7D / 0x65 / 0x66
 mem,a018,effect_duration2,data,16-bit duration set by 0x64
 mem,a01e,watchdog_count,data,Decremented by isr_rst75; reaching 1 jumps to fatal_or_init
-mem,a039,render_buffer,data,Buffer walked by the 0x61-iteration render loop
-mem,a039,state_vt,data,"VT parameter state: 1 = expect row, 2 = expect column"
+mem,a039,rx_c_stage,data,"Staging buffer handler C fills; main_loop replays rx_c_stage_len bytes from here through rx_a_store_byte"
+mem,a039,state_vt,data,"VT parameter state: 1 = expect row, 2 = expect column. Shares the byte with rx_c_stage - handlers B and C never both run"
 mem,a03a,msg_error,data,Accumulated message error flag; zero means ACK on ETX
 mem,a03b,rx_write_ptr_b,data,Handler B message write pointer into the 0xE000 window
 mem,a03e,state_enq,data,Set by ENQ; diverts the next byte to param_enq
@@ -128,9 +128,9 @@ mem,a055,state_bel,data,Set by BEL; diverts the next byte to param_bel_attr
 mem,a059,xram_saved_page,data,"Previous expansion memory page, restored after a banked access"
 mem,a05a,in_isr_flag,data,"Set to 1 in the ISRs (0x0271, 0x0296); makes the banked accessors save/restore the page"
 mem,a05d,state_eot,data,Set by EOT; diverts the next byte to the sub-mode selector
-mem,a07c,status_flags_a,data,Bit 0 polled by main_loop
-mem,a07e,status_flags_b,data,Bits 7:6 polled by main_loop for 0b01
-mem,a07f,render_count,data,Iteration count for the render loop at 0x03CE
+mem,a07c,status_flags_a,data,"Handler C event flags. Bit 0 gates main_loop; bits 2-6 select branches in rx_handler_c"
+mem,a07e,status_flags_b,data,"Handler C state. main_loop runs only while bits 7:6 read 0b01; low 5 bits carry an address"
+mem,a07f,rx_c_stage_len,data,"Byte count handler C staged at rx_c_stage; main_loop replays exactly this many"
 io,80,uart_data,port,8251A RX (read) / TX (write) data
 io,81,uart_ctrl,port,8251A status (read) / mode+command (write)
 io,a0,sw_cmd,port,81C55 command/status register
@@ -293,3 +293,6 @@ mem,A010,render_ptr,data,"Character index shared by the render passes, the packe
 mem,A022,panel_dirty,data,"Raised by the families whose driver defers the work to an end-of-pass flush"
 mem,A027,clock_cmd_mailbox,data,"Command for clock_service; isr_rst75 posts 1 here when the debounced clock_cmd input changes"
 mem,A028,clock_key_shadow,data,"Debounced value of clock_cmd bits 7:4 and 2, and the countdown that debounces it"
+mem,a07b,uart_rx_byte,data,"Last byte read from uart_data; every receive handler stages it here"
+mem,03c7,main_loop_replay,label,"Feed rx_c_stage_len bytes from rx_c_stage into rx_a_store_byte, then render"
+mem,a021,direct_pass_phase,data,"render_pass_direct runs render_loop_direct twice: phase 0 over msg_buffer/shadow_buffer, phase 1 over 0xE03D/0xE07F. Not a panel width"
