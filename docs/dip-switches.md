@@ -250,53 +250,81 @@ not find its glyphs. See
 
 Port B bit 1. **[?]**
 
-## As found **[C] for the readings, [?] for the mapping**
+## As found **[C] for the readings, [L] for the mapping**
 
 Recorded 2026-08, before anything was moved. **Do not change these without
 writing the new positions down.**
 
 ### The two banks beside the 81C55 — 16 switches
 
-| Bank | As found (1 = *closed circuit*) |
-| --- | --- |
-| A' | `1 0 0 0 0 1 0 1` |
-| B' | `0 1 1 1 1 1 0 1` |
+The silkscreen numbers every motherboard switch in one series, `S1`-`S17`, and
+letters the two banks:
 
-Three unknowns sit between these digits and the port values the firmware sees:
-**polarity** (a pull-up with the switch to ground means closed reads 0),
-**bit order** (which end of the printed bank is bit 7), and **which bank is which
-port**. That gives eight self-consistent readings:
+| Bank | Silkscreen | As found (1 = *closed circuit*) |
+| --- | --- | --- |
+| A' | `A`, `S9-16`, with `9` at the right-hand end below | `1 0 0 0 0 1 0 1` |
+| B' | `B`, `S1-8`, with `1` at the right-hand end below | `0 1 1 1 1 1 0 1` |
 
-| A'→ | bit order | polarity | PA | PB | Port A decodes as | Port B decodes as |
-| --- | --- | --- | --- | --- | --- | --- |
-| PA | left=b7 | closed=1 | `0x85` | `0x7D` | addr 5, proto A | 2400, 7 data, even |
-| PA | left=b7 | closed=0 | `0x7A` | `0x82` | addr 26, proto B | 4800, 8 data, **no parity** |
-| PA | left=b0 | closed=1 | `0xA1` | `0xBE` | addr 1, proto A | 9600, 7 data, even |
-| PA | left=b0 | closed=0 | `0x5E` | `0x41` | addr 30, proto B | 1200, 8 data, **no parity** |
-| PB | left=b7 | closed=1 | `0x7D` | `0x85` | addr 29, proto B | 4800, 8 data, **no parity** |
-| PB | left=b7 | closed=0 | `0x82` | `0x7A` | addr 2, proto A | 2400, 7 data, odd |
-| PB | left=b0 | closed=1 | `0xBE` | `0xA1` | addr 30, proto A | 9600, 8 data, **no parity** |
-| **PB** | **left=b0** | **closed=0** | **`0x41`** | **`0x5E`** | **addr 1, proto B** | **1200, 7 data, even** |
+Three unknowns stand between those digits and the port values the firmware sees:
+**polarity** (a pull-up with the switch to ground means closed reads 0), **bit
+order** (which end of the printed bank is bit 7), and **which bank is which
+port**. The silkscreen settles two of them, each subject to one convention:
 
-### Narrowing it
+* **Bit order — resolved.** The `9` and the `1` mark the low-numbered end of
+  each bank, and both banks are marked at the same end. Taking switch *n* as bit
+  *(n-1) mod 8* — the convention that makes an `S1`-`S16` series usable in an
+  installation manual — the **left-hand digit above is bit 7** and the right-hand
+  digit is bit 0, on both banks. **[L]**
+* **Bank to port — resolved.** `A` and `B` letter two banks pressed against a
+  chip whose ports are named A, B and C, and ports A and B are exactly the two
+  the firmware reads for installation settings. So bank `A` is **port A**.
+  **[L]** The one thing that would overturn it is the letters naming something
+  other than the ports; worth noting that the *lower*-numbered switches sit on
+  the bank lettered `B`, so the numbering and the lettering do not run the same
+  way round.
 
-Two arguments, neither decisive alone, that point at the last row.
+**Only polarity is left**, and it leaves two readings:
 
-**Polarity: closed almost certainly reads 0.** The near-universal DIP arrangement
-is a pull-up on the port pin with the switch shorting to ground. That halves the
-table to the four `closed=0` rows.
+| Polarity | PA | PB | Port A decodes as | Port B decodes as |
+| --- | --- | --- | --- | --- |
+| closed = 0 | `0x7A` | `0x82` | address **26**, handler **B**, `?` substitute, blank on reset | **4800**, **8 data**, **no parity**, space fill |
+| closed = 1 | `0x85` | `0x7D` | address **5**, handler **A**, space substitute, preserve image | **2400**, **7 data**, **even** parity, block fill |
 
-**Seven data bits would explain the second `Ñ`.** [font.md](font.md) records
-that `0x25` holds a second `Ñ` glyph inside the 7-bit range, which was already
-noted as "what a Spanish installation needs when the link is not 8-bit clean". If
-port B really is set for **7 data bits**, that is not a coincidence — it is the
-reason. A 7-bit link physically cannot carry `0xA5`, the CP437 `Ñ`, so the font
-carries a duplicate below `0x80`. Two independent findings corroborating each
-other. **[L]**
+If the letters turn out not to name the 81C55's ports, swap the banks and it is
+instead:
 
-Together those favour **address 1, command protocol, 1200 baud, 7 data bits, even
-parity** — a thoroughly ordinary 1990s industrial-bus configuration, and a
-sensible setting for the first sign on a platform. But it remains **[?]**.
+| Polarity | PA | PB | Port A decodes as | Port B decodes as |
+| --- | --- | --- | --- | --- |
+| closed = 0 | `0x82` | `0x7A` | address **2**, handler **A**, space substitute, preserve image | **2400**, **7 data**, **odd** parity, space fill |
+| closed = 1 | `0x7D` | `0x85` | address **29**, handler **B**, `?` substitute, blank on reset | **4800**, **8 data**, **no parity**, block fill |
+
+### Narrowing the polarity
+
+Two arguments, and they point in opposite directions.
+
+**For closed = 0.** The near-universal DIP arrangement is a pull-up on the port
+pin with the switch shorting it to ground, so a closed switch reads 0. **[L]**
+Independently: **both banks were found with their bit 0 closed**, and port B bit
+0 set is what makes the pad character a **solid block** rather than a space.
+A sign that spent its service life padding station names with blocks is the less
+likely of the two, and this argument holds whichever bank turns out to be port B.
+**[L]**
+
+**For closed = 1.** That reading gives **7 data bits with even parity**, and
+[font.md](font.md) records a duplicate `Ñ` at `0x25`, inside the 7-bit range —
+a 7-bit link is exactly what a font needs that duplicate for, since it physically
+cannot carry `0xA5`, the CP437 `Ñ`.
+
+**How much the `Ñ` is worth here.** Less than it first looked. The font is one
+ROM table serving a product family whose character format is itself a switch, so
+*some* installation running 7-bit is enough to explain the duplicate — it need
+not be this one. The firmware masking every protocol parameter with `ANI 0x7F`
+says the same thing about the protocol as a whole. Against that, the pull-up
+convention is a claim about this board specifically.
+
+So nothing here is decisive: **the polarity is genuinely open [?]**, and with it
+the address, the baud rate and the character format. It is one ohmmeter reading
+away from settled.
 
 ### The device will tell us, once the link is readable
 
@@ -309,45 +337,43 @@ switches themselves**:
 * Its **character format** on the wire — data bits, parity — gives port B bits 4:2.
 
 So a single clean capture of `18 18 1E 15 <addr>` resolves almost the whole
-question, and cross-checks the eight-row table above. See
+question, and cross-checks the tables above. See
 [../hardware/connectors.md](../hardware/connectors.md#attempt-2-capture-one-frame-properly).
 
 ### The other three switches
 
-| Location | Count | As found |
-| --- | --- | --- |
-| Motherboard, away from the banks | 1 | **open** |
-| Daughter 2 | 2 | **both open** |
+| Location | Silkscreen | Count | As found |
+| --- | --- | --- | --- |
+| Motherboard, away from the banks | `S17` | 1 | **open** |
+| Daughter 2 | not transcribed | 2 | **both open** |
 
 **16 + 1 + 2 = 19 switches against the 81C55's 22 input bits.** So the two banks
-of 8 are ports A and B, and **port C is not on a DIP bank at all** — it comes from
-the single motherboard switch plus hardwired links. That fits what port C does
-perfectly: bits 4:0 select the **display type** and bit 5 is the **serial
-enable**, both factory decisions rather than installation ones, while ports A and
-B carry the address, baud rate and character format an installer needs to set.
-**[L]**
+of 8 are ports A and B — which the `A`/`B` silkscreen now says outright — and
+**port C is not on a DIP bank at all**: it comes from `S17` plus hardwired links.
+That fits what port C does perfectly: bits 4:0 select the **display type** and
+bit 5 selects the **protocol family**, both factory decisions rather than
+installation ones, while ports A and B carry the address, baud rate and character
+format an installer needs to set. **[L]**
 
-One inference worth testing: the unit was in service and receiving, so port C bit
-5 must have read as *enabled*. The motherboard switch was found **open**. If that
-switch is bit 5, then **open must read as 1** — independently confirming the
-pull-up polarity argued above. **[L]**
+`S17` is a plausible port C bit 5, but its as-found **open** position says nothing
+about polarity: bit 5 selects a protocol family, and the unit receives on either
+setting, so both positions are consistent with the sign that was in service.
 
 The two daughter-2 switches are on the flip-dot board, so they more likely feed
 U20's port C (I/O `0xE3`, which the firmware reads 14 times) than the 81C55.
 **[?]**
 
-## Recording the physical state — do this first
+## What is still not recorded
 
-Before flipping anything, photograph each bank and write the as-found positions
-down. This is the one piece of information that is destroyed by curiosity and
-cannot be recovered from the ROM.
+The positions themselves are safe — photographed, and written down above. Three
+things are still missing, and all three are bench work.
 
-| Bank | Port | As-found positions (1 = closed/on) | Notes |
-| --- | --- | --- | --- |
-| SW1 | *TODO* | *TODO* | |
-| SW2 | *TODO* | *TODO* | |
-| SW3 | *TODO* | *TODO* | |
-
-Also record, for each bank, whether a closed switch reads as 0 or 1 — pull-ups
-to the 81C55 inputs mean **closed usually reads 0**, which inverts every table
-above.
+* **Polarity**, the one remaining unknown in the tables above. Powered off, ohm
+  one side of a switch in each bank to ground and to Vcc; on a typical layout one
+  side of all eight is commoned to a rail, and finding that rail at ground means
+  **closed reads 0**, which inverts every table above.
+* **The switch-to-port wiring**, if the two conventions above are to be confirmed
+  rather than assumed. Continuity from the `S1` end of bank `B` to the 81C55's
+  PB0, and from the `S9` end of bank `A` to PA0, checks the bit order and the
+  bank lettering at once — 81C55 pins 21-28 are PB0-PB7, pins 29-36 PA0-PA7.
+* **The two daughter-2 switch designators**, which have not been transcribed.

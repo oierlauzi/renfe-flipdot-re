@@ -20,6 +20,59 @@ Entry template:
 
 ---
 
+## 2026-08-08 — The banks are lettered and numbered, and the two arguments split
+
+**Did:** the owner read the silkscreen around the two DIP banks on the
+motherboard — `A` and `S9-16` beside bank A', with a `9` at the end this project
+transcribes rightmost; `B` and `S1-8` beside bank B', with a `1` at the same end.
+The lone switch had already been read from the photographs as `S17`.
+
+**Found:**
+
+* The board numbers all seventeen motherboard switches in one `S1`-`S17` series
+  and letters the two banks `A` and `B`.
+* **Two of the three unknowns in the eight-row table die.** Switch *n* → bit
+  *(n-1) mod 8* makes the leftmost transcribed digit bit 7 on both banks;
+  `A`/`B` beside a chip with ports A, B and C makes bank A' port A. Both **[L]**
+  — each rests on one convention, not on a measurement.
+* Eight readings become two, differing only in polarity:
+  * closed = 0 → PA `0x7A`, PB `0x82` — address 26, handler B, 4800 8N1
+  * closed = 1 → PA `0x85`, PB `0x7D` — address 5, handler A, 2400 7E1
+* **The 2026-08-06 convergence is gone.** That entry favoured *address 1,
+  command protocol, 1200 baud, 7 data bits, even parity* because the pull-up
+  argument and the duplicate-`Ñ` argument agreed on one row. They agreed only
+  through a bit order the silkscreen now rules out. With bit order and bank
+  assignment fixed they pull opposite ways — the pull-up convention picks
+  closed = 0 (8 data, no parity), the `Ñ` picks closed = 1 (7 data, even) — and
+  the old favourite survives in no column: not the address, not the baud rate,
+  not the format.
+* **One new argument, and it is immune to the bank question.** Both banks were
+  found with their bit 0 closed, and port B bit 0 set is what makes the pad
+  character a solid block. A sign that spent its service life padding station
+  names with blocks is unlikely, so this points at closed = 0 whichever bank is
+  port B. **[L]**
+* **Deflating the `Ñ`.** The font is one ROM table for a family whose character
+  format is itself a switch, and the firmware masks every protocol parameter
+  with `ANI 0x7F`. Both say the *product* expected 7-bit links somewhere; neither
+  says *this* unit was set for one. `docs/font.md` had it as one of "three
+  findings that agree" — it is now two findings about the product, plus an open
+  question about this unit.
+* **Dropped a dead inference:** "`S17` was open and the unit was receiving, so
+  open must read 1." It assumed port C bit 5 clear meant no reception, which the
+  protocol-family correction disproved — clear routes RST5.5 to handler C, which
+  receives fine.
+
+**Concluded:** bit order and bank-to-port assignment **[L]**; polarity **[?]**,
+with two live readings instead of eight. Updated `docs/dip-switches.md`,
+`docs/font.md` and `TODO.md`.
+
+**Next:** one ohmmeter reading settles it — one side of each bank to ground and
+to Vcc, powered off. Failing that, a captured status frame still gives the
+address and the line format directly, with no assumption about polarity, bit
+order or lettering at all.
+
+---
+
 ## 2026-08-06 — Docs cleanup: correction narratives moved out of docs/, into here
 
 **Did:** the owner pointed out that `docs/` had accumulated many "corrections" —

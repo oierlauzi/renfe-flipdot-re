@@ -127,18 +127,24 @@ identical — compare the raw bytes, where `0x25` is `7c **09 11 21** 7c` agains
 uppercase: `0x24`'s body is an `n` shoulder-and-stem, `0x25`'s carries the
 diagonal that both `N` glyphs show.
 
-**Three findings now agree**, arrived at independently:
+**Two findings agree**, arrived at independently:
 
-1. The DIP switches as found decode, under the most plausible reading, to **7 data
-   bits** ([dip-switches.md](dip-switches.md#as-found-c-for-the-readings--for-the-mapping)).
-2. The firmware masks with `ANI 0x7F` wherever it takes a parameter — the `GS`
+1. The firmware masks with `ANI 0x7F` wherever it takes a parameter — the `GS`
    address at `0x1060`, `VT`'s row and column at `0x0CD0`/`0x0D00`, `EOT`'s
    sub-mode at `0x1123`.
-3. The font table duplicates precisely `ñ` and `Ñ` at their bit-7-stripped
+2. The font table duplicates precisely `ñ` and `Ñ` at their bit-7-stripped
    positions.
 
 A 7-bit link physically cannot carry `0xA5`. The duplicates are not a curiosity,
-they are what makes the display usable in Spanish over the link it was given.
+they are what makes the display usable in Spanish over a link that is not 8-bit
+clean.
+
+Both findings are about the *product*, not about this unit's switch settings: a
+family whose character format is itself a switch had to be usable over 7-bit
+links somewhere. Whether **this** unit was set for 7 data bits is still open —
+of the two switch readings that survive, one gives 7 data bits with even parity
+and the other 8 data bits with no parity
+([dip-switches.md](dip-switches.md#as-found-c-for-the-readings-l-for-the-mapping)).
 
 ### CP437's gap: uppercase accented vowels
 

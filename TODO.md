@@ -27,22 +27,32 @@ third is a safety precondition.
 
 - [x] **DIP switch positions recorded as found** — the one piece of state that
       could not have been recovered later.
-      - Bank A' (beside the 81C55): `1 0 0 0 0 1 0 1`  (1 = closed)
-      - Bank B' (beside the 81C55): `0 1 1 1 1 1 0 1`
-      - Single switch elsewhere on the motherboard: **open**
+      - Bank A' (`A`, `S9-16`, beside the 81C55): `1 0 0 0 0 1 0 1`  (1 = closed,
+        `9` end at the right)
+      - Bank B' (`B`, `S1-8`, beside the 81C55): `0 1 1 1 1 1 0 1`  (`1` end at
+        the right)
+      - `S17`, elsewhere on the motherboard: **open**
       - Two switches on daughter 2: **both open**
-      → analysis in [docs/dip-switches.md](docs/dip-switches.md#as-found-c-for-the-readings--for-the-mapping)
+      → analysis in [docs/dip-switches.md](docs/dip-switches.md#as-found-c-for-the-readings-l-for-the-mapping)
+- [x] **Which bank is port A and which is port B**, and which end of each printed
+      bank is bit 7? **Answered by the silkscreen [L]**: the banks are lettered
+      `A` and `B` beside a chip whose ports are A/B/C, and the `S1`/`S9` end
+      markers make the right-hand digit above bit 0 on both banks. Each rests on
+      one convention, so it is [L] rather than [C].
 - [ ] **Determine the switch sense**: does a *closed* switch read 0 or 1 at the
-      81C55? An ohmmeter from a switch pin to ground and to Vcc, powered off, is
-      enough. Pull-ups (closed = 0) are expected and would **invert every table**.
+      81C55? **This is now the only unknown left** between the recorded positions
+      and the unit's actual configuration — closed = 0 gives address 26 at 4800
+      8N1, closed = 1 gives address 5 at 2400 7E1. An ohmmeter from a switch pin
+      to ground and to Vcc, powered off, is enough. Pull-ups (closed = 0) are
+      expected and would **invert every table**.
       - Result:
-- [ ] **Which bank is port A and which is port B**, and which end of each printed
-      bank is bit 7? Continuity from switch pins to 81C55 pins 21-28 (PA0-PA7)
-      and 29-36 (PB0-PB7) settles both at once.
+- [ ] **Confirm the switch-to-port wiring** rather than assuming the two
+      conventions above: continuity from the `S1` end pin to 81C55 PB0 and the
+      `S9` end pin to PA0 (pins 21-28 are PB0-PB7, 29-36 PA0-PA7).
       - Result:
-- [ ] **Is the lone motherboard switch port C bit 5?** It was found open, and the
-      unit was receiving in service, so if it is bit 5 then open must read as 1 —
-      which would independently confirm the pull-up polarity.
+- [ ] **Is `S17` port C bit 5?** Worth knowing on its own — it selects which of
+      the two protocol families the unit speaks. Its as-found **open** position
+      tells us nothing about polarity, because either setting receives.
       - Result:
 - [ ] **What do the two daughter-2 switches feed?** Probably U20's port C
       (I/O `0xE3`) rather than the 81C55.
