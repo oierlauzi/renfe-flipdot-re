@@ -35,7 +35,7 @@ for (const line of readFileSync(P.fontMap, 'utf8').split('\n')) {
 const CP = { 'á': 0xA0, 'í': 0xA1, 'ó': 0xA2, 'ú': 0xA3, 'ñ': 0xA4, 'Ñ': 0xA5, '¿': 0xA8, '¡': 0xAD, 'é': 0x82, 'ü': 0x81, 'ç': 0x87, 'Á': 0x41, 'É': 0x45, 'Í': 0x49, 'Ó': 0x4F, 'Ú': 0x55 };
 const code = (ch) => CP[ch] ?? (ch.charCodeAt(0) < 256 ? ch.charCodeAt(0) : 0x20);
 
-// --- geometry (mirrors Teleindicador.dc.html) --------------------------------
+// --- geometry (mirrors display.html) --------------------------------
 const PITCH = 11, DOT = 4.3, GAP = 6, COLS = 5, ROWS = 7, CELLS = 16;
 const LW = 1040, LH = 95, LP = 12, LROWS = 7;
 const f = (n) => +n.toFixed(2);

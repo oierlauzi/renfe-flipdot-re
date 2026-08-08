@@ -45,13 +45,17 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:560},&quot;text&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;SIN PARADA&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;minutes&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;1&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;showMinutes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;dotColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e2d14a&quot;,&quot;options&quot;:[&quot;#e2d14a&quot;,&quot;#d9e04a&quot;,&quot;#e8a53a&quot;,&quot;#eae4d2&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;showOffDots&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flip-dot row&quot;},&quot;ledText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;PROHIBIDO CRUZAR LAS VIAS&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;ledColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ff3b2e&quot;,&quot;options&quot;:[&quot;#ff3b2e&quot;,&quot;#ff6a1a&quot;,&quot;#ff2b55&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;ledScroll&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;ledSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:14,&quot;min&quot;:2,&quot;max&quot;:30,&quot;step&quot;:1,&quot;unit&quot;:&quot;col/s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;LED matrix&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;1&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Sign&quot;}}">
 const CP437 = {'Ç':0x80,'ü':0x81,'é':0x82,'â':0x83,'ä':0x84,'à':0x85,'å':0x86,'ç':0x87,'ê':0x88,'ë':0x89,'è':0x8A,'ï':0x8B,'î':0x8C,'ì':0x8D,'Ä':0x8E,'Å':0x8F,'É':0x90,'æ':0x91,'Æ':0x92,'ô':0x93,'ö':0x94,'ò':0x95,'û':0x96,'ù':0x97,'ÿ':0x98,'Ö':0x99,'Ü':0x9A,'¢':0x9B,'£':0x9C,'¥':0x9D,'á':0xA0,'í':0xA1,'ó':0xA2,'ú':0xA3,'ñ':0xA4,'Ñ':0xA5,'ª':0xA6,'º':0xA7,'¿':0xA8,'¡':0xAD,'«':0xAE,'»':0xAF,'Á':0x41,'Í':0x49,'Ó':0x4F,'Ú':0x55,'À':0x41,'È':0x45,'Ì':0x49,'Ò':0x4F,'Ù':0x55};
 
-// --- Edit these when using the file standalone (or pass ?text=...&min=...&via=... in the URL) ---
+// --- Edit these when using the file standalone, or drive it via URL params: ---
+// ?text=...&min=...&via=...&led=...&showmin=0|1&dot=RRGGBB&showoff=0|1&ledc=RRGGBB&scroll=0|1&speed=N
 const DEFAULT_TEXT = 'SIN PARADA';   // up to 16 characters
 const DEFAULT_MINUTES = '1';         // shown right-aligned in the same row; '' for none
 const DEFAULT_PLATFORM = '1';
 const DEFAULT_LED_TEXT = 'PROHIBIDO CRUZAR LAS VIAS';
 const LED_GAP_COLS = 24;             // blank columns between the end and the restart of the loop
 const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new Map();
+const qBool = (name, dflt) => Q.has(name) ? Q.get(name) !== '0' && Q.get(name) !== 'false' : dflt;
+const qNum = (name, dflt) => Q.has(name) ? Number(Q.get(name)) : dflt;
+const qColor = (name, dflt) => Q.has(name) ? '#' + Q.get(name).replace(/^#/, '') : dflt;
 
 const PITCH = 11, DOT = 4.3, COLS = 5, ROWS = 7, CELLS = 16, GAP = 6;
 const MIN_CELLS = 0;
@@ -65,9 +69,9 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this.timer = setInterval(() => {
-      if ((this.props.ledScroll ?? true) === false) return;
+      if (!qBool('scroll', this.props.ledScroll ?? true)) return;
       this.setState(s => ({ ledOff: s.ledOff + 1 }));
-    }, 1000 / (this.props.ledSpeed ?? 14));
+    }, 1000 / qNum('speed', this.props.ledSpeed ?? 14));
   }
 
   componentWillUnmount() {
@@ -84,7 +88,7 @@ class Component extends DCLogic {
     const src = Q.get('text') ?? this.props.text ?? DEFAULT_TEXT;
     const cells = String(src).slice(0, CELLS).split('');
     while (cells.length < CELLS) cells.push(' ');
-    if (this.props.showMinutes ?? true) {
+    if (qBool('showmin', this.props.showMinutes ?? true)) {
       const end = CELLS - MIN_CELLS;
       const m = String(Q.get('min') ?? this.props.minutes ?? DEFAULT_MINUTES).slice(-end);
       for (let i = 0; i < m.length; i++) cells[end - m.length + i] = m[i];
@@ -94,8 +98,8 @@ class Component extends DCLogic {
 
   flipDots() {
     const glyphs = GLYPHS;
-    const lit = this.props.dotColor || '#e2d14a';
-    const off = this.props.showOffDots === false ? null : '#26261e';
+    const lit = qColor('dot', this.props.dotColor || '#e2d14a');
+    const off = qBool('showoff', this.props.showOffDots !== false) ? '#26261e' : null;
     const cells = this.row();
     const w = CELLS * CELL_W + (CELLS - 1) * GAP;
     const h = ROWS * PITCH;
@@ -149,7 +153,7 @@ class Component extends DCLogic {
     const cols = Math.floor((w - 12) / pitch);
     const gw = cols * pitch, gh = rows * pitch;
     const x0 = (w - gw) / 2, y0 = (h - gh) / 2;
-    const lit = this.props.ledColor || '#ff3b2e';
+    const lit = qColor('ledc', this.props.ledColor || '#ff3b2e');
     const bmp = this.bitmap(Q.get('led') ?? this.props.ledText ?? DEFAULT_LED_TEXT);
     const scrolling = bmp.length > cols;
     const total = bmp.length + LED_GAP_COLS;
@@ -175,7 +179,7 @@ class Component extends DCLogic {
   renderVals() {
     return {
       platform: Q.get('via') ?? this.props.platform ?? DEFAULT_PLATFORM,
-      dotColor: this.props.dotColor || '#e2d14a',
+      dotColor: qColor('dot', this.props.dotColor || '#e2d14a'),
       flipDots: this.flipDots(),
       ledDots: this.ledDots()
     };

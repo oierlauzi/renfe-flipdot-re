@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RENFE Cercanías flip-dot display replica</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0;
+    background: #d9d7d2;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #24221f;
+  }
+  header {
+    padding: 28px 24px 8px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+  }
+  header p {
+    margin: 0;
+    color: #6b6a63;
+    font-size: 14px;
+  }
+  a { color: #8a5a2b; }
+  a:hover { color: #6d4520; }
+  .stage-outer {
+    max-width: 1200px;
+    margin: 16px auto 0;
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+  .stage-wrap {
+    width: 100%;
+    overflow: hidden;
+  }
+  .stage {
+    width: 1200px;
+    height: 520px;
+    transform-origin: top left;
+  }
+  .stage iframe {
+    display: block;
+    width: 1200px;
+    height: 520px;
+    border: 0;
+  }
+  form {
+    max-width: 760px;
+    margin: 24px auto 48px;
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+  fieldset {
+    border: 1px solid #c9c6bd;
+    border-radius: 8px;
+    margin: 0 0 16px;
+    padding: 12px 16px 16px;
+  }
+  legend {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b6a63;
+    padding: 0 4px;
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+  }
+  .field label {
+    flex: 0 0 160px;
+    font-size: 14px;
+  }
+  .field-check label {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field input[type="text"] {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #c9c6bd;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  .field input[type="range"] { flex: 1; }
+  .field .range-val {
+    flex: 0 0 60px;
+    font-size: 13px;
+    color: #6b6a63;
+    text-align: right;
+  }
+  .swatch {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  .field select {
+    padding: 5px 8px;
+    border: 1px solid #c9c6bd;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RENFE Cercanías flip-dot display replica</h1>
+</header>
+
+<div class="stage-outer">
+  <div class="stage-wrap">
+    <div class="stage" id="stage">
+      <iframe id="frame" src="display.html" title="Flip-dot display preview"></iframe>
+    </div>
+  </div>
+</div>
+
+<form id="settings">
+  <fieldset>
+    <legend>Flip-dot row</legend>
+    <div class="field">
+      <label for="text">Text</label>
+      <input type="text" id="text" maxlength="16" value="SIN PARADA">
+    </div>
+    <div class="field">
+      <label for="min">Minutes</label>
+      <input type="text" id="min" maxlength="4" value="1">
+    </div>
+    <div class="field field-check">
+      <label for="showmin"><input type="checkbox" id="showmin" checked> Show minutes</label>
+    </div>
+    <div class="field">
+      <label for="dot">Dot color</label>
+      <span class="swatch" id="dot-swatch"></span>
+      <select id="dot">
+        <option value="#d9e04a" selected>Yellow-green</option>
+        <option value="#e2d14a">Amber</option>
+      </select>
+    </div>
+    <div class="field field-check">
+      <label for="showoff"><input type="checkbox" id="showoff" checked> Show unlit dots</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>LED matrix</legend>
+    <div class="field">
+      <label for="led">Scrolling text</label>
+      <input type="text" id="led" value="PROHIBIDO CRUZAR LAS VIAS. POR FAVOR UTILICEN LOS PASOS HABILITADOS.">
+    </div>
+    <div class="field">
+      <label for="ledc">LED color</label>
+      <span class="swatch" id="ledc-swatch"></span>
+      <select id="ledc">
+        <option value="#ff3b2e" selected>Red</option>
+        <option value="#ff6a1a">Orange</option>
+        <option value="#ff2b55">Pink-red</option>
+      </select>
+    </div>
+    <div class="field field-check">
+      <label for="scroll"><input type="checkbox" id="scroll" checked> Scroll</label>
+    </div>
+    <div class="field">
+      <label for="speed">Scroll speed</label>
+      <input type="range" id="speed" min="2" max="30" step="1" value="14">
+      <span class="range-val" id="speed-val">14 col/s</span>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Sign</legend>
+    <div class="field">
+      <label for="via">Platform</label>
+      <input type="text" id="via" maxlength="3" value="1">
+    </div>
+  </fieldset>
+</form>
+
+<script>
+(function () {
+  const els = {
+    text: document.getElementById('text'),
+    min: document.getElementById('min'),
+    showmin: document.getElementById('showmin'),
+    dot: document.getElementById('dot'),
+    showoff: document.getElementById('showoff'),
+    led: document.getElementById('led'),
+    ledc: document.getElementById('ledc'),
+    scroll: document.getElementById('scroll'),
+    speed: document.getElementById('speed'),
+    via: document.getElementById('via')
+  };
+  const frame = document.getElementById('frame');
+  const dotSwatch = document.getElementById('dot-swatch');
+  const ledcSwatch = document.getElementById('ledc-swatch');
+  const speedVal = document.getElementById('speed-val');
+
+  function apply() {
+    dotSwatch.style.background = els.dot.value;
+    ledcSwatch.style.background = els.ledc.value;
+    speedVal.textContent = els.speed.value + ' col/s';
+    const p = new URLSearchParams({
+      text: els.text.value,
+      min: els.min.value,
+      showmin: els.showmin.checked ? '1' : '0',
+      dot: els.dot.value.replace('#', ''),
+      showoff: els.showoff.checked ? '1' : '0',
+      led: els.led.value,
+      ledc: els.ledc.value.replace('#', ''),
+      scroll: els.scroll.checked ? '1' : '0',
+      speed: els.speed.value,
+      via: els.via.value
+    });
+    frame.src = 'display.html?' + p.toString();
+  }
+
+  let debounceTimer;
+  function debouncedApply() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(apply, 250);
+  }
+
+  for (const el of Object.values(els)) {
+    const evt = el.type === 'text' ? 'input' : 'change';
+    el.addEventListener(evt, el.type === 'text' ? debouncedApply : apply);
+  }
+
+  function scaleStage() {
+    const wrap = document.querySelector('.stage-wrap');
+    const stage = document.getElementById('stage');
+    const scale = Math.min(1, wrap.clientWidth / 1200);
+    stage.style.transform = 'scale(' + scale + ')';
+    wrap.style.height = (520 * scale) + 'px';
+  }
+  window.addEventListener('resize', scaleStage);
+  scaleStage();
+  apply();
+})();
+</script>
+
+</body>
+</html>
