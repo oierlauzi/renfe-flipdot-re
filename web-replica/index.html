@@ -645,6 +645,13 @@
   fsBtn.addEventListener('click', () => {
     isFullscreenActive() ? exitFullscreen() : enterFullscreen();
   });
+  // The fullscreen toggle button itself lives outside stage-wrap, so it's
+  // covered/hidden once fullscreen is active (real fullscreen only renders
+  // stage-wrap; fake-fullscreen covers the viewport on top of it) — tapping
+  // anywhere on the stage is the only way out on touch devices.
+  stageWrap.addEventListener('click', () => {
+    if (isFullscreenActive()) exitFullscreen();
+  });
   document.addEventListener('fullscreenchange', () => setFullscreenUi(!!document.fullscreenElement));
   document.addEventListener('webkitfullscreenchange', () => setFullscreenUi(!!document.webkitFullscreenElement));
   document.addEventListener('keydown', (e) => {
