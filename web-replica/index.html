@@ -453,117 +453,56 @@
     if (e.key === 'Escape' && stageWrap.classList.contains('fake-fullscreen')) exitFullscreen();
   });
 
-  // --- SVG export: reuses the glyph table already embedded in display.html ---
-  // (fetched + parsed at runtime instead of pasting a third copy of it here).
-  let fontPromise = null;
-  function loadFont() {
-    if (!fontPromise) {
-      fontPromise = fetch('display.html').then((r) => r.text()).then((src) => {
-        const glyphsSrc = src.match(/const GLYPHS = (\{[^;]*\});/)[1];
-        const cpSrc = src.match(/const CP437 = (\{[^;]*\});/)[1];
-        const GLYPHS = {};
-        for (const m of glyphsSrc.matchAll(/(\d+):"([0-9a-f]+)"/g)) GLYPHS[+m[1]] = m[2];
-        const CP437 = {};
-        for (const m of cpSrc.matchAll(/'(.)':0x([0-9A-Fa-f]{2})/g)) CP437[m[1]] = parseInt(m[2], 16);
-        return { GLYPHS, CP437 };
-      });
+  // --- SVG export: renders display.html itself in a hidden iframe (with
+  // scroll frozen for a clean static frame) and downloads its actual <svg>,
+  // so the export can never drift from what's on screen.
+  function renderStaticSvg(onReady, onError) {
+    const p = buildParams();
+    p.set('scroll', '0'); // freeze the LED marquee on its first, readable frame
+    const hidden = document.createElement('iframe');
+    hidden.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;height:520px;border:0';
+    hidden.setAttribute('aria-hidden', 'true');
+    const started = Date.now();
+    let done = false; // the iframe's initial about:blank load fires its own 'load'
+    function finish(fn, arg) {
+      if (done) return;
+      done = true;
+      hidden.remove();
+      fn(arg);
     }
-    return fontPromise;
-  }
-
-  const escapeXml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  const f = (n) => +n.toFixed(2);
-
-  // Mirrors display.html's own rendering; the LED matrix is exported as a
-  // single centered frame (no scroll animation in a static image).
-  function buildSignSvg(GLYPHS, CP437) {
-    const PITCH = 11, DOT = 4.3, GAP = 6, COLS = 5, ROWS = 7, CELLS = 16;
-    const LW = 1040, LH = 95, LP = 12, LROWS = 7;
-    const code = (ch) => CP437[ch] !== undefined ? CP437[ch] : (ch.charCodeAt(0) < 256 ? ch.charCodeAt(0) : 0x20);
-
-    const lit = els.dot.value;
-    const offColor = els.showoff.checked ? '#26261e' : null;
-    const ledLit = els.ledc.value;
-
-    const cells = String(els.text.value).slice(0, CELLS).split('');
-    while (cells.length < CELLS) cells.push(' ');
-    if (els.showmin.checked && els.min.value) {
-      const m = String(els.min.value);
-      for (let i = 0; i < m.length; i++) cells[CELLS - m.length + i] = m[i];
-    }
-
-    let flip = '';
-    for (let i = 0; i < CELLS; i++) {
-      const hex = GLYPHS[code(cells[i] || ' ')];
-      const cx0 = i * (COLS * PITCH + GAP);
-      for (let c = 0; c < COLS; c++) {
-        const byte = hex ? parseInt(hex.slice(c * 2, c * 2 + 2), 16) : 0;
-        for (let r = 0; r < ROWS; r++) {
-          const on = (byte >> r) & 1;
-          if (!on && !offColor) continue;
-          const x = cx0 + c * PITCH + PITCH / 2 - DOT, y = r * PITCH + PITCH / 2 - DOT;
-          const s = DOT * 2, k = DOT * 0.5;
-          const pts = [[x + k, y], [x + s - k, y], [x + s, y + k], [x + s, y + s - k], [x + s - k, y + s], [x + k, y + s], [x, y + s - k], [x, y + k]]
-            .map((p) => f(p[0]) + ',' + f(p[1])).join(' ');
-          flip += '<polygon points="' + pts + '" fill="' + (on ? lit : offColor) + '"/>' +
-            '<line x1="' + f(x + 0.4) + '" y1="' + f(y + s - 0.4) + '" x2="' + f(x + s - 0.4) + '" y2="' + f(y + 0.4) + '" stroke="' + (on ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.07)') + '" stroke-width="0.7"/>';
-        }
+    function poll() {
+      if (done) return;
+      const root = hidden.contentDocument && hidden.contentDocument.getElementById('dc-root');
+      const svg = root && root.querySelector('svg');
+      if (svg && svg.querySelector('polygon') && !svg.textContent.includes('{{')) {
+        finish(onReady, svg);
+      } else if (Date.now() - started > 4000) {
+        finish(onError, new Error('timed out waiting for display.html to render'));
+      } else {
+        setTimeout(poll, 50);
       }
     }
-
-    const bmp = [];
-    for (const ch of String(els.led.value)) {
-      const hex = GLYPHS[code(ch)];
-      for (let c = 0; c < COLS; c++) bmp.push(hex ? parseInt(hex.slice(c * 2, c * 2 + 2), 16) : 0);
-      bmp.push(0);
-    }
-    const lcols = Math.floor((LW - 12) / LP);
-    const pad = Math.max(0, Math.floor((lcols - bmp.length) / 2));
-    const lx0 = (LW - lcols * LP) / 2, ly0 = (LH - LROWS * LP) / 2;
-    let led = '';
-    for (let c = 0; c < lcols; c++) {
-      const byte = bmp[c - pad] || 0;
-      for (let r = 0; r < LROWS; r++) {
-        const on = (byte >> r) & 1;
-        led += '<circle cx="' + f(lx0 + c * LP + LP / 2) + '" cy="' + f(ly0 + r * LP + LP / 2) + '" r="' + (on ? 3.1 : 2.3) + '" fill="' + (on ? ledLit : '#40101a') + '"/>';
-      }
-    }
-
-    const pageUrl = (location.origin + location.pathname).replace(/--/g, '- -');
-    return '<!-- Automatically generated at ' + pageUrl + ' -->\n' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">' +
-      '<rect width="1200" height="520" rx="58" fill="#24221f"/>' +
-      '<rect x="14" y="14" width="1172" height="492" rx="46" fill="#1a1917"/>' +
-      '<g transform="translate(34,34)">' +
-      '<clipPath id="glass"><rect width="1132" height="452" rx="30"/></clipPath>' +
-      '<g clip-path="url(#glass)">' +
-      '<rect width="1132" height="452" rx="30" fill="#0d1210"/>' +
-      '<g transform="translate(60,21) scale(0.45667)"><circle cx="150" cy="150" r="150" fill="rgb(239,44,48)"/><path d="M150,100C177.429,100 200,122.571 200,150C200,177.429 177.429,200 150,200C122.571,200 100,177.429 100,150L50,150C50,204.858 95.142,250 150,250C204.858,250 250,204.858 250,150C250,95.142 204.858,50 150,50L150,100Z" fill="#fff"/></g>' +
-      '<text x="286" y="145" fill="#f4f2e9" font-size="156" font-weight="700" letter-spacing="1">Vía</text>' +
-      '<text x="561" y="145" fill="#f4f2e9" font-size="156" font-weight="700" letter-spacing="1">' + escapeXml(els.via.value) + '</text>' +
-      '<text x="1092" y="71" fill="#f4f2e9" font-size="56" text-anchor="end">Próxima</text>' +
-      '<text x="1092" y="138" fill="#f4f2e9" font-size="56" text-anchor="end">Llegada</text>' +
-      '<rect x="70.5" y="178.5" width="991" height="94" fill="#080a08" stroke="#34342c"/>' +
-      '<g transform="translate(81,187)">' + flip + '</g>' +
-      '<text x="1072" y="232" fill="' + lit + '" font-size="30" font-weight="500">min</text>' +
-      '<rect x="46" y="307" width="' + LW + '" height="' + LH + '" rx="2" fill="#2c0a11"/>' +
-      '<g transform="translate(46,307)">' + led + '</g>' +
-      '</g>' +
-      '</g>' +
-      '</svg>';
+    hidden.addEventListener('load', () => setTimeout(poll, 50));
+    hidden.src = 'display.html?' + p.toString();
+    document.body.appendChild(hidden);
   }
 
   document.getElementById('download-btn').addEventListener('click', () => {
-    loadFont().then(({ GLYPHS, CP437 }) => {
-      const svg = buildSignSvg(GLYPHS, CP437);
-      const blob = new Blob([svg], { type: 'image/svg+xml' });
+    renderStaticSvg((svg) => {
+      const clone = svg.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      const pageUrl = (location.origin + location.pathname).replace(/--/g, '- -');
+      const xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' +
+        '<!-- Automatically generated at ' + pageUrl + ' -->\n' +
+        new XMLSerializer().serializeToString(clone);
+      const blob = new Blob([xml], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'display.svg';
       a.click();
       URL.revokeObjectURL(url);
-    }).catch((err) => {
+    }, (err) => {
       console.error(err);
       alert('Could not build the SVG download.');
     });
