@@ -10,6 +10,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="favicon-192x192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="favicon-512x512.png">
 <link rel="apple-touch-icon" href="favicon-192x192.png">
+<script src="./cp437.js"></script>
 <style>
   :root { color-scheme: light; }
   body {
@@ -162,6 +163,32 @@
     cursor: pointer;
   }
   .mini-btn:hover { background: #ddd9d0; }
+  .glyph-picker[hidden] { display: none; }
+  .glyph-picker {
+    width: 100%;
+    margin: -2px 0 6px;
+    padding: 8px;
+    border: 1px solid #c9c6bd;
+    border-radius: 4px;
+    background: #eceae4;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 3px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .glyph-picker button {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 2px 0;
+    background: #fff;
+    border: 1px solid #c9c6bd;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .glyph-picker button:hover { background: #f4f2e9; border-color: #8a5a2b; }
   .download-row {
     max-width: 1200px;
     margin: 16px auto 0;
@@ -271,7 +298,9 @@
     <div class="field">
       <label for="text">Text</label>
       <input type="text" id="text" maxlength="16" value="SIN PARADA">
+      <button type="button" id="text-glyphs-btn" class="mini-btn" title="Insert a special glyph">&#937; Glyphs</button>
     </div>
+    <div class="glyph-picker" id="text-glyphs" hidden></div>
     <div class="field">
       <label for="min">Minutes</label>
       <input type="text" id="min" maxlength="4" value="1">
@@ -311,7 +340,9 @@
     <div class="field">
       <label for="led">Scrolling text</label>
       <input type="text" id="led" value="PROHIBIDO CRUZAR LAS VIAS. POR FAVOR UTILICEN LOS PASOS HABILITADOS.">
+      <button type="button" id="led-glyphs-btn" class="mini-btn" title="Insert a special glyph">&#937; Glyphs</button>
     </div>
+    <div class="glyph-picker" id="led-glyphs" hidden></div>
     <div class="field">
       <label for="ledc">LED color</label>
       <span class="swatch" id="ledc-swatch"></span>
@@ -424,6 +455,41 @@
     deadSeed = Math.floor(Math.random() * 1e9);
     apply();
   });
+
+  // --- Glyph picker: lets users reach the CP437 symbols (card suits, arrows,
+  // box-drawing, Greek/math) that have no key on a regular keyboard. ---
+  function insertAtCursor(input, text) {
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    let value = input.value.slice(0, start) + text + input.value.slice(end);
+    if (input.maxLength >= 0 && value.length > input.maxLength) value = value.slice(0, input.maxLength);
+    input.value = value;
+    const pos = Math.min(start + text.length, input.value.length);
+    input.focus();
+    input.setSelectionRange(pos, pos);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function wireGlyphPicker(fieldId) {
+    const input = document.getElementById(fieldId);
+    const btn = document.getElementById(fieldId + '-glyphs-btn');
+    const panel = document.getElementById(fieldId + '-glyphs');
+    const codes = [...Array(31).keys()].map(n => n + 1).concat(127, [...Array(127).keys()].map(n => n + 128));
+    for (const code of codes) {
+      const ch = CP437_TO_UNICODE[code];
+      if (!ch) continue;
+      const glyphBtn = document.createElement('button');
+      glyphBtn.type = 'button';
+      glyphBtn.textContent = ch;
+      const hex = '0x' + code.toString(16).toUpperCase().padStart(2, '0');
+      glyphBtn.title = (CP437_NAMES[code] ? CP437_NAMES[code] + ' — ' : '') + hex;
+      glyphBtn.addEventListener('click', () => insertAtCursor(input, ch));
+      panel.appendChild(glyphBtn);
+    }
+    btn.addEventListener('click', () => { panel.hidden = !panel.hidden; });
+  }
+  wireGlyphPicker('text');
+  wireGlyphPicker('led');
 
   const stageWrap = document.querySelector('.stage-wrap');
   const stage = document.getElementById('stage');
