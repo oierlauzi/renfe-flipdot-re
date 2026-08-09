@@ -88,22 +88,6 @@
     flex: none;
     transform-origin: center center;
   }
-  .fs-exit {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: rgba(0, 0, 0, 0.5);
-    color: #f4f2e9;
-    border: 0;
-    border-radius: 50%;
-    font-size: 16px;
-    line-height: 32px;
-    cursor: pointer;
-  }
-  .fs-exit:hover { background: rgba(0, 0, 0, 0.75); }
   .stage iframe {
     display: block;
     width: 1200px;
@@ -298,7 +282,6 @@
     <div class="stage" id="stage">
       <iframe id="frame" src="display.html" title="Vista previa del panel flip-dot" data-i18n-title="frameTitle"></iframe>
     </div>
-    <button type="button" id="fs-exit-btn" class="fs-exit" title="Salir de pantalla completa" data-i18n-title="fsExitTitle" hidden>&#10005;</button>
   </div>
 </div>
 
@@ -411,7 +394,6 @@
       title: 'Réplica del teleindicador flip-dot de RENFE Cercanías',
       preservationNote: 'Esta web forma parte de un proyecto de preservación de un panel real. Los bitmaps de los caracteres usados en esta réplica proceden de la ROM del mismo. Puedes consultar información técnica sobre el panel en el <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>.',
       frameTitle: 'Vista previa del panel flip-dot',
-      fsExitTitle: 'Salir de pantalla completa',
       downloadBtn: 'Descargar SVG',
       embedBtnShow: '</> Insertar',
       embedBtnHide: '</> Ocultar',
@@ -451,7 +433,6 @@
       title: "RENFE Cercanías flip-dot display replica",
       preservationNote: 'This web is part of a preservation project of a real display. The character bitmaps used in this replica come from the ROM of a real panel. You can find technical information about the panel in the <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">GitHub repository</a>.',
       frameTitle: 'Flip-dot display preview',
-      fsExitTitle: 'Exit full screen',
       downloadBtn: 'Download SVG',
       embedBtnShow: '</> Embed',
       embedBtnHide: '</> Hide',
@@ -630,11 +611,9 @@
   // --- Full screen: real Fullscreen API when available, falling back to a
   // fixed-position CSS overlay ("fake-fullscreen") otherwise. ---
   const fsBtn = document.getElementById('fullscreen-btn');
-  const fsExitBtn = document.getElementById('fs-exit-btn');
 
   function setFullscreenUi(active) {
     fsBtn.textContent = active ? t('fsBtnExit') : t('fsBtnEnter');
-    fsExitBtn.hidden = !active;
     scaleStage();
   }
 
@@ -666,7 +645,6 @@
   fsBtn.addEventListener('click', () => {
     isFullscreenActive() ? exitFullscreen() : enterFullscreen();
   });
-  fsExitBtn.addEventListener('click', exitFullscreen);
   document.addEventListener('fullscreenchange', () => setFullscreenUi(!!document.fullscreenElement));
   document.addEventListener('webkitfullscreenchange', () => setFullscreenUi(!!document.webkitFullscreenElement));
   document.addEventListener('keydown', (e) => {
