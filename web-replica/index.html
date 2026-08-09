@@ -151,6 +151,17 @@
     border-radius: 4px;
     font-size: 14px;
   }
+  .mini-btn {
+    margin-left: auto;
+    padding: 4px 10px;
+    background: #eceae4;
+    color: #24221f;
+    border: 1px solid #c9c6bd;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .mini-btn:hover { background: #ddd9d0; }
   .download-row {
     max-width: 1200px;
     margin: 16px auto 0;
@@ -279,6 +290,20 @@
     <div class="field field-check">
       <label for="showoff"><input type="checkbox" id="showoff" checked> Show unlit dots</label>
     </div>
+    <div class="field field-check">
+      <label for="deadpx"><input type="checkbox" id="deadpx"> Dead pixels</label>
+      <button type="button" id="deadpx-shuffle" class="mini-btn" title="Randomize which dots are stuck">&#x1F3B2; Shuffle</button>
+    </div>
+    <div class="field">
+      <label for="deadon">Stuck on</label>
+      <input type="range" id="deadon" min="0" max="15" step="0.5" value="2">
+      <span class="range-val" id="deadon-val">2%</span>
+    </div>
+    <div class="field">
+      <label for="deadoff">Stuck off</label>
+      <input type="range" id="deadoff" min="0" max="15" step="0.5" value="2">
+      <span class="range-val" id="deadoff-val">2%</span>
+    </div>
   </fieldset>
 
   <fieldset>
@@ -329,6 +354,9 @@
     showmin: document.getElementById('showmin'),
     dot: document.getElementById('dot'),
     showoff: document.getElementById('showoff'),
+    deadpx: document.getElementById('deadpx'),
+    deadon: document.getElementById('deadon'),
+    deadoff: document.getElementById('deadoff'),
     led: document.getElementById('led'),
     ledc: document.getElementById('ledc'),
     scroll: document.getElementById('scroll'),
@@ -339,7 +367,10 @@
   const dotSwatch = document.getElementById('dot-swatch');
   const ledcSwatch = document.getElementById('ledc-swatch');
   const speedVal = document.getElementById('speed-val');
+  const deadonVal = document.getElementById('deadon-val');
+  const deadoffVal = document.getElementById('deadoff-val');
   const embedCode = document.getElementById('embed-code');
+  let deadSeed = Math.floor(Math.random() * 1e9);
 
   function buildParams() {
     return new URLSearchParams({
@@ -348,6 +379,9 @@
       showmin: els.showmin.checked ? '1' : '0',
       dot: els.dot.value.replace('#', ''),
       showoff: els.showoff.checked ? '1' : '0',
+      deadon: els.deadpx.checked ? els.deadon.value : '0',
+      deadoff: els.deadpx.checked ? els.deadoff.value : '0',
+      deadseed: String(deadSeed),
       led: els.led.value,
       ledc: els.ledc.value.replace('#', ''),
       scroll: els.scroll.checked ? '1' : '0',
@@ -368,6 +402,8 @@
     dotSwatch.style.background = els.dot.value;
     ledcSwatch.style.background = els.ledc.value;
     speedVal.textContent = els.speed.value + ' col/s';
+    deadonVal.textContent = els.deadon.value + '%';
+    deadoffVal.textContent = els.deadoff.value + '%';
     const p = buildParams();
     frame.src = 'display.html?' + p.toString();
     updateEmbedCode(p);
@@ -383,6 +419,11 @@
     const evt = el.type === 'text' ? 'input' : 'change';
     el.addEventListener(evt, el.type === 'text' ? debouncedApply : apply);
   }
+
+  document.getElementById('deadpx-shuffle').addEventListener('click', () => {
+    deadSeed = Math.floor(Math.random() * 1e9);
+    apply();
+  });
 
   const stageWrap = document.querySelector('.stage-wrap');
   const stage = document.getElementById('stage');
