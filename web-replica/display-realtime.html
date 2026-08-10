@@ -53,8 +53,8 @@
   // arrives by postMessage.
   const inner = new URLSearchParams();
   for (const key of APPEARANCE) if (Q.has(key)) inner.set(key, Q.get(key));
-  for (const [key, value] of Object.entries(Realtime.BLANK_PANEL)) inner.set(key, value);
-  if (platform) inner.set('via', platform);
+  for (const [key, value] of Object.entries(Realtime.blankPanel({ platform: platform })))
+    inner.set(key, value);
 
   const frame = document.getElementById('panel');
   let ready = false;
@@ -97,7 +97,7 @@
       cycleAt = 0;
     }
 
-    if (!rows.length) { push(Realtime.BLANK_PANEL); return; }
+    if (!rows.length) { push(Realtime.blankPanel({ platform: platform })); return; }
     push(Realtime.panelFields(rows[cycleIndex % rows.length], {
       showMinutes: showMinutes,
       platform: platform
@@ -105,7 +105,7 @@
   }
 
   if (!station && Q.get('source') !== 'demo') {
-    push(Realtime.BLANK_PANEL);   // nothing to show, and nothing to connect to
+    push(Realtime.blankPanel({ platform: platform }));   // nothing to show, nothing to connect to
     return;
   }
 

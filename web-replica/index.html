@@ -1121,7 +1121,7 @@
     // tab's text, which would leave a stale "CHAMARTIN" standing as if it were
     // live. A real sign with no train scheduled is simply dark.
     if (shown < 0) {
-      liveOverride = Realtime.BLANK_PANEL;
+      liveOverride = Realtime.blankPanel({ platform: liveEls.platform.value });
       apply();
       return;
     }

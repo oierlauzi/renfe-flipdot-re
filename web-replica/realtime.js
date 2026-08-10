@@ -443,8 +443,17 @@
     };
   }
 
-  /* A sign with no train scheduled is simply dark. */
-  const BLANK_PANEL = { text: '', min: '', via: '', led: '' };
+  /* A sign with no train scheduled goes dark — but one bolted to a platform
+     still says which platform it is, so a selected vía stays lit even with
+     nothing to announce. */
+  function blankPanel(options) {
+    return {
+      text: '',
+      min: '',
+      via: String((options && options.platform) || '').trim(),
+      led: ''
+    };
+  }
 
   /* Minutes until `epoch`, floored at 0. The panel shows whole minutes, and a
      train that is due now reads as 0 rather than going negative. */
@@ -460,7 +469,7 @@
     lastFrames: lastFrames,
     ADIF_HUB: ADIF_HUB,
     PANEL_CELLS: PANEL_CELLS,
-    BLANK_PANEL: BLANK_PANEL,
+    blankPanel: blankPanel,
     foldToPanel: foldToPanel,
     platformDigits: platformDigits,
     callingPoints: callingPoints,
