@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Oier Lauzirika Zarrabeitia">
 <title>Réplica del teleindicador flip-dot de RENFE Cercanías</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -55,6 +56,7 @@
     margin: 0 auto;
     color: #6b6a63;
     font-size: 14px;
+    text-align: justify;
   }
   a { color: #8a5a2b; }
   a:hover { color: #6d4520; }
@@ -407,7 +409,7 @@
     <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
   </div>
   <h1 data-i18n="title">Réplica del teleindicador flip-dot de RENFE Cercanías</h1>
-  <p data-i18n-html="preservationNote">Esta web forma parte de un proyecto de preservación de un panel real, fabricado por PAGE Ibérica a mediados de los años 1990. Desde entonces, han plagado las estaciones de núcleo Renfe Cercanías de Madrid hasta bien entrados en los años 2020, cuando han comenzado a ser reemplazdos por paneles LED o LCD. Los bitmaps de los caracteres usados en esta réplica proceden de la ROM del mismo. Puedes consultar información técnica sobre el panel en el <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">repositorio de GitHub.</a>.</p>
+  <div data-i18n-html="preservationNote"><p>Esta web forma parte de un proyecto de preservación de un panel real, fabricado por PAGE Ibérica a mediados de los años 1990. Desde entonces, han plagado las estaciones de núcleo Renfe Cercanías de Madrid hasta bien entrados en los años 2020, cuando han comenzado a ser reemplazdos por paneles LED o LCD.</p><p>Los bitmaps de los caracteres usados en esta réplica proceden de la ROM de un panel real. Puedes consultar información técnica sobre el panel en el <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">repositorio de GitHub.</a>.</p></div>
 </header>
 
 <div class="stage-outer">
@@ -582,10 +584,10 @@
 </form>
 
 <footer data-i18n="footer">
-  Proyecto de aficionado, no oficial. No afiliado, respaldado ni
+  Creado por Oier Lauzirika Zarrabeitia. Proyecto de aficionado, no oficial. No afiliado, respaldado ni
   patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de
   Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE y Renfe
-  Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente 
+  Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente
   con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.
 </footer>
 
@@ -594,7 +596,7 @@
   const I18N = {
     es: {
       title: 'Réplica del teleindicador flip-dot de RENFE Cercanías',
-      preservationNote: 'Esta web forma parte de un proyecto de preservación de un panel real, fabricado por PAGE Ibérica a mediados de los años 1990. Desde entonces, han plagado las estaciones de núcleo Renfe Cercanías de Madrid hasta bien entrados en los años 2020, cuando han comenzado a ser reemplazdos por paneles LED o LCD. Los bitmaps de los caracteres usados en esta réplica proceden de la ROM del mismo. Puedes consultar información técnica sobre el panel en el <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>.',
+      preservationNote: '<p>Esta web forma parte de un proyecto de preservación de un panel real, fabricado por PAGE Ibérica a mediados de los años 1990. Desde entonces, han plagado las estaciones de núcleo Renfe Cercanías de Madrid hasta bien entrados en los años 2020, cuando han comenzado a ser reemplazdos por paneles LED o LCD.</p><p>Los bitmaps de los caracteres usados en esta réplica proceden de la ROM de un panel real. Puedes consultar información técnica sobre el panel en el <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>.</p>',
       frameTitle: 'Vista previa del panel flip-dot',
       downloadBtn: 'Descargar SVG',
       embedBtnShow: '</> Insertar',
@@ -655,11 +657,11 @@
       needStation: 'introduce el código de la estación',
       liveDisclaimer: 'Los horarios se muestran tal y como llegan y pueden estar incompletos, retrasados o ser incorrectos. No sirven para planificar ningún viaje: consulta siempre los paneles oficiales de la estación o la <a href="%URL%" target="_blank" rel="noopener noreferrer">información oficial de ADIF</a>. No se acepta responsabilidad alguna por pérdidas o daños derivados de su uso.',
       adifNotice: '<strong>Nota para ADIF.</strong> Esto es un proyecto de aficionado sin ánimo de lucro, hecho de buena fe para divulgar y preservar una pieza del patrimonio ferroviario: no tiene publicidad, ni analítica, ni monetización de ningún tipo. Todo ocurre en el navegador de quien visita la página, sin ningún servidor intermedio: se abre una conexión por pestaña, a una sola estación cada vez, contra el mismo servicio público que alimenta sus paneles de información al viajero. Es ADIF quien envía los cambios; el cliente solo responde con un ping cada 15 segundos y reintenta con espera creciente si se corta. No se recopilan datos de forma masiva, no se almacenan, no se redistribuyen ni se presentan como fuente oficial: a los usuarios se les remite siempre a los canales oficiales. Si en ADIF prefieren que esta función no exista, basta con un mensaje en el <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a> y se retirará sin demora y sin necesidad de ningún trámite formal. La intención nunca ha sido perjudicar sus sistemas ni competir con sus servicios.',
-      footer: 'Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE y Renfe Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.'
+      footer: 'Creado por Oier Lauzirika Zarrabeitia. Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE y Renfe Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.'
     },
     en: {
       title: "RENFE Cercanías flip-dot display replica",
-      preservationNote: 'This web is part of a preservation project of a real display, manufactured by PAGE Ibérica in the mid 1990s. The character bitmaps used in this replica come from the ROM of a real panel. You can find technical information about the panel in the <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">GitHub repository</a>.',
+      preservationNote: '<p>This web is part of a preservation project of a real display, manufactured by PAGE Ibérica in the mid 1990s.</p><p>The character bitmaps used in this replica come from the ROM of a real panel. You can find technical information about the panel in the <a href="https://github.com/oierlauzi/renfe-flipdot-re" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>',
       frameTitle: 'Flip-dot display preview',
       downloadBtn: 'Download SVG',
       embedBtnShow: '</> Embed',
@@ -720,7 +722,7 @@
       needStation: 'enter the station code',
       liveDisclaimer: 'Departures are shown exactly as they arrive and may be incomplete, delayed or wrong. Do not rely on them to plan a journey: always check the official signs at the station or <a href="%URL%" target="_blank" rel="noopener noreferrer">ADIF\'s official information</a>. No liability is accepted for any loss or damage arising from their use.',
       adifNotice: '<strong>A note for ADIF.</strong> This is a non-commercial fan project, made in good faith to document and preserve a piece of railway heritage: it carries no advertising, no analytics and no monetisation of any kind. Everything happens in the visitor\'s own browser, with no server in between: one connection per tab, to a single station at a time, against the same public service that feeds your passenger information boards. ADIF pushes the updates; the client only answers with a ping every 15 seconds and backs off progressively if the connection drops. Nothing is harvested in bulk, stored, redistributed or presented as an official source — visitors are always pointed back to official channels. If ADIF would rather this feature did not exist, a message on the <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">GitHub repository</a> is enough: it will be taken down promptly, with no formalities needed. There has never been any intention to burden your systems or to compete with your services.',
-      footer: 'Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE, ADIF or PAGE Ibérica. ADIF and Administrador de Infraestructuras Ferroviarias are registered trademarks of ADIF; RENFE and Renfe Cercanías is a registered trademark of Renfe Operadora. They are cited here for descriptive purposes only. Trademarks belong to their respective owners.'
+      footer: 'Created by Oier Lauzirika Zarrabeitia. Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE, ADIF or PAGE Ibérica. ADIF and Administrador de Infraestructuras Ferroviarias are registered trademarks of ADIF; RENFE and Renfe Cercanías is a registered trademark of Renfe Operadora. They are cited here for descriptive purposes only. Trademarks belong to their respective owners.'
     }
   };
   const LANG_KEY = 'renfe-flipdot-lang';
