@@ -207,6 +207,25 @@
     padding: 1px 4px;
     border-radius: 3px;
   }
+  .live-disclaimer {
+    margin: 12px 4px 0;
+    padding: 8px 12px;
+    border-left: 3px solid #c8912f;
+    background: #f7f1e2;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #6b6a63;
+  }
+  .live-notice {
+    margin: 8px 4px 0;
+    padding: 8px 12px;
+    border-left: 3px solid #c9c6bd;
+    background: #f4f2e9;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #6b6a63;
+  }
+  .live-notice strong { color: #4a4842; }
   .departures-empty {
     padding: 12px;
     background: #f4f2e9;
@@ -417,11 +436,73 @@
 </div>
 
 <div class="tabs" role="tablist">
-  <button type="button" role="tab" id="tab-btn-manual" aria-controls="tab-manual" aria-selected="true" data-i18n="tabManual">Manual</button>
-  <button type="button" role="tab" id="tab-btn-live" aria-controls="tab-live" aria-selected="false" data-i18n="tabLive">Tiempo real</button>
+  <button type="button" role="tab" id="tab-btn-live" aria-controls="tab-live" aria-selected="true" data-i18n="tabLive">Tiempo real</button>
+  <button type="button" role="tab" id="tab-btn-manual" aria-controls="tab-manual" aria-selected="false" data-i18n="tabManual">Manual</button>
 </div>
 
-<form id="settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-manual">
+<section id="tab-live" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-live">
+  <div class="live-status" id="live-status" data-state="idle" role="status">
+    <span class="dot"></span>
+    <span id="live-status-text"></span>
+  </div>
+
+  <fieldset>
+    <legend data-i18n="legendLiveSource">Origen de los datos</legend>
+    <div class="field">
+      <label for="live-source" data-i18n="labelLiveSource">Fuente</label>
+      <select id="live-source">
+        <option value="adif" selected data-i18n="optionSourceAdif">ADIF (en directo)</option>
+        <option value="demo" data-i18n="optionSourceDemo">Simulación</option>
+      </select>
+    </div>
+    <p class="live-help" id="live-help" data-i18n-html="adifHelp"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend data-i18n="legendLiveStation">Estación y vía</legend>
+    <div class="field">
+      <label for="live-preset" data-i18n="labelPreset">Estaciones</label>
+      <select id="live-preset">
+        <option value="">—</option>
+        <optgroup id="preset-group-panel" label="Tuvieron/tienen este teleindicador">
+          <option value="97100">Pitis</option>
+          <option value="17009">Universidad-Cantoblanco</option>
+          <option value="12004">Collado Mediano</option>
+          <option value="10100">Pinar de las Rozas</option>
+          <option value="10104">Galapagar-La Navata</option>
+          <option value="18004">Delicias</option>
+        </optgroup>
+        <optgroup id="preset-group-major" label="Estaciones principales de Madrid">
+          <option value="17000" selected>Madrid Chamartín</option>
+          <option value="18000">Madrid Atocha Cercanías</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="field">
+      <label for="live-station" data-i18n="labelStation">Código de estación</label>
+      <input type="text" id="live-station" value="17000" autocomplete="off"
+             spellcheck="false" inputmode="numeric" placeholder="17000">
+    </div>
+    <div class="field">
+      <label for="live-platform" data-i18n="labelPlatformFilter">Filtro de vía</label>
+      <input type="text" id="live-platform" maxlength="3" placeholder="—" autocomplete="off">
+    </div>
+    <div class="field field-check">
+      <label for="live-cycle"><input type="checkbox" id="live-cycle" checked> <span data-i18n="labelCycle">Rotar entre los próximos trenes</span></label>
+    </div>
+  </fieldset>
+
+  <ol class="departures" id="live-departures"></ol>
+
+  <!-- Filled by renderDisclaimer(): the text carries a link whose target
+       depends on the station currently selected, so it cannot be a plain
+       data-i18n node. -->
+  <p class="live-disclaimer" id="live-disclaimer"></p>
+
+  <p class="live-notice" data-i18n-html="adifNotice"></p>
+</section>
+
+<form id="settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-manual" hidden>
   <fieldset>
     <legend data-i18n="legendFlipdot">Fila flip-dot</legend>
     <div class="field">
@@ -500,65 +581,12 @@
   </fieldset>
 </form>
 
-<section id="tab-live" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-live" hidden>
-  <div class="live-status" id="live-status" data-state="idle" role="status">
-    <span class="dot"></span>
-    <span id="live-status-text"></span>
-  </div>
-
-  <fieldset>
-    <legend data-i18n="legendLiveSource">Origen de los datos</legend>
-    <div class="field">
-      <label for="live-source" data-i18n="labelLiveSource">Fuente</label>
-      <select id="live-source">
-        <option value="adif" selected data-i18n="optionSourceAdif">ADIF (en directo)</option>
-        <option value="demo" data-i18n="optionSourceDemo">Simulación</option>
-      </select>
-    </div>
-    <p class="live-help" id="live-help" data-i18n-html="adifHelp"></p>
-  </fieldset>
-
-  <fieldset>
-    <legend data-i18n="legendLiveStation">Estación y vía</legend>
-    <div class="field">
-      <label for="live-preset" data-i18n="labelPreset">Estaciones</label>
-      <select id="live-preset">
-        <option value="">—</option>
-        <optgroup id="preset-group-panel" label="Tuvieron/tienen este teleindicador">
-          <option value="97100">Pitis</option>
-          <option value="17009">Universidad-Cantoblanco</option>
-          <option value="12004">Collado Mediano</option>
-          <option value="10100">Pinar de las Rozas</option>
-          <option value="10104">Galapagar-La Navata</option>
-          <option value="18004">Delicias</option>
-        </optgroup>
-        <optgroup id="preset-group-major" label="Estaciones principales de Madrid">
-          <option value="17000" selected>Madrid Chamartín</option>
-          <option value="18000">Madrid Atocha Cercanías</option>
-        </optgroup>
-      </select>
-    </div>
-    <div class="field">
-      <label for="live-station" data-i18n="labelStation">Código de estación</label>
-      <input type="text" id="live-station" value="17000" autocomplete="off"
-             spellcheck="false" inputmode="numeric" placeholder="17000">
-    </div>
-    <div class="field">
-      <label for="live-platform" data-i18n="labelPlatformFilter">Filtro de vía</label>
-      <input type="text" id="live-platform" maxlength="3" placeholder="—" autocomplete="off">
-    </div>
-    <div class="field field-check">
-      <label for="live-cycle"><input type="checkbox" id="live-cycle" checked> <span data-i18n="labelCycle">Rotar entre los próximos trenes</span></label>
-    </div>
-  </fieldset>
-
-  <ol class="departures" id="live-departures"></ol>
-</section>
-
 <footer data-i18n="footer">
   Proyecto de aficionado, no oficial. No afiliado, respaldado ni
-  patrocinado por RENFE ni PAGE Ibérica. Las marcas pertenecen a sus
-  respectivos propietarios.
+  patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de
+  Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE es
+  marca registrada de Renfe Operadora. Se citan aquí únicamente con fines
+  descriptivos. Las marcas pertenecen a sus respectivos propietarios.
 </footer>
 
 <script>
@@ -625,7 +653,9 @@
       status_error: 'Error',
       status_nodata: 'Sin datos',
       needStation: 'introduce el código de la estación',
-      footer: 'Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE ni PAGE Ibérica. Las marcas pertenecen a sus respectivos propietarios.'
+      liveDisclaimer: 'Los horarios se muestran tal y como llegan y pueden estar incompletos, retrasados o ser incorrectos. No sirven para planificar ningún viaje: consulta siempre los paneles oficiales de la estación o la <a href="%URL%" target="_blank" rel="noopener noreferrer">información oficial de ADIF</a>. No se acepta responsabilidad alguna por pérdidas o daños derivados de su uso.',
+      adifNotice: '<strong>Nota para ADIF.</strong> Esto es un proyecto de aficionado sin ánimo de lucro, hecho de buena fe para divulgar y preservar una pieza del patrimonio ferroviario: no tiene publicidad, ni analítica, ni monetización de ningún tipo. Todo ocurre en el navegador de quien visita la página, sin ningún servidor intermedio: se abre una conexión por pestaña, a una sola estación cada vez, contra el mismo servicio público que alimenta sus paneles de información al viajero. Es ADIF quien envía los cambios; el cliente solo responde con un ping cada 15 segundos y reintenta con espera creciente si se corta. No se recopilan datos de forma masiva, no se almacenan, no se redistribuyen ni se presentan como fuente oficial: a los usuarios se les remite siempre a los canales oficiales. Si en ADIF prefieren que esta función no exista, basta con un mensaje en el <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a> y se retirará sin demora y sin necesidad de ningún trámite. La intención nunca ha sido perjudicar sus sistemas ni competir con sus servicios.',
+      footer: 'Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE es marca registrada de Renfe Operadora. Se citan aquí únicamente con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.'
     },
     en: {
       title: "RENFE Cercanías flip-dot display replica",
@@ -688,7 +718,9 @@
       status_error: 'Error',
       status_nodata: 'No data',
       needStation: 'enter the station code',
-      footer: 'Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE or PAGE Ibérica. Trademarks belong to their respective owners.'
+      liveDisclaimer: 'Departures are shown exactly as they arrive and may be incomplete, delayed or wrong. Do not rely on them to plan a journey: always check the official signs at the station or <a href="%URL%" target="_blank" rel="noopener noreferrer">ADIF\'s official information</a>. No liability is accepted for any loss or damage arising from their use.',
+      adifNotice: '<strong>A note for ADIF.</strong> This is a non-commercial fan project, made in good faith to document and preserve a piece of railway heritage: it carries no advertising, no analytics and no monetisation of any kind. Everything happens in the visitor\'s own browser, with no server in between: one connection per tab, to a single station at a time, against the same public service that feeds your passenger information boards. ADIF pushes the updates; the client only answers with a ping every 15 seconds and backs off progressively if the connection drops. Nothing is harvested in bulk, stored, redistributed or presented as an official source — visitors are always pointed back to official channels. If ADIF would rather this feature did not exist, a message on the <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">GitHub repository</a> is enough: it will be taken down promptly, with no formalities needed. There has never been any intention to burden your systems or to compete with your services.',
+      footer: 'Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE, ADIF or PAGE Ibérica. ADIF and Administrador de Infraestructuras Ferroviarias are registered trademarks of ADIF; RENFE is a registered trademark of Renfe Operadora. They are cited here for descriptive purposes only. Trademarks belong to their respective owners.'
     }
   };
   const LANG_KEY = 'renfe-flipdot-lang';
@@ -733,7 +765,10 @@
   // whatever the user had typed.
   let liveOverride = null;
   // Declared up here because updateEmbedCode() consults it, and apply() runs
-  // during start-up before the tab wiring further down has been reached.
+  // during start-up before the tab wiring further down has been reached. It
+  // has to start out 'manual': embedTarget() reads the live controls, which do
+  // not exist yet at that point. setTab('live') switches to the tab the page
+  // actually opens on once they do.
   let activeTab = 'manual';
 
   function buildParams() {
@@ -1022,6 +1057,9 @@
       tabButtons[key].setAttribute('aria-selected', String(key === name));
     }
     if (name === 'live') startLive(); else stopLive();
+    // The embed snippet points at a different page per tab, so refresh it now
+    // rather than waiting for the next departure to land.
+    apply();
   }
   for (const key of Object.keys(tabButtons)) {
     tabButtons[key].addEventListener('click', () => setTab(key));
@@ -1039,7 +1077,8 @@
     cycle: document.getElementById('live-cycle'),
     status: document.getElementById('live-status'),
     statusText: document.getElementById('live-status-text'),
-    list: document.getElementById('live-departures')
+    list: document.getElementById('live-departures'),
+    disclaimer: document.getElementById('live-disclaimer')
   };
 
   let source = null;          // the running source, or null
@@ -1063,8 +1102,20 @@
     liveEls.statusText.textContent = detail ? label + ' — ' + detail : label;
   }
 
+  /* The "check the official information" link points at ADIF's own board for
+     whichever station is selected; without a usable code it falls back to the
+     site's front page, which asks for one. */
+  function renderDisclaimer() {
+    const code = liveEls.station.value.trim();
+    const url = /^\d+$/.test(code)
+      ? 'https://info.adif.es/?s=' + encodeURIComponent(code)
+      : 'https://info.adif.es/';
+    liveEls.disclaimer.innerHTML = t('liveDisclaimer').replace('%URL%', url);
+  }
+
   function startLive() {
     stopLive();
+    renderDisclaimer();
     const cfg = liveConfig();
     if (cfg.kind === 'adif' && !/^\d+$/.test(cfg.station)) {
       setStatus('idle', t('needStation'));
@@ -1206,6 +1257,7 @@
   liveEls.platform.addEventListener('input', render);
   liveEls.cycle.addEventListener('change', () => { cycleAt = 0; render(); });
   syncSourceFields();
+  setTab('live');
 
   // --- i18n: static markup ships in Spanish (the default); this swaps
   // text/title nodes for the toggled language and remembers the choice.
@@ -1223,6 +1275,7 @@
     liveEls.presetPanel.label = t('presetGroupPanel');
     liveEls.presetMajor.label = t('presetGroupMajor');
     liveEls.preset.options[0].textContent = t('presetNone');
+    renderDisclaimer();
     if (activeTab === 'live') render();
     for (const btn of langButtons) btn.setAttribute('aria-pressed', String(btn.dataset.lang === lang));
   }
