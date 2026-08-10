@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="favicon-512x512.png">
 <link rel="apple-touch-icon" href="favicon-192x192.png">
 <script src="./cp437.js"></script>
+<script src="./realtime.js"></script>
 <style>
   :root { color-scheme: light; }
   body {
@@ -94,11 +95,124 @@
     height: 520px;
     border: 0;
   }
-  form {
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
     max-width: 760px;
-    margin: 24px auto 48px;
+    margin: 24px auto 0;
     padding: 0 24px;
     box-sizing: border-box;
+  }
+  .tabs button {
+    padding: 8px 18px;
+    background: #eceae4;
+    color: #24221f;
+    border: 1px solid #c9c6bd;
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .tabs button:hover { background: #ddd9d0; }
+  .tabs button[aria-selected="true"] {
+    background: #8a5a2b;
+    color: #f4f2e9;
+    border-color: #8a5a2b;
+  }
+  .tab-panel[hidden] { display: none; }
+  form,
+  .tab-panel {
+    max-width: 760px;
+    margin: 0 auto 48px;
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+  form { margin-top: 0; }
+  .live-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border: 1px solid #c9c6bd;
+    border-radius: 6px;
+    background: #eceae4;
+    font-size: 13px;
+    color: #6b6a63;
+  }
+  .live-status .dot {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #93918a;
+  }
+  .live-status[data-state="live"] .dot { background: #3f8f4a; }
+  .live-status[data-state="connecting"] .dot { background: #c8912f; }
+  .live-status[data-state="error"] .dot { background: #b23b32; }
+  .live-status[data-state="nodata"] .dot { background: #c8912f; }
+  .live-status[data-state="error"] { color: #8c3129; border-color: #d8b0ac; background: #f6e9e7; }
+  .departures {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #c9c6bd;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .departures li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 7px 12px;
+    background: #f4f2e9;
+    border-top: 1px solid #e0ddd4;
+    font-size: 14px;
+  }
+  .departures li:first-child { border-top: 0; }
+  .departures li.is-shown { background: #ece2d3; font-weight: 600; }
+  .departures .dep-line {
+    flex: none;
+    min-width: 30px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #8a5a2b;
+    color: #f4f2e9;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .departures .dep-dest { flex: 1; }
+  .departures .dep-delay { flex: none; color: #b23b32; font-size: 12px; }
+  .departures .dep-plat,
+  .departures .dep-min {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    color: #6b6a63;
+    font-size: 13px;
+  }
+  .departures .dep-min { min-width: 58px; text-align: right; }
+  .live-help {
+    margin: 4px 4px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #6b6a63;
+  }
+  .live-help[hidden] { display: none; }
+  .live-help code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    background: #eceae4;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .departures-empty {
+    padding: 12px;
+    background: #f4f2e9;
+    color: #93918a;
+    font-size: 13px;
+    text-align: center;
   }
   fieldset {
     border: 1px solid #c9c6bd;
@@ -302,7 +416,12 @@
   </div>
 </div>
 
-<form id="settings">
+<div class="tabs" role="tablist">
+  <button type="button" role="tab" id="tab-btn-manual" aria-controls="tab-manual" aria-selected="true" data-i18n="tabManual">Manual</button>
+  <button type="button" role="tab" id="tab-btn-live" aria-controls="tab-live" aria-selected="false" data-i18n="tabLive">Tiempo real</button>
+</div>
+
+<form id="settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-manual">
   <fieldset>
     <legend data-i18n="legendFlipdot">Fila flip-dot</legend>
     <div class="field">
@@ -381,6 +500,49 @@
   </fieldset>
 </form>
 
+<section id="tab-live" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-live" hidden>
+  <div class="live-status" id="live-status" data-state="idle" role="status">
+    <span class="dot"></span>
+    <span id="live-status-text"></span>
+  </div>
+
+  <fieldset>
+    <legend data-i18n="legendLiveSource">Origen de los datos</legend>
+    <div class="field">
+      <label for="live-source" data-i18n="labelLiveSource">Fuente</label>
+      <select id="live-source">
+        <option value="adif" selected data-i18n="optionSourceAdif">ADIF (en directo)</option>
+        <option value="demo" data-i18n="optionSourceDemo">Simulación</option>
+      </select>
+    </div>
+    <p class="live-help" id="live-help" data-i18n-html="adifHelp"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend data-i18n="legendLiveStation">Estación y vía</legend>
+    <div class="field">
+      <label for="live-station" data-i18n="labelStation">Estación</label>
+      <input type="text" id="live-station" list="live-stations" value="17000" autocomplete="off">
+      <datalist id="live-stations">
+        <option value="17000" label="Madrid-Chamartín"></option>
+        <option value="18000" label="Madrid-Atocha"></option>
+        <option value="98305" label="Aeropuerto T4"></option>
+        <option value="70103" label="Alcalá de Henares"></option>
+        <option value="10203" label="El Escorial"></option>
+      </datalist>
+    </div>
+    <div class="field">
+      <label for="live-platform" data-i18n="labelPlatformFilter">Filtro de vía</label>
+      <input type="text" id="live-platform" maxlength="3" placeholder="—" autocomplete="off">
+    </div>
+    <div class="field field-check">
+      <label for="live-cycle"><input type="checkbox" id="live-cycle" checked> <span data-i18n="labelCycle">Rotar entre los próximos trenes</span></label>
+    </div>
+  </fieldset>
+
+  <ol class="departures" id="live-departures"></ol>
+</section>
+
 <footer data-i18n="footer">
   Proyecto de aficionado, no oficial. No afiliado, respaldado ni
   patrocinado por RENFE ni PAGE Ibérica. Las marcas pertenecen a sus
@@ -427,6 +589,26 @@
       labelScrollSpeed: 'Velocidad de desplazamiento',
       legendSign: 'Cartel',
       labelPlatform: 'Vía',
+      tabManual: 'Manual',
+      tabLive: 'Tiempo real',
+      legendLiveSource: 'Origen de los datos',
+      labelLiveSource: 'Fuente',
+      optionSourceDemo: 'Simulación',
+      optionSourceAdif: 'ADIF (en directo)',
+      adifHelp: 'Datos en directo del sistema de información al viajero de ADIF, por WebSocket contra <code>info.adif.es</code>. Introduce el código numérico de la estación: 17000 es Madrid-Chamartín. Si la vía aún no está asignada, el tren aparece sin ella, igual que en los paneles reales.',
+      legendLiveStation: 'Estación y vía',
+      labelStation: 'Estación',
+      labelPlatformFilter: 'Filtro de vía',
+      labelCycle: 'Rotar entre los próximos trenes',
+      noDepartures: 'Sin trenes que mostrar.',
+      viaShort: 'Vía',
+      due: 'Ahora',
+      status_idle: 'Inactivo',
+      status_connecting: 'Conectando…',
+      status_live: 'En directo',
+      status_error: 'Error',
+      status_nodata: 'Sin datos',
+      needStation: 'introduce el código de la estación',
       footer: 'Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE ni PAGE Ibérica. Las marcas pertenecen a sus respectivos propietarios.'
     },
     en: {
@@ -466,11 +648,40 @@
       labelScrollSpeed: 'Scroll speed',
       legendSign: 'Sign',
       labelPlatform: 'Platform',
+      tabManual: 'Manual',
+      tabLive: 'Live',
+      legendLiveSource: 'Data source',
+      labelLiveSource: 'Source',
+      optionSourceDemo: 'Simulation',
+      optionSourceAdif: 'ADIF (live)',
+      adifHelp: 'Live data from ADIF\'s passenger information system, over a WebSocket to <code>info.adif.es</code>. Enter the station\'s numeric code: 17000 is Madrid-Chamartín. Trains whose platform has not been assigned yet show none, exactly as the real signs do.',
+      legendLiveStation: 'Station and platform',
+      labelStation: 'Station',
+      labelPlatformFilter: 'Platform filter',
+      labelCycle: 'Rotate through upcoming trains',
+      noDepartures: 'No trains to show.',
+      viaShort: 'Plat.',
+      due: 'Due',
+      status_idle: 'Idle',
+      status_connecting: 'Connecting…',
+      status_live: 'Live',
+      status_error: 'Error',
+      status_nodata: 'No data',
+      needStation: 'enter the station code',
       footer: 'Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE or PAGE Ibérica. Trademarks belong to their respective owners.'
     }
   };
   const LANG_KEY = 'renfe-flipdot-lang';
-  let lang = localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'es';
+
+  /* localStorage throws outright in a few contexts (private-mode Safari, some
+     file:// origins, cookies blocked). Remembering a preference is not worth
+     taking the whole page down for, so both reads and writes degrade to no-ops. */
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* not persisted */ } }
+  };
+
+  let lang = store.get(LANG_KEY) === 'en' ? 'en' : 'es';
   function t(key) { return I18N[lang][key]; }
 
   const els = {
@@ -497,21 +708,26 @@
   const embedCode = document.getElementById('embed-code');
   let deadSeed = Math.floor(Math.random() * 1e9);
 
+  // When the live tab is driving the panel this holds {text, min, via}; the
+  // manual inputs stay untouched underneath so switching tabs back restores
+  // whatever the user had typed.
+  let liveOverride = null;
+
   function buildParams() {
     return new URLSearchParams({
-      text: els.text.value,
-      min: els.min.value,
+      text: liveOverride ? liveOverride.text : els.text.value,
+      min: liveOverride ? liveOverride.min : els.min.value,
       showmin: els.showmin.checked ? '1' : '0',
       dot: els.dot.value.replace('#', ''),
       showoff: els.showoff.checked ? '1' : '0',
       deadon: els.deadpx.checked ? els.deadon.value : '0',
       deadoff: els.deadpx.checked ? els.deadoff.value : '0',
       deadseed: String(deadSeed),
-      led: els.led.value,
+      led: liveOverride ? liveOverride.led : els.led.value,
       ledc: els.ledc.value.replace('#', ''),
       scroll: els.scroll.checked ? '1' : '0',
       speed: els.speed.value,
-      via: els.via.value
+      via: liveOverride ? liveOverride.via : els.via.value
     });
   }
 
@@ -523,6 +739,8 @@
       '        title="RENFE Cercanias flip-dot display"></iframe>';
   }
 
+  let lastQuery = null;
+
   function apply() {
     dotSwatch.style.background = els.dot.value;
     ledcSwatch.style.background = els.ledc.value;
@@ -530,7 +748,14 @@
     deadonVal.textContent = els.deadon.value + '%';
     deadoffVal.textContent = els.deadoff.value + '%';
     const p = buildParams();
-    frame.src = 'display.html?' + p.toString();
+    const query = p.toString();
+    // Reassigning src reloads the iframe and restarts the LED marquee. In live
+    // mode apply() runs every second, so only reload when something actually
+    // changed — otherwise the scrolling text would stutter back to the start.
+    if (query !== lastQuery) {
+      lastQuery = query;
+      frame.src = 'display.html?' + query;
+    }
     updateEmbedCode(p);
   }
 
@@ -740,6 +965,252 @@
     setTimeout(() => { copyBtn.textContent = original; }, 1500);
   });
 
+  // --- Tabs ---------------------------------------------------------------
+  const tabButtons = {
+    manual: document.getElementById('tab-btn-manual'),
+    live: document.getElementById('tab-btn-live')
+  };
+  const tabPanels = {
+    manual: document.getElementById('settings'),
+    live: document.getElementById('tab-live')
+  };
+  let activeTab = 'manual';
+
+  function setTab(name) {
+    activeTab = name;
+    for (const key of Object.keys(tabPanels)) {
+      tabPanels[key].hidden = key !== name;
+      tabButtons[key].setAttribute('aria-selected', String(key === name));
+    }
+    if (name === 'live') startLive(); else stopLive();
+  }
+  for (const key of Object.keys(tabButtons)) {
+    tabButtons[key].addEventListener('click', () => setTab(key));
+  }
+
+  // --- Live departures ----------------------------------------------------
+  const liveEls = {
+    source: document.getElementById('live-source'),
+    help: document.getElementById('live-help'),
+    station: document.getElementById('live-station'),
+    platform: document.getElementById('live-platform'),
+    cycle: document.getElementById('live-cycle'),
+    status: document.getElementById('live-status'),
+    statusText: document.getElementById('live-status-text'),
+    list: document.getElementById('live-departures')
+  };
+
+  let source = null;          // the running source, or null
+  let departures = [];        // everything the source last reported
+  let cycleIndex = 0;
+  let cycleAt = 0;            // epoch ms at which to advance the rotation
+  let ticker = null;
+
+  const CYCLE_MS = 6000;
+
+  function liveConfig() {
+    return { kind: liveEls.source.value, station: liveEls.station.value.trim() };
+  }
+
+  let lastStatus = { state: 'idle', detail: null };
+
+  function setStatus(state, detail) {
+    lastStatus = { state: state, detail: detail };
+    liveEls.status.dataset.state = state;
+    const label = t('status_' + state) || state;
+    liveEls.statusText.textContent = detail ? label + ' — ' + detail : label;
+  }
+
+  function startLive() {
+    stopLive();
+    const cfg = liveConfig();
+    if (cfg.kind === 'adif' && !/^\d+$/.test(cfg.station)) {
+      setStatus('idle', t('needStation'));
+      render();
+      return;
+    }
+    departures = [];
+    cycleIndex = 0;
+    cycleAt = 0;
+
+    source = cfg.kind === 'demo'
+      ? Realtime.DemoSource({ station: cfg.station })
+      : Realtime.AdifSource({ station: cfg.station });
+
+    source.start({
+      onStatus: (state, detail) => setStatus(state, detail),
+      onDepartures: (rows) => { departures = rows; render(); }
+    });
+    ticker = setInterval(render, 1000);
+    render();
+  }
+
+  function stopLive() {
+    if (source) { source.stop(); source = null; }
+    clearInterval(ticker);
+    ticker = null;
+    setStatus('idle', null);
+    if (liveOverride) { liveOverride = null; apply(); }
+  }
+
+  /* Departures for the selected platform, soonest first, with anything already
+     gone dropped. Platform matching is loose on purpose: the feed may render a
+     vía as "4", "04" or "PLATF.(4)". */
+  const MAX_ROWS = 12; // ADIF sends the whole day; a sign shows the next few
+
+  function visibleDepartures() {
+    const wanted = liveEls.platform.value.trim();
+    const now = Date.now() / 1000;
+    return departures
+      .filter(d => d.epoch > now - 30)
+      .filter(d => {
+        if (!wanted) return true;
+        if (d.platform == null) return false;
+        const digits = String(d.platform).match(/\d+/);
+        return digits ? Number(digits[0]) === Number(wanted) : false;
+      })
+      .sort((a, b) => a.epoch - b.epoch)
+      .slice(0, MAX_ROWS);
+  }
+
+  function render() {
+    const rows = visibleDepartures();
+
+    // Advance the rotation on its own clock rather than per render, so the
+    // 1 Hz countdown tick doesn't drag the cycle along with it.
+    if (liveEls.cycle.checked && rows.length > 1) {
+      const now = Date.now();
+      if (!cycleAt) cycleAt = now + CYCLE_MS;
+      if (now >= cycleAt) { cycleIndex += 1; cycleAt = now + CYCLE_MS; }
+    } else {
+      cycleIndex = 0;
+      cycleAt = 0;
+    }
+    const shown = rows.length ? cycleIndex % rows.length : -1;
+
+    renderList(rows, shown);
+
+    // Nothing to show: blank the panel rather than falling back to the manual
+    // tab's text, which would leave a stale "CHAMARTIN" standing as if it were
+    // live. A real sign with no train scheduled is simply dark.
+    if (shown < 0) {
+      liveOverride = { text: '', min: '', via: '', led: '' };
+      apply();
+      return;
+    }
+    const dep = rows[shown];
+    const mins = String(Realtime.minutesTo(dep.epoch));
+    // display.html writes the minutes into the last cells of the same 16-cell
+    // row, so the destination has to stop short of them or it gets overwritten
+    // ("BILBAO ABANDO-I." + "12" renders as "BILBAO ABANDO-12"). One blank cell
+    // between the two keeps them legible.
+    const room = els.showmin.checked ? Math.max(1, 16 - mins.length - 1) : 16;
+    liveOverride = {
+      // ADIF publishes each station name as a ladder of progressively shorter
+      // forms and mapAdif already takes the shortest, which fits 16 cells for
+      // 126 of the 185 stations Chamartín references. The rest are 17-22 and
+      // simply get cut.
+      // Trailing hyphens are an artefact of the cut ("BILBAO ABANDO-"), not
+      // part of the name; a trailing period usually is ("ATOCHA CERCAN.").
+      text: foldToPanel(dep.destination).slice(0, room).replace(/[\s-]+$/, ''),
+      min: mins,
+      // A platform filter means the sign is bolted to that platform, so it
+      // always reads that number. Otherwise show the assignment if there is
+      // one, and leave it blank if there is not — which is what the real signs
+      // do before a platform has been allocated.
+      via: liveEls.platform.value.trim() || platformDigits(dep.platform) || '',
+      led: callingPoints(dep)
+    };
+    apply();
+  }
+
+  /* The LED matrix announces where the train calls. Terminating services carry
+     no onward stops, and there is nothing to announce for them. */
+  function callingPoints(dep) {
+    const stops = (dep.stops || []).map(foldToPanel).filter(Boolean);
+    return stops.length ? 'PARA EN: ' + stops.join(', ') : '';
+  }
+
+
+  /* A vía may arrive as "4", "04" or "PLATF.(4)"; the sign shows the number. */
+  function platformDigits(platform) {
+    if (platform == null) return null;
+    const m = String(platform).match(/\d+/);
+    return m ? String(Number(m[0])) : null;
+  }
+
+  /* CP437 has no accented capitals, and display.html already substitutes them,
+     but folding here keeps the on-screen list and the panel in agreement.
+     U+0303 is spared so that Ñ survives — it is the one accented capital the
+     ROM does carry, at 0xA5. */
+  function foldToPanel(text) {
+    return String(text)
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u0302\u0304-\u036f]/g, '')
+      .normalize('NFC');
+  }
+
+  function renderList(rows, shown) {
+    liveEls.list.textContent = '';
+    if (!rows.length) {
+      const li = document.createElement('li');
+      li.className = 'departures-empty';
+      li.textContent = t('noDepartures');
+      liveEls.list.appendChild(li);
+      return;
+    }
+    rows.forEach((dep, i) => {
+      const li = document.createElement('li');
+      if (i === shown) li.className = 'is-shown';
+
+      if (dep.line) {
+        const line = document.createElement('span');
+        line.className = 'dep-line';
+        line.textContent = dep.line;
+        li.appendChild(line);
+      }
+
+      const dest = document.createElement('span');
+      dest.className = 'dep-dest';
+      dest.textContent = foldToPanel(dep.destination);
+      li.appendChild(dest);
+
+      // ADIF reports early running as a negative delay; only lateness is worth
+      // flagging, and "+-1 min" is not a thing.
+      if (dep.delayMin > 0) {
+        const delay = document.createElement('span');
+        delay.className = 'dep-delay';
+        delay.textContent = '+' + dep.delayMin + ' min';
+        li.appendChild(delay);
+      }
+
+      const plat = document.createElement('span');
+      plat.className = 'dep-plat';
+      const via = platformDigits(dep.platform);
+      plat.textContent = via ? t('viaShort') + ' ' + via : '';
+      li.appendChild(plat);
+
+      const mins = document.createElement('span');
+      mins.className = 'dep-min';
+      const m = Realtime.minutesTo(dep.epoch);
+      mins.textContent = m === 0 ? t('due') : m + ' min';
+      li.appendChild(mins);
+
+      liveEls.list.appendChild(li);
+    });
+  }
+
+  function syncSourceFields() {
+    liveEls.help.hidden = liveEls.source.value !== 'adif';
+  }
+
+  liveEls.source.addEventListener('change', () => { syncSourceFields(); startLive(); });
+  liveEls.station.addEventListener('change', startLive);
+  liveEls.platform.addEventListener('input', render);
+  liveEls.cycle.addEventListener('change', () => { cycleAt = 0; render(); });
+  syncSourceFields();
+
   // --- i18n: static markup ships in Spanish (the default); this swaps
   // text/title nodes for the toggled language and remembers the choice.
   const langButtons = document.querySelectorAll('.lang-btn');
@@ -751,12 +1222,15 @@
     document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
     updateEmbedBtnLabel();
     setFullscreenUi(isFullscreenActive());
+    // The live panel is built from script, so it misses the data-i18n sweep.
+    setStatus(lastStatus.state, lastStatus.detail);
+    if (activeTab === 'live') render();
     for (const btn of langButtons) btn.setAttribute('aria-pressed', String(btn.dataset.lang === lang));
   }
   function setLanguage(newLang) {
     if (newLang === lang) return;
     lang = newLang;
-    localStorage.setItem(LANG_KEY, lang);
+    store.set(LANG_KEY, lang);
     renderLanguage();
   }
   langButtons.forEach((btn) => btn.addEventListener('click', () => setLanguage(btn.dataset.lang)));
