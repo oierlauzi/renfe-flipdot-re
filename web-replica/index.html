@@ -732,6 +732,9 @@
   // manual inputs stay untouched underneath so switching tabs back restores
   // whatever the user had typed.
   let liveOverride = null;
+  // Declared up here because updateEmbedCode() consults it, and apply() runs
+  // during start-up before the tab wiring further down has been reached.
+  let activeTab = 'manual';
 
   function buildParams() {
     return new URLSearchParams({
@@ -751,9 +754,26 @@
     });
   }
 
+  /* display.html bakes its text into the URL, so embedding it from the live tab
+     would freeze whatever happened to be on screen. Point those embeds at
+     display-realtime.html instead, which carries the station rather than the
+     text and keeps feeding the panel wherever it is embedded. */
+  function embedTarget(params) {
+    if (activeTab !== 'live') return { page: 'display.html', params: params };
+
+    const live = new URLSearchParams(params);
+    for (const key of ['text', 'min', 'led', 'via']) live.delete(key);
+    live.set('station', liveEls.station.value.trim());
+    if (liveEls.platform.value.trim()) live.set('via', liveEls.platform.value.trim());
+    if (!liveEls.cycle.checked) live.set('cycle', '0');
+    if (liveEls.source.value === 'demo') live.set('source', 'demo');
+    return { page: 'display-realtime.html', params: live };
+  }
+
   function updateEmbedCode(params) {
-    const url = new URL('display.html', location.href);
-    url.search = params.toString();
+    const target = embedTarget(params);
+    const url = new URL(target.page, location.href);
+    url.search = target.params.toString();
     embedCode.textContent = '<iframe src="' + url.href + '"\n' +
       '        width="1200" height="520" style="border:0"\n' +
       '        title="RENFE Cercanias flip-dot display"></iframe>';
@@ -994,7 +1014,6 @@
     manual: document.getElementById('settings'),
     live: document.getElementById('tab-live')
   };
-  let activeTab = 'manual';
 
   function setTab(name) {
     activeTab = name;
@@ -1078,26 +1097,11 @@
 
   const MAX_ROWS = 12; // ADIF sends the whole day; a sign shows the next few
 
-  /* Departures for the selected platform, soonest first, with anything already
-     gone dropped. Platform matching is loose on purpose: the feed may render a
-     vía as "4", "04" or "PLATF.(4)". */
-  function visibleDepartures() {
-    const wanted = liveEls.platform.value.trim();
-    const now = Date.now() / 1000;
-    return departures
-      .filter(d => d.epoch > now - 30)
-      .filter(d => {
-        if (!wanted) return true;
-        if (d.platform == null) return false;
-        const digits = String(d.platform).match(/\d+/);
-        return digits ? Number(digits[0]) === Number(wanted) : false;
-      })
-      .sort((a, b) => a.epoch - b.epoch)
-      .slice(0, MAX_ROWS);
-  }
-
   function render() {
-    const rows = visibleDepartures();
+    const rows = Realtime.selectDepartures(departures, {
+      platform: liveEls.platform.value,
+      max: MAX_ROWS
+    });
 
     // Advance the rotation on its own clock rather than per render, so the
     // 1 Hz countdown tick doesn't drag the cycle along with it.
@@ -1117,60 +1121,15 @@
     // tab's text, which would leave a stale "CHAMARTIN" standing as if it were
     // live. A real sign with no train scheduled is simply dark.
     if (shown < 0) {
-      liveOverride = { text: '', min: '', via: '', led: '' };
+      liveOverride = Realtime.BLANK_PANEL;
       apply();
       return;
     }
-    const dep = rows[shown];
-    const mins = String(Realtime.minutesTo(dep.epoch));
-    // display.html writes the minutes into the last cells of the same 16-cell
-    // row, so the destination has to stop short of them or it gets overwritten
-    // ("BILBAO ABANDO-I." + "12" renders as "BILBAO ABANDO-12"). One blank cell
-    // between the two keeps them legible.
-    const room = els.showmin.checked ? Math.max(1, 16 - mins.length - 1) : 16;
-    liveOverride = {
-      // ADIF publishes each station name as a ladder of progressively shorter
-      // forms and mapAdif already takes the shortest, which fits 16 cells for
-      // 126 of the 185 stations Chamartín references. The rest are 17-22 and
-      // simply get cut.
-      // Trailing hyphens are an artefact of the cut ("BILBAO ABANDO-"), not
-      // part of the name; a trailing period usually is ("ATOCHA CERCAN.").
-      text: foldToPanel(dep.destination).slice(0, room).replace(/[\s-]+$/, ''),
-      min: mins,
-      // A platform filter means the sign is bolted to that platform, so it
-      // always reads that number. Otherwise show the assignment if there is
-      // one, and leave it blank if there is not — which is what the real signs
-      // do before a platform has been allocated.
-      via: liveEls.platform.value.trim() || platformDigits(dep.platform) || '',
-      led: callingPoints(dep)
-    };
+    liveOverride = Realtime.panelFields(rows[shown], {
+      showMinutes: els.showmin.checked,
+      platform: liveEls.platform.value
+    });
     apply();
-  }
-
-  /* The LED matrix announces where the train calls. Terminating services carry
-     no onward stops, and there is nothing to announce for them. */
-  function callingPoints(dep) {
-    const stops = (dep.stops || []).map(foldToPanel).filter(Boolean);
-    return stops.length ? 'PARA EN: ' + stops.join(', ') : '';
-  }
-
-  /* A vía may arrive as "4", "04" or "PLATF.(4)"; the sign shows the number. */
-  function platformDigits(platform) {
-    if (platform == null) return null;
-    const m = String(platform).match(/\d+/);
-    return m ? String(Number(m[0])) : null;
-  }
-
-  /* CP437 has no accented capitals, and display.html already substitutes them,
-     but folding here keeps the on-screen list and the panel in agreement.
-     U+0303 is spared so that Ñ survives — it is the one accented capital the
-     ROM does carry, at 0xA5. */
-  function foldToPanel(text) {
-    return String(text)
-      .toUpperCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u0302\u0304-\u036f]/g, '')
-      .normalize('NFC');
   }
 
   function renderList(rows, shown) {
@@ -1195,7 +1154,7 @@
 
       const dest = document.createElement('span');
       dest.className = 'dep-dest';
-      dest.textContent = foldToPanel(dep.destination);
+      dest.textContent = Realtime.foldToPanel(dep.destination);
       li.appendChild(dest);
 
       // ADIF reports early running as a negative delay; only lateness is worth
@@ -1209,7 +1168,7 @@
 
       const plat = document.createElement('span');
       plat.className = 'dep-plat';
-      const via = platformDigits(dep.platform);
+      const via = Realtime.platformDigits(dep.platform);
       plat.textContent = via ? t('viaShort') + ' ' + via : '';
       li.appendChild(plat);
 

@@ -366,6 +366,92 @@
     };
   }
 
+  // --- Turning departures into panel parameters ----------------------------
+  //
+  // Shared by index.html (the configurator) and display-realtime.html (the
+  // embeddable panel) so the two cannot drift apart.
+  const PANEL_CELLS = 16;
+
+  /* CP437 has no accented capitals, and display.html already substitutes them,
+     but folding here keeps any on-screen list and the panel in agreement.
+     U+0303 is spared so that Ñ survives — it is the one accented capital the
+     ROM does carry, at 0xA5. */
+  function foldToPanel(text) {
+    return String(text)
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u0302\u0304-\u036f]/g, '')
+      .normalize('NFC');
+  }
+
+  /* A vía may arrive as "4", "04" or "PLATF.(4)"; the sign shows the number. */
+  function platformDigits(platform) {
+    if (platform == null) return null;
+    const m = String(platform).match(/\d+/);
+    return m ? String(Number(m[0])) : null;
+  }
+
+  /* The LED matrix announces where the train calls. Terminating services carry
+     no onward stops, and there is nothing to announce for them. */
+  function callingPoints(dep) {
+    const stops = (dep.stops || []).map(foldToPanel).filter(Boolean);
+    return stops.length ? 'PARA EN: ' + stops.join(', ') : '';
+  }
+
+  /* Departures worth showing, soonest first, with anything already gone
+     dropped. Platform matching is loose on purpose: the feed may render a vía
+     as "4", "04" or "PLATF.(4)". ADIF sends the whole day, so cap the list —
+     a sign shows the next few. */
+  function selectDepartures(departures, options) {
+    const wanted = String((options && options.platform) || '').trim();
+    const max = (options && options.max) || 12;
+    const now = Date.now() / 1000;
+    return (departures || [])
+      .filter(d => d.epoch > now - 30)
+      .filter(d => {
+        if (!wanted) return true;
+        const digits = platformDigits(d.platform);
+        return digits ? Number(digits) === Number(wanted) : false;
+      })
+      .sort((a, b) => a.epoch - b.epoch)
+      .slice(0, max);
+  }
+
+  /* The four display.html parameters for one departure. */
+  function panelFields(dep, options) {
+    const showMinutes = !options || options.showMinutes !== false;
+    const override = String((options && options.platform) || '').trim();
+    const mins = String(minutesTo(dep.epoch));
+    // display.html writes the minutes into the last cells of the same 16-cell
+    // row, so the destination must stop short of them or it gets overwritten
+    // ("BILBAO ABANDO-I." + "12" renders as "BILBAO ABANDO-12"). One blank cell
+    // between the two keeps them legible.
+    const room = showMinutes ? Math.max(1, PANEL_CELLS - mins.length - 1) : PANEL_CELLS;
+    return {
+      // ADIF publishes each station name as a ladder of progressively shorter
+      // forms and mapAdif already takes the shortest, which fits 16 cells for
+      // most stations. The rest are 17-22 and simply get cut; a trailing hyphen
+      // is an artefact of that cut, while a trailing period usually is not.
+      text: foldToPanel(dep.destination).slice(0, room).replace(/[\s-]+$/, ''),
+      min: mins,
+      // A platform filter means the sign is bolted to that platform, so it
+      // always reads that number. Otherwise show the assignment if there is
+      // one, and leave it blank if there is not — which is what the real signs
+      // do before a platform has been allocated.
+      via: override || platformDigits(dep.platform) || '',
+      led: callingPoints(dep)
+    };
+  }
+
+  /* A sign with no train scheduled is simply dark. */
+  const BLANK_PANEL = { text: '', min: '', via: '', led: '' };
+
+  /* Minutes until `epoch`, floored at 0. The panel shows whole minutes, and a
+     train that is due now reads as 0 rather than going negative. */
+  function minutesTo(epoch) {
+    return Math.max(0, Math.round((epoch - Date.now() / 1000) / 60));
+  }
+
   global.Realtime = {
     SignalRSource: SignalRSource,
     AdifSource: AdifSource,
@@ -373,10 +459,13 @@
     mapAdif: mapAdif,
     lastFrames: lastFrames,
     ADIF_HUB: ADIF_HUB,
-    /* Minutes until `epoch`, floored at 0. The panel shows whole minutes, and a
-       train that is due now reads as 0 rather than going negative. */
-    minutesTo(epoch) {
-      return Math.max(0, Math.round((epoch - Date.now() / 1000) / 60));
-    }
+    PANEL_CELLS: PANEL_CELLS,
+    BLANK_PANEL: BLANK_PANEL,
+    foldToPanel: foldToPanel,
+    platformDigits: platformDigits,
+    callingPoints: callingPoints,
+    selectDepartures: selectDepartures,
+    panelFields: panelFields,
+    minutesTo: minutesTo
   };
 })(window);

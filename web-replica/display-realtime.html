@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teleindicador en directo</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="apple-touch-icon" href="favicon-192x192.png">
+<script src="./realtime.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #d9d7d2; overflow: hidden; }
+  /* Same box as display.html, so embedding either at 1200x520 looks identical. */
+  #panel { display: block; width: 1200px; height: 520px; border: 0; }
+</style>
+</head>
+<body>
+<iframe id="panel" title="Teleindicador flip-dot en directo"></iframe>
+
+<script>
+/* display-realtime.html — display.html with a live ADIF feed behind it.
+ *
+ * Embedding display.html gives a still: its text is baked into the URL. This
+ * page takes a station instead of a text and keeps the panel fed:
+ *
+ *   display-realtime.html?station=17000&via=4
+ *
+ * Parameters
+ *   station   ADIF station code (required; 17000 is Madrid-Chamartín)
+ *   via       platform to show. Filters to trains leaving from it, and the
+ *             sign reads that number — a real one is bolted to one platform.
+ *             Omit to show the whole station and whatever platform is assigned.
+ *   cycle     0 to hold the next train only; otherwise rotate every 6 s
+ *   source    'demo' for the simulated feed, for testing without ADIF
+ *   plus display.html's own appearance parameters, passed straight through:
+ *   dot, showoff, showmin, deadon, deadoff, deadseed, ledc, scroll, speed
+ */
+(function () {
+  'use strict';
+
+  const Q = new URLSearchParams(location.search);
+  const APPEARANCE = ['dot', 'showoff', 'showmin', 'deadon', 'deadoff',
+                      'deadseed', 'ledc', 'scroll', 'speed'];
+  const CYCLE_MS = 6000;
+  const MAX_ROWS = 12;
+
+  const station = (Q.get('station') || '').trim();
+  const platform = (Q.get('via') || '').trim();
+  const cycling = Q.get('cycle') !== '0';
+  const showMinutes = Q.get('showmin') !== '0';
+
+  // The inner panel is created blank and never reloaded; everything after this
+  // arrives by postMessage.
+  const inner = new URLSearchParams();
+  for (const key of APPEARANCE) if (Q.has(key)) inner.set(key, Q.get(key));
+  for (const [key, value] of Object.entries(Realtime.BLANK_PANEL)) inner.set(key, value);
+  if (platform) inner.set('via', platform);
+
+  const frame = document.getElementById('panel');
+  let ready = false;
+  let pending = null;
+  frame.addEventListener('load', () => {
+    ready = true;
+    if (pending) push(pending);
+  });
+  frame.src = 'display.html?' + inner.toString();
+
+  // A file:// page has the opaque origin "null", which is not a usable
+  // targetOrigin; display.html checks the sender's origin either way.
+  const TARGET = location.origin && location.origin !== 'null' ? location.origin : '*';
+  let lastSent = null;
+
+  function push(fields) {
+    pending = fields;
+    if (!ready) return;
+    const json = JSON.stringify(fields);
+    if (json === lastSent) return;   // nothing changed; leave the marquee alone
+    lastSent = json;
+    frame.contentWindow.postMessage({ type: 'flipdot-params', params: fields }, TARGET);
+  }
+
+  let departures = [];
+  let cycleIndex = 0;
+  let cycleAt = 0;
+
+  function render() {
+    const rows = Realtime.selectDepartures(departures, { platform: platform, max: MAX_ROWS });
+
+    // Advance the rotation on its own clock rather than per render, so the
+    // 1 Hz countdown tick doesn't drag the cycle along with it.
+    if (cycling && rows.length > 1) {
+      const now = Date.now();
+      if (!cycleAt) cycleAt = now + CYCLE_MS;
+      if (now >= cycleAt) { cycleIndex += 1; cycleAt = now + CYCLE_MS; }
+    } else {
+      cycleIndex = 0;
+      cycleAt = 0;
+    }
+
+    if (!rows.length) { push(Realtime.BLANK_PANEL); return; }
+    push(Realtime.panelFields(rows[cycleIndex % rows.length], {
+      showMinutes: showMinutes,
+      platform: platform
+    }));
+  }
+
+  if (!station && Q.get('source') !== 'demo') {
+    push(Realtime.BLANK_PANEL);   // nothing to show, and nothing to connect to
+    return;
+  }
+
+  const source = Q.get('source') === 'demo'
+    ? Realtime.DemoSource({ station: station })
+    : Realtime.AdifSource({ station: station });
+
+  source.start({
+    // An embedded sign has nowhere to report a status, and a dark panel is the
+    // honest rendering of "no data" anyway. The reconnect loop keeps trying.
+    onStatus: (state) => { if (state === 'nodata' || state === 'error') render(); },
+    onDepartures: (rows) => { departures = rows; render(); }
+  });
+
+  setInterval(render, 1000);
+  render();
+})();
+</script>
+</body>
+</html>
