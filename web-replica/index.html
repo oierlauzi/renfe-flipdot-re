@@ -521,15 +521,27 @@
   <fieldset>
     <legend data-i18n="legendLiveStation">Estación y vía</legend>
     <div class="field">
-      <label for="live-station" data-i18n="labelStation">Estación</label>
-      <input type="text" id="live-station" list="live-stations" value="17000" autocomplete="off">
-      <datalist id="live-stations">
-        <option value="17000" label="Madrid-Chamartín"></option>
-        <option value="18000" label="Madrid-Atocha"></option>
-        <option value="98305" label="Aeropuerto T4"></option>
-        <option value="70103" label="Alcalá de Henares"></option>
-        <option value="10203" label="El Escorial"></option>
-      </datalist>
+      <label for="live-preset" data-i18n="labelPreset">Estaciones</label>
+      <select id="live-preset">
+        <option value="">—</option>
+        <optgroup id="preset-group-panel" label="Tuvieron/tienen este teleindicador">
+          <option value="97100">Pitis</option>
+          <option value="17009">Universidad-Cantoblanco</option>
+          <option value="12004">Collado Mediano</option>
+          <option value="10100">Pinar de las Rozas</option>
+          <option value="10104">Galapagar-La Navata</option>
+          <option value="18004">Delicias</option>
+        </optgroup>
+        <optgroup id="preset-group-major" label="Estaciones principales de Madrid">
+          <option value="17000" selected>Madrid Chamartín</option>
+          <option value="18000">Madrid Atocha Cercanías</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="field">
+      <label for="live-station" data-i18n="labelStation">Código de estación</label>
+      <input type="text" id="live-station" value="17000" autocomplete="off"
+             spellcheck="false" inputmode="numeric" placeholder="17000">
     </div>
     <div class="field">
       <label for="live-platform" data-i18n="labelPlatformFilter">Filtro de vía</label>
@@ -597,7 +609,11 @@
       optionSourceAdif: 'ADIF (en directo)',
       adifHelp: 'Datos en directo del sistema de información al viajero de ADIF, por WebSocket contra <code>info.adif.es</code>. Introduce el código numérico de la estación: 17000 es Madrid-Chamartín. Si la vía aún no está asignada, el tren aparece sin ella, igual que en los paneles reales.',
       legendLiveStation: 'Estación y vía',
-      labelStation: 'Estación',
+      labelPreset: 'Estaciones',
+      presetNone: '—',
+      presetGroupPanel: 'Tuvieron/tienen este teleindicador',
+      presetGroupMajor: 'Estaciones principales de Madrid',
+      labelStation: 'Código de estación',
       labelPlatformFilter: 'Filtro de vía',
       labelCycle: 'Rotar entre los próximos trenes',
       noDepartures: 'Sin trenes que mostrar.',
@@ -656,7 +672,11 @@
       optionSourceAdif: 'ADIF (live)',
       adifHelp: 'Live data from ADIF\'s passenger information system, over a WebSocket to <code>info.adif.es</code>. Enter the station\'s numeric code: 17000 is Madrid-Chamartín. Trains whose platform has not been assigned yet show none, exactly as the real signs do.',
       legendLiveStation: 'Station and platform',
-      labelStation: 'Station',
+      labelPreset: 'Stations',
+      presetNone: '—',
+      presetGroupPanel: 'Have or formerly had this sign',
+      presetGroupMajor: 'Major stations in Madrid',
+      labelStation: 'Station code',
       labelPlatformFilter: 'Platform filter',
       labelCycle: 'Rotate through upcoming trains',
       noDepartures: 'No trains to show.',
@@ -992,6 +1012,9 @@
   const liveEls = {
     source: document.getElementById('live-source'),
     help: document.getElementById('live-help'),
+    preset: document.getElementById('live-preset'),
+    presetPanel: document.getElementById('preset-group-panel'),
+    presetMajor: document.getElementById('preset-group-major'),
     station: document.getElementById('live-station'),
     platform: document.getElementById('live-platform'),
     cycle: document.getElementById('live-cycle'),
@@ -1053,11 +1076,11 @@
     if (liveOverride) { liveOverride = null; apply(); }
   }
 
+  const MAX_ROWS = 12; // ADIF sends the whole day; a sign shows the next few
+
   /* Departures for the selected platform, soonest first, with anything already
      gone dropped. Platform matching is loose on purpose: the feed may render a
      vía as "4", "04" or "PLATF.(4)". */
-  const MAX_ROWS = 12; // ADIF sends the whole day; a sign shows the next few
-
   function visibleDepartures() {
     const wanted = liveEls.platform.value.trim();
     const now = Date.now() / 1000;
@@ -1130,7 +1153,6 @@
     const stops = (dep.stops || []).map(foldToPanel).filter(Boolean);
     return stops.length ? 'PARA EN: ' + stops.join(', ') : '';
   }
-
 
   /* A vía may arrive as "4", "04" or "PLATF.(4)"; the sign shows the number. */
   function platformDigits(platform) {
@@ -1206,7 +1228,22 @@
   }
 
   liveEls.source.addEventListener('change', () => { syncSourceFields(); startLive(); });
-  liveEls.station.addEventListener('change', startLive);
+
+  liveEls.preset.addEventListener('change', () => {
+    const option = liveEls.preset.selectedOptions[0];
+    if (!option || !option.value) return;
+    liveEls.station.value = option.value;
+    startLive();
+  });
+
+  liveEls.station.addEventListener('change', () => {
+    // Keep the dropdown honest: it goes blank once the field holds something
+    // that is not one of the presets.
+    const code = liveEls.station.value.trim();
+    const known = [...liveEls.preset.options].some(o => o.value === code);
+    liveEls.preset.value = known ? code : '';
+    startLive();
+  });
   liveEls.platform.addEventListener('input', render);
   liveEls.cycle.addEventListener('change', () => { cycleAt = 0; render(); });
   syncSourceFields();
@@ -1224,6 +1261,9 @@
     setFullscreenUi(isFullscreenActive());
     // The live panel is built from script, so it misses the data-i18n sweep.
     setStatus(lastStatus.state, lastStatus.detail);
+    liveEls.presetPanel.label = t('presetGroupPanel');
+    liveEls.presetMajor.label = t('presetGroupMajor');
+    liveEls.preset.options[0].textContent = t('presetNone');
     if (activeTab === 'live') render();
     for (const btn of langButtons) btn.setAttribute('aria-pressed', String(btn.dataset.lang === lang));
   }

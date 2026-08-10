@@ -39,7 +39,11 @@
   const RS = '\x1e'; // written as an escape: a literal 0x1e in source is too easy to mangle
   const PING = { type: 6 };
   const PING_MS = 15000;
-  const DATA_TIMEOUT_MS = 20000;
+  // Generous, because it is not a health check: a busy station answers
+  // instantly, but smaller ones have taken over 14 s to push their first
+  // message, and reporting "no data" while one is still on its way is worse
+  // than waiting.
+  const DATA_TIMEOUT_MS = 30000;
 
   function encode(obj) { return JSON.stringify(obj) + RS; }
 
