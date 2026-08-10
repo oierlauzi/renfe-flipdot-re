@@ -74,9 +74,16 @@
     if (lastFrames.length > 25) lastFrames.shift();
   }
 
+  // How often to re-ask for a snapshot that the server failed to produce, and
+  // how long to wait between tries.
+  const SNAPSHOT_RETRIES = 3;
+  const SNAPSHOT_RETRY_MS = 6000;
+
   function SignalRSource(options) {
     const url = options.url;
-    const invocations = options.subscribe || [];   // [{target, arguments}, …] sent once connected
+    // [{target, arguments, optional}, …] sent once connected. `optional` marks
+    // a call the connection can live without — see AdifSource.
+    const invocations = options.subscribe || [];
     const map = options.map;
     let socket = null, pinger = null, retry = null, dataTimer = null;
     let attempts = 0, stopped = false;
@@ -88,6 +95,15 @@
       let handshakeDone = false;
       let reported = false;   // a specific failure was surfaced; don't overwrite it
       let gotData = false;
+      const retries = {};     // invocationId -> attempts made at an optional call
+
+      function invoke(inv, invocationId) {
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
+        socket.send(encode({
+          type: 1, invocationId: invocationId,
+          target: inv.target, arguments: inv.arguments || []
+        }));
+      }
 
       try {
         socket = new WebSocket(url);
@@ -127,18 +143,35 @@
             dataTimer = setTimeout(() => {
               if (!gotData && !reported) handlers.onStatus('nodata', null);
             }, DATA_TIMEOUT_MS);
-            invocations.forEach((inv, i) => {
-              socket.send(encode({
-                type: 1, invocationId: String(i),
-                target: inv.target, arguments: inv.arguments || []
-              }));
-            });
+            invocations.forEach((inv, i) => invoke(inv, String(i)));
             continue;
           }
 
           if (msg.type === 6) continue;                                  // ping
           if (msg.type === 3) {                                          // completion
-            if (msg.error) { reported = true; handlers.onStatus('error', msg.error); }
+            if (!msg.error) continue;
+            const failed = invocations[Number(msg.invocationId)];
+            if (failed && failed.optional) {
+              // The server could not produce this call's result, but the
+              // connection and any subscription made alongside it are fine, so
+              // this must not put the source into a terminal error state. Retry
+              // a few times; failing that, the deadline above reports no data,
+              // and a later server push still promotes the source to live.
+              retries[msg.invocationId] = (retries[msg.invocationId] || 0) + 1;
+              if (global.console) {
+                global.console.warn('realtime: ' + failed.target + ' failed (attempt ' +
+                  retries[msg.invocationId] + '): ' + msg.error);
+              }
+              if (retries[msg.invocationId] <= SNAPSHOT_RETRIES) {
+                const sock = socket;
+                setTimeout(() => {
+                  if (!stopped && sock === socket) invoke(failed, msg.invocationId);
+                }, SNAPSHOT_RETRY_MS * retries[msg.invocationId]);
+              }
+              continue;
+            }
+            reported = true;
+            handlers.onStatus('error', msg.error);
             continue;
           }
           if (msg.type === 7) {
@@ -213,8 +246,13 @@
     return SignalRSource({
       url: (options && options.url) || ADIF_HUB,
       subscribe: [
+        // JoinInfo is the subscription and must succeed. GetLastMessage only
+        // fetches the board as it stands right now, so that the panel fills in
+        // without waiting for ADIF's next push — useful, but not essential, and
+        // it is the call that throws HybridCache errors on their side for some
+        // stations. Losing it costs freshness, not the feed.
         { target: 'JoinInfo', arguments: [group] },
-        { target: 'GetLastMessage', arguments: [group] }
+        { target: 'GetLastMessage', arguments: [group], optional: true }
       ],
       map: mapAdif
     });
