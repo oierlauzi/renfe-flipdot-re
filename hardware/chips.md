@@ -15,7 +15,7 @@ package so they can be identified later; see
 | U5, U11 | MC14584BCP | Mother, D1 | — | Hex Schmitt trigger |
 | U6 | 7555 | Mother | — | Timer (watchdog / reset?) |
 | U7 | 6N139 | Mother? | — | Optocoupler; **board attribution doubtful**, see below |
-| U8-U10 | ? | Mother | ? | unidentified |
+| U8-U10 | ? | Mother | ? | unidentified; **U9 (DIP16) is an RS-422 driver/receiver candidate** |
 | (3 unlabelled) | 6N139 (yellow DIP8) | D1 | — | Optocouplers: the isolation barrier |
 | (2 unlabelled) | **SN75176BP** (black DIP8) | D1 | — | **RS-485/422 differential transceivers** |
 | U17-U19 | ULN2003A (U17/U18 TI, U19 ST) | D2 | — | Darlington sinks, flip-dot drive; **21 sinks** in total |
@@ -122,12 +122,18 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Datasheet:** []
 - **Notes:**
 
-## U9 — ?
+## U9 — ? **DIP16, now worth reading first**
 - **Manufacturer:** 
 - **Part number:**
 - **PCB:** Mother
 - **Datasheet:** []
-- **Notes:** DIP16 Package
+- **Notes:** DIP16 package. The motherboard has an unconnected `RP RN TP TN`
+  terminal block — differential pair naming — and **`AM26LS31` (quad differential
+  driver) and `AM26LS32` (quad differential receiver) are both DIP16**, the
+  standard RS-422 parts of the era. If U9 is one of those, the motherboard has a
+  line interface of its own, which would also explain why `U7` (a 6N139) sits on
+  this board rather than on daughter 1. **[?]** — a guess from package size.
+  → [connectors.md](connectors.md#motherboard-terminal-block--rp-rn-tp-tn-c-observed-unconnected)
 
 ## U10 — ?
 - **Manufacturer:** 

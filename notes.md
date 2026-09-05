@@ -20,6 +20,54 @@ Entry template:
 
 ---
 
+## 2026-09-05 — An `RP RN TP TN` block on the motherboard, and it may explain U7
+
+**Owner found a four-way terminal block on the motherboard**, unconnected in this
+unit, labelled `RP RN TP TN`.
+
+**Those are differential pair names — receive/transmit, positive/negative — not a
+USART.** A raw 8251A header would be `TxD`/`RxD` and single-ended. So this is
+most likely a **second RS-422 port**, at line level.
+
+Two things fall out, and one of them closes an anomaly I flagged and could not
+explain:
+
+* **`U7`.** A 6N139 optocoupler recorded on the *motherboard* made no sense once
+  daughter 1 turned out to carry three of its own, and sat wrong with the board
+  architecture. **A differential port on the motherboard gives U7 a job**:
+  isolating that interface.
+* **`U9` is now worth reading before anything else.** It is an unidentified
+  **DIP16**, and `AM26LS31` (quad differential driver) and `AM26LS32` (quad
+  differential receiver) — the era's standard RS-422 pair — are both DIP16. That
+  is a guess from package size, **[?]**, but it is cheap to settle and would
+  confirm the whole reading.
+
+**What the block is remains open**, three ways: daughter 1's pairs brought to the
+motherboard as an alternative connection point; an independent interface used when
+daughter 1 is not fitted; or a downstream bus to slave signs. The last is hard to
+reconcile with there being only one USART. All three are settled by continuity
+with the power off, and that trace is now the first item on the list.
+
+**Also answered: what can be tested before the SH-U11 arrives.**
+
+* **The RS-232 adapter must not touch these pins.** RS-232 idles at −5 to −12 V
+  *continuously*, and a differential receiver's inputs are specified for about
+  −7 V to +12 V common mode. It might survive; there is no reason to find out.
+* **The scope is useful now** — DC across `TP`-`TN` says whether the driver is
+  enabled and idling or tri-stated, and each pin to 0 V gives the common-mode
+  point and the per-leg swing.
+* **The FTDI TTL adapter can drive a differential receiver**, with the standard
+  single-ended trick: TTL into one leg, the other biased to mid-rail through a
+  10k/10k divider, giving about ±2.5 V differential — far above the ±200 mV
+  threshold. The return leg of a 5 V driver is already a TTL-compatible swing, so
+  it can go straight to the FTDI's RX. Caveats recorded: set `VCCIO` to 5 V, and
+  note that this bypasses the isolation, so check what the ground node connects to
+  before committing.
+
+Written up in `connectors.md` with the wiring sketch.
+
+---
+
 ## 2026-09-05 — Picking a USB adapter: three dongles checked
 
 Asked by the owner, and worth writing down because it is the first concrete

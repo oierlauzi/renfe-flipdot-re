@@ -260,6 +260,108 @@ Only then is a scope worth setting up — and remember the unit **answers, it do
 not announce**, so a host must be polling before its transmit pair carries
 anything.
 
+## Motherboard terminal block — `RP RN TP TN` **[C] observed, unconnected**
+
+The motherboard carries its own four-way terminal block, **not connected in this
+unit** (owner, 2026-09):
+
+```
+RP   RN   TP   TN
+```
+
+**Those names are differential pairs, not a USART.** `R`/`T` for receive and
+transmit, `P`/`N` for positive and negative — so this is almost certainly a second
+**RS-422 port**, at line level, not the 8251A's TTL `TxD`/`RxD`. A raw USART
+brought to a header would be labelled `TxD`/`RxD` and would be single-ended.
+
+### Why this matters: it may resolve the `U7` anomaly
+
+`U7`, a 6N139 optocoupler, is recorded on the **motherboard**, which sat awkwardly
+with daughter 1 carrying three of its own and the
+[board architecture](pcbs.md#architecture-one-function-per-board-l) putting media
+conversion on daughter 1. A differential port *on the motherboard* gives U7 an
+obvious job: isolating **this** interface.
+
+### And it promotes `U9` to a high-value reading **[?]**
+
+`U9` is an unidentified **DIP16** on the motherboard. **`AM26LS31` (quad
+differential driver) and `AM26LS32` (quad differential receiver) are both DIP16**,
+and are the standard RS-422 parts of this era — exactly what an `RP`/`RN`/`TP`/`TN`
+block would hang off. Reading `U9` and `U10` would confirm or kill this in one
+step. That is a guess from package size alone, so **[?]**.
+
+### What the block actually is — three readings, none settled
+
+| Reading | Would mean | Discriminating trace |
+| --- | --- | --- |
+| **The same link, alternative connection point** — daughter 1's pairs brought to the motherboard | wire here instead of the DB37 | continuity from `RP`/`RN`/`TP`/`TN` to daughter 1's SN75176BP `A`/`B` pins (6, 7) |
+| **A second, independent line interface** on the motherboard, used when daughter 1 is not fitted | the product ships with either interface | continuity to `U7`, `U9`, `U10` but **not** to daughter 1 |
+| **A downstream bus to slave signs** — the `MAESTRA` angle | a second channel | hard to reconcile with there being only one USART; see [pcbs.md](pcbs.md#architecture-one-function-per-board-l) |
+
+**All three are settled by continuity, power off.** Also worth checking whether
+the block reaches the 8251A (`U3`) `TxD` (pin 19) and `RxD` (pin 3) at all — if it
+does *directly*, the P/N naming is misleading and it really is a TTL header.
+
+### Testing before an RS-422 adapter arrives
+
+With a scope, an FTDI TTL adapter and a USB RS-232 adapter to hand, here is what
+is worth doing and what is not.
+
+**Do first, power off, costs nothing:** the continuity traces above. They settle
+what the block is, and everything below depends on knowing that.
+
+**Do not connect the RS-232 adapter to these pins.** RS-232 idles at **−5 to
+−12 V** and swings the other way. A differential receiver's inputs are specified
+for roughly **−7 V to +12 V** common mode, so an RS-232 mark level sits at or
+past the negative limit **continuously**, not just in transients. It might
+survive; there is no reason to find out. Use RS-232 only through a proper
+RS-232-to-RS-422 converter.
+
+**The scope is useful immediately.** Powered, nothing else connected:
+
+| Measurement | Reading |
+| --- | --- |
+| DC across `TP`-`TN` | a few volts differential means the driver is enabled and idling; ~0 V means it is tri-stated, or the port is inactive |
+| DC from each pin to the board's 0 V | gives the common-mode point, and tells you the per-leg swing to expect |
+| `RP`-`RN` while sending | nothing should appear unless a host is driving it |
+
+Do this with the **fluorescent tube feed disconnected** — its ballast is inside the
+enclosure and is a large inductive noise source
+([psu.md](psu.md#two-independent-ac-inputs-c)).
+
+**The FTDI TTL adapter can drive a differential receiver**, once the scope has
+confirmed the levels. A single-ended TTL signal into one leg, with the other leg
+biased to mid-rail, clears the ±200 mV receiver threshold comfortably:
+
+```
+    FTDI TX  ──────────────────►  RP
+                         5V ──[10k]──┐
+                                     ├──►  RN        (RN sits at ~2.5 V)
+                        GND ──[10k]──┘
+    FTDI RX  ◄──────────────────  TP
+    FTDI GND ─────────────────── board 0 V
+```
+
+`RP` then swings about **+2.5 V / −2.5 V** relative to `RN`, which any RS-422
+receiver reads cleanly. For the return direction, one leg of a 5 V differential
+driver referenced to ground is already a TTL-compatible swing, so `TP` can go
+straight to the FTDI's RX.
+
+Three cautions:
+
+* **Set `VCCIO` to 5 V**, or divide `TP` down. A 5 V leg into a 3.3 V input is the
+  classic way to damage the adapter.
+* **This bypasses the isolation.** You are bonding PC ground to the display's
+  ground. Check with a meter, power off, what that node is connected to before
+  committing — and prefer a bench supply to mains for the first attempt.
+* **There is no ground pin on the block**, so the reference has to be taken from
+  the board elsewhere. That in itself hints the port expects an external
+  interface that supplies its own reference.
+
+**What to send:** `1D 7F 1A` — `GS`, broadcast, `SUB`. It needs no prior state and
+the answer is known in advance, so it is a true known-answer test. If the line
+settings are unknown, `tools/bringup.py --stage line` sweeps them for you.
+
 ## Flip-dot panel ribbon — daughter 2
 
 **Topology, observed:** each character is an independent module; the sixteen modules

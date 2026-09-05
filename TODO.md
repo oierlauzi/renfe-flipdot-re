@@ -77,6 +77,19 @@ third is a safety precondition.
 - [x] **Bring-up tooling written**: `tools/bringup.py`, staged adapter / quiet /
       line-sweep / address-sweep / demo, with an emulator self-test
       (`make bringup-selftest`). → [docs/controller.md](docs/controller.md#bring-up-toolsbringuppy)
+- [ ] **Trace the motherboard's `RP RN TP TN` terminal block** (unconnected in
+      this unit). Differential pair naming, so probably a second RS-422 port
+      rather than a TTL USART header. Continuity, power off, settles it: does it
+      reach daughter 1's SN75176BP `A`/`B` pins, or `U7`/`U9`/`U10`, or the
+      8251A's `TxD`/`RxD` directly?
+      → [hardware/connectors.md](hardware/connectors.md#motherboard-terminal-block--rp-rn-tp-tn-c-observed-unconnected)
+      - Result:
+- [ ] **Read `U9` (DIP16) and `U10` (DIP20) on the motherboard.** `AM26LS31` and
+      `AM26LS32` are both DIP16 and are the era's standard RS-422 driver/receiver
+      pair — which would explain both the terminal block and why `U7` sits on the
+      motherboard. Promoted from a generic "identify the unknowns".
+      - Result — U9:
+      - Result — U10:
 - [ ] **DB37 pin numbers — the last missing column.** Everything else about the
       link is traced; only the mapping from wire colour to connector pin is
       unknown. Number the pins from the connector shell and photograph the
