@@ -13,9 +13,11 @@ delete them from here — this file should shrink over time.
       → [hardware/connectors.md](../hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)
 - [x] **4-wire, confirmed** — each pair lands on a different SN75176BP.
 - [x] **Direction found** — the display receives on the **yellow-green** pair
-      (transceiver strapped receive-only); orange-blue is the reply pair.
-- [ ] **`A`/`B` polarity within each pair, and the DB37 pin numbers.** All that
-      now stands between this repo and a complete wiring diagram.
+      (transceiver strapped receive-only); blue/red is the reply pair.
+- [x] **`A`/`B` polarity traced** — `A` = green (RX) / blue (TX), `B` = yellow
+      (RX) / red (TX).
+- [ ] **DB37 pin numbers.** The single remaining gap in the wiring diagram.
+- [ ] **Red or orange?** The fourth conductor is recorded both ways.
 - [ ] **Frame format.** Start/end delimiters, addressing, checksum, text
       payload encoding. → [docs/serial-protocol.md](serial-protocol.md)
 - [ ] **Does the unit reply?** Only two `OUT 0x80` sites exist. If one is an

@@ -3,21 +3,26 @@
 ## DB37 — external control input
 
 The only interface to the outside world. Of 37 pins, **4 conductors are
-populated**: orange, blue, green and yellow, inside a grey overall-shielded
-cable (see [photos/DB37_back.jpg](photos/DB37_back.jpg)). They land on a
-terminal block on daughter 1.
+populated**, inside a grey overall-shielded cable (see
+[photos/DB37_back.jpg](photos/DB37_back.jpg)). They land on a terminal block on
+daughter 1.
 
-| Pin | Wire colour | Pair | Direction | Conf. |
-| --- | --- | --- | --- | --- |
-| ? | **yellow** | with green | **display RECEIVES** (host → display) | **[C]** |
-| ? | **green** | with yellow | **display RECEIVES** | **[C]** |
-| ? | orange | with blue | display transmits (by elimination) | **[L]** |
-| ? | blue | with orange | display transmits (by elimination) | **[L]** |
-| — | grey (shield) | — | chassis / drain | **[?]** |
+| DB37 pin | Wire | Transceiver pin | Pair | Direction | Conf. |
+| --- | --- | --- | --- | --- | --- |
+| ? | **green** | `A` (6) | RX | **display RECEIVES** (host → display) | **[C]** |
+| ? | **yellow** | `B` (7) | RX | **display RECEIVES** | **[C]** |
+| ? | **blue** | `A` (6) | TX | display transmits | **[L]** |
+| ? | **red** *(or orange — see below)* | `B` (7) | TX | display transmits | **[L]** |
+| — | grey (shield) | — | — | chassis / drain | **[?]** |
 
-Which conductor of each pair is `A` and which is `B` is **not yet known**, and it
-matters — swapping them inverts the data. See
-[the receive pair](#the-yellow-green-pair-is-the-receive-side-c).
+**Only the DB37 pin numbers are still missing.** Everything else in that table is
+traced.
+
+> **A colour discrepancy to resolve.** The four conductors were first recorded as
+> **orange**, blue, green and yellow; the pin trace reported **red** on the
+> transmit pair. Orange and red are easy to confuse on a photograph, and only one
+> of them can be right. **Check the fourth conductor against the cable**, because
+> a wiring diagram that names the wrong colour is worse than one that names none.
 
 ### Attempt 1: oscilloscope, 2026-08 — transitions present, signal unclear
 
@@ -162,7 +167,7 @@ Against the SN75176B pinout that is unambiguous:
 | 4 | `D` (`DI`) | **GND** | driver input tied to a defined level; irrelevant, the driver is off |
 
 **That package can only ever receive.** So the **yellow-green pair is the inbound
-pair — host to display** — and by elimination orange-blue is the pair the display
+pair — host to display** — and by elimination the blue-red pair is the one the display
 transmits on. **[C]** for yellow-green, **[L]** for orange-blue until its `DI` is
 seen to be driven.
 
@@ -227,15 +232,16 @@ side.
 - [x] ~~Which pair goes where~~ — **one pair per transceiver, so 4-wire.** Done.
 - [x] ~~Which pair is inbound~~ — **yellow-green**, its transceiver strapped
       receive-only. Orange-blue is the transmit pair by elimination.
-- [ ] **Which conductor of each pair is `A` (pin 6) and which is `B` (pin 7).**
-      Swapping them inverts the data, so a wiring diagram needs this. Continuity
-      from each terminal to pins 6 and 7 settles it in two beeps.
-      - Result — yellow → pin:
-      - Result — green → pin:
-- [ ] **Is `DE` on the orange-blue package driven or tied high?** Driven from RTS
+- [x] ~~Which conductor is `A` and which is `B`~~ — **green = `A`, yellow = `B`**
+      on the receive pair; **blue = `A`, red = `B`** on the transmit pair.
+- [ ] **Confirm the fourth conductor's colour** — red or orange? Both are on
+      record and they disagree.
+      - Result:
+- [ ] **DB37 pin numbers for all four.** The last missing column.
+- [ ] **Is `DE` on the blue-red package driven or tied high?** Driven from RTS
       → multidrop; tied high → point-to-point. See
       [above](#the-next-question-this-raises-is-de-on-the-other-package-driven-or-tied-high).
-- [ ] **Confirm the orange-blue package's `DI` is driven** (rather than strapped),
+- [ ] **Confirm the blue-red package's `DI` is driven** (rather than strapped),
       which upgrades the transmit-pair assignment from **[L]** to **[C]**.
 - [ ] **Check for 120 Ω** across either pair. Absent is expected for a mid-bus
       node and means the host end must terminate.
@@ -253,7 +259,7 @@ on daughter 1 and the DB37:
 2. **Buzz each of the four wires** from its DB37 pin to the daughter 1 terminal
    block, and from there to an SN75176BP pin 6 or 7. That gives colour → pin →
    `A`/`B` in one pass.
-3. **Check the orange-blue package's `DE` and `DI`** as above.
+3. **Check the blue-red package's `DE` and `DI`** as above.
 
 Only then is a scope worth setting up — and remember the unit **answers, it does
 not announce**, so a host must be polling before its transmit pair carries

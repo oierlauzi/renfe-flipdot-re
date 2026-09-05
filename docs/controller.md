@@ -81,12 +81,35 @@ SN75176BP ([hardware/connectors.md](../hardware/connectors.md#it-is-4-wire-one-p
 So buy a **4-wire RS-422** adapter. Most cheap USB-RS485 dongles are 2-wire half
 duplex with automatic direction control and **will not drive this link**.
 
-**Which pair is which:** drive the **yellow-green** pair — its transceiver is
-strapped receive-only, so that is the display's input — and listen on
-**orange-blue**. Two things are still unknown and both are quick continuity
-checks: which conductor of each pair is `A` versus `B` (getting it backwards
-inverts the data, and is the classic reason an RS-485 link stays silent), and the
-DB37 pin numbers.
+### Wiring
+
+| Your adapter | Display wire | Display transceiver pin |
+| --- | --- | --- |
+| driver output `A` | **green** | `A` (pin 6) |
+| driver output `B` | **yellow** | `B` (pin 7) |
+| receiver input `A` | **blue** | `A` (pin 6) |
+| receiver input `B` | **red** *(colour unconfirmed — may be orange)* | `B` (pin 7) |
+| — | grey overall shield | chassis / drain, one end only |
+
+The display **receives** on green/yellow and **replies** on blue/red. The DB37
+pin numbers are still untraced, so identify the conductors by colour at the
+connector.
+
+**On `A`/`B` naming, which is a genuine trap.** The labels are inconsistent in the
+field: TIA-485 and most transceiver datasheets disagree about which of `A`/`B` is
+the inverting line, and modules variously silkscreen them `A`/`B`, `D+`/`D−` or
+`TX+`/`TX−`. The display's parts are unambiguous on their own terms — an
+SN75176B drives `A` high and `B` low for a logic-high input, and its receiver
+outputs high when `A` > `B` — so **match `A` to `A` and `B` to `B` by the pin
+function, not by a `+`/`−` label**.
+
+If the link comes up silent, **swap one pair before assuming anything is broken**.
+Reversed polarity is the single most common RS-485 wiring fault, it presents
+exactly as silence, and it cannot damage anything.
+
+Note also that the idle polarity *through the isolation barrier* has not been
+traced — the 6N139s may invert — so do not predict the line's resting state from
+the UART's. Try it, and swap if needed.
 
 ## Two gotchas that will cost an evening each
 

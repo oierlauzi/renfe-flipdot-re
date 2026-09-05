@@ -74,13 +74,14 @@ third is a safety precondition.
 
 ## P2 — Critical path to driving the display
 
-- [ ] **DB37 pinout.** Number the pins from the connector shell, photograph the
-      numbering next to the wires, then buzz each of the four conductors through
-      to the daughter-1 terminal block.
-      - Result — orange → pin / terminal:
-      - Result — blue → pin / terminal:
-      - Result — green → pin / terminal:
-      - Result — yellow → pin / terminal:
+- [ ] **DB37 pin numbers — the last missing column.** Everything else about the
+      link is traced; only the mapping from wire colour to connector pin is
+      unknown. Number the pins from the connector shell and photograph the
+      numbering next to the wires.
+      - Result — green (RX `A`) → pin:
+      - Result — yellow (RX `B`) → pin:
+      - Result — blue (TX `A`) → pin:
+      - Result — red/orange (TX `B`) → pin:
 - [ ] **Locate the receive pair.** Trace from the terminal block to U7 (6N139).
       Whatever reaches its pins 2 and 3 is the **RX** pair.
       - Result:
@@ -146,11 +147,13 @@ third is a safety precondition.
       ground — receiver permanently on, driver permanently tri-stated, so that
       package can only listen. Orange-blue is the transmit pair by elimination.
       → [hardware/connectors.md](hardware/connectors.md#the-yellow-green-pair-is-the-receive-side-c)
-- [ ] **Which conductor is `A` (pin 6) and which is `B` (pin 7)**, on each pair.
-      Reversing them inverts the data — the classic reason an RS-485 link stays
-      silent. Two continuity beeps.
-      - Result — yellow / green → A / B:
-      - Result — orange / blue → A / B:
+- [x] **`A`/`B` polarity traced (owner, 2026-09):** `A` → **green** (RX) and
+      **blue** (TX); `B` → **yellow** (RX) and **red** (TX). Wiring table in
+      [docs/controller.md](docs/controller.md#wiring).
+- [ ] **Is the fourth conductor red or orange?** First recorded as orange, traced
+      as red. Only one can be right, and a wiring diagram naming the wrong colour
+      is worse than one naming none.
+      - Result:
 - [ ] **Is `DE` on the orange-blue package driven from RTS, or tied high?**
       Driven → multidrop, several signs share the return pair. Tied high →
       point-to-point. Changes what the host must tolerate between replies.

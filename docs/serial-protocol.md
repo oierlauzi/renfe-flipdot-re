@@ -13,15 +13,15 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 | Property | Value | Conf. |
 | --- | --- | --- |
 | Connector | DB37 female, only 4 conductors populated | **[C]** |
-| Wire colours | orange, blue, green, yellow (grey overall shield) | **[C]** |
+| Wire colours | green, yellow, blue, red *(fourth colour unconfirmed)*; grey overall shield | **[L]** |
 | **Signalling** | **RS-485 / RS-422 differential**, opto-isolated | **[C]** |
 | Transceivers | **2 x TI SN75176BP** on daughter 1 | **[C]** |
 | Isolation | **3 x HP 6N139** on daughter 1 — TX data, RX data, driver enable | **[C]** |
 | Wiring | **4-wire full duplex** — one pair per transceiver, traced | **[C]** |
 | Direction control | driver enable under RTS, for a shared return pair | **[L]** |
-| Receive pair | **yellow + green** — its transceiver strapped receive-only | **[C]** |
-| Transmit pair | orange + blue, by elimination | **[L]** |
-| `A`/`B` polarity, DB37 pin numbers | **unknown** | **[?]** |
+| Receive pair | **green = `A`, yellow = `B`** — transceiver strapped receive-only | **[C]** |
+| Transmit pair | **blue = `A`, red = `B`** | **[L]** |
+| DB37 pin numbers | **unknown** | **[?]** |
 
 **Settled by reading the parts** (owner, 2026-09). Two SN75176BP differential bus
 transceivers make this an RS-485/RS-422 link; nothing about a current loop needs
@@ -40,11 +40,12 @@ pair, so each must tri-state its driver until addressed.
 **Direction is settled for one pair.** On the transceiver carrying the
 **yellow-green** pair, `/RE`, `DE` and `D` are all strapped to ground: receiver
 permanently enabled, driver permanently tri-stated. That package can only receive,
-so **yellow-green is the pair the display listens on** and orange-blue is the pair
+so **green/yellow is the pair the display listens on** and blue/red is the pair
 it replies on.
 
 **For a host, this means a 4-wire RS-422 adapter, not a 2-wire RS-485 dongle** —
-drive the yellow-green pair, listen on orange-blue.
+drive green/yellow, listen on blue/red. Wiring table in
+[controller.md](controller.md#wiring).
 
 > **Retracted: the current-loop reading.** Every earlier version of this document
 > gave "either RS-422/485 or a 20 mA current loop" and leaned towards the loop,
