@@ -95,6 +95,69 @@ The display **receives** on green/yellow and **replies** on blue/red. The DB37
 pin numbers are still untraced, so identify the conductors by colour at the
 connector.
 
+### Is an FT232RNL-based adapter suitable? **Only with a transceiver in front of it**
+
+The FT232RNL is a **USB-to-UART** bridge: it produces logic-level serial, not
+differential. The display needs **4-wire RS-422**, so the chip alone is not an
+interface to it — but it is a perfectly good UART for the job, and everything the
+protocol needs is within its range.
+
+| Requirement | FT232RNL |
+| --- | --- |
+| 300-9600 baud | yes — the part goes from 300 baud upward |
+| 8 data bits, **even parity**, 1 stop | yes, ordinary UART settings |
+| Differential drive | **no — add a transceiver** |
+| Isolation | **no** — see below |
+
+**Pair it with a full-duplex transceiver: `MAX3490` (3.3 V) or `MAX490` (5 V).**
+Not `MAX485`/`MAX3485` — those are half duplex, with driver and receiver sharing
+one pair, which is the wrong shape for this link.
+
+**The dongle trap.** Ready-made "FT232 + RS485" adapters are nearly all **2-wire
+half duplex**, built as FT232 + MAX485 with automatic direction control. They
+cannot drive a 4-wire link. Buy one sold explicitly as **RS-422** or **4-wire**,
+or build it from a bare FT232RNL board and a MAX3490.
+
+#### Five things that will each cost an evening
+
+* **Set `VCCIO` deliberately.** It sets the I/O pin voltage, and in a bus-powered
+  configuration it can end up as low as 1.8-2.8 V — below what a 5 V transceiver
+  reads as a logic high. Match it to the transceiver: 3.3 V for a `MAX3490`, 5 V
+  for a `MAX490`.
+* **Turn the latency timer down.** FTDI's default read latency is **16 ms**. The
+  display answers after a 3.9 ms line turnaround, so at 9600 baud the driver's
+  latency dominates every exchange. Set it to 1-2 ms.
+* **`DE` can be tied high.** As the master you drive a pair nobody else drives, so
+  the driver stays enabled. `CBUS2` defaults to **`TXDEN`** if you ever do want
+  hardware transmit-enable, but this link does not need it.
+* **Bias the receive pair, or expect garbage.** Between replies the display's
+  driver may be tri-stated, leaving your receiver's inputs floating — and a
+  floating differential pair picks up noise, which a UART reads as framing errors
+  and phantom bytes. This is very likely what the 2026-08 scope session was
+  looking at ([../hardware/connectors.md](../hardware/connectors.md#this-probably-explains-the-scope-transitions-l)).
+  Add fail-safe bias at your end: roughly 680 Ω from `A` to `VCC` and `B` to
+  ground on the pair you receive on.
+* **Termination is optional on a bench.** 120 Ω across each pair matters for long
+  cables; over a metre at 9600 baud it is unnecessary, and the display carries
+  none itself.
+
+#### Isolation: less urgent than it looks, but do not skip it for a permanent build
+
+The FT232RNL provides none. That is tolerable on the bench **because the display
+already isolates**: its line side is separated from the mains-powered logic by the
+three 6N139s and the Melcher converter, so a non-isolated adapter bonds your PC
+ground to a **floating line side**, not to the display's chassis.
+
+Two caveats:
+
+* **There is no signal ground in the cable** — four conductors and a shield, no
+  return. RS-422 receivers need the common mode within about ±7 V, and with the
+  display's line side floating there is nothing defining it. Over a short bench
+  lead this usually settles harmlessly, but **it is the first thing to suspect if
+  the link is intermittent**. The grey overall shield is the candidate return.
+* For anything permanent down a station-length cable, use an isolated adapter
+  (ADM2587E-class) and put the isolation back.
+
 **On `A`/`B` naming, which is a genuine trap.** The labels are inconsistent in the
 field: TIA-485 and most transceiver datasheets disagree about which of `A`/`B` is
 the inverting line, and modules variously silkscreen them `A`/`B`, `D+`/`D−` or
@@ -111,7 +174,7 @@ Note also that the idle polarity *through the isolation barrier* has not been
 traced — the 6N139s may invert — so do not predict the line's resting state from
 the UART's. Try it, and swap if needed.
 
-## Two gotchas that will cost an evening each
+## Parity, and the hosts it rules out
 
 ### Parity
 
@@ -133,18 +196,19 @@ or none. That rules out some obvious-looking hardware:
 
 ### Isolation
 
-The display's interface is opto-isolated for a reason: it is mains-powered, its
-fluorescent ballast lives inside the enclosure, and it was designed to run down a
-long cable in a station. **Preserve that isolation.** Either buy an isolated
-adapter (RS-485 modules built on ADM2587E-class parts) or keep the optocouplers
-on your own board. Do not tie a laptop's ground to the display chassis.
+Covered above under
+[the FT232RNL notes](#isolation-less-urgent-than-it-looks-but-do-not-skip-it-for-a-permanent-build):
+the display isolates its own line side, so a non-isolated adapter is tolerable on
+the bench, but a permanent installation should put the isolation back.
 
 ## What to buy
 
 Now that the standard is known, the list is short:
 
 1. **A USB-to-RS-422 adapter — 4-wire.** Not a 2-wire RS-485 dongle; the link is
-   confirmed 4-wire. An isolated 4-wire module (ADM2587E-class) is ideal.
+   confirmed 4-wire. An isolated 4-wire module (ADM2587E-class) is ideal. A bare
+   FT232RNL board plus a `MAX3490` does the same job — see
+   [the FT232RNL notes](#is-an-ft232rnl-based-adapter-suitable-only-with-a-transceiver-in-front-of-it).
 2. **An ESP32 dev board** plus a **MAX3490** (3.3 V, full duplex, independent
    driver and receiver) for the permanent installation.
 3. **A bench supply with current limiting**, to power the unit safely.

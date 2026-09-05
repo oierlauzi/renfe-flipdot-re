@@ -20,6 +20,53 @@ Entry template:
 
 ---
 
+## 2026-09-05 — Is an FT232RNL suitable? Only behind a transceiver
+
+Asked by the owner, and worth writing down because it is the first concrete
+purchasing question the project has been able to answer properly.
+
+**Short answer: no, not on its own — but it is the right UART.** The FT232RNL is a
+USB-to-**UART** bridge producing logic-level serial; the display needs **4-wire
+RS-422**. Checked against FTDI's own datasheet: the part covers 300 baud upward
+and ordinary 8E1, so nothing about the protocol strains it. It just is not
+differential.
+
+Pair it with a **full-duplex** transceiver — `MAX3490` (3.3 V) or `MAX490` (5 V) —
+**not** `MAX485`/`MAX3485`, which are half duplex with driver and receiver sharing
+one pair.
+
+**The trap worth naming:** ready-made "FT232 + RS485" dongles are nearly all
+2-wire half duplex, built as FT232 + MAX485 with automatic direction control.
+They cannot drive this link at all.
+
+**Five practical points, now in `controller.md`:**
+
+* `VCCIO` sets the I/O voltage and can sit at 1.8-2.8 V in a bus-powered
+  configuration — below a 5 V transceiver's logic high. Set it deliberately.
+* FTDI's default read latency is **16 ms**, against a 3.9 ms line turnaround. At
+  9600 baud the driver dominates every exchange unless it is set to 1-2 ms.
+* `DE` can be tied high: as master you drive a pair nobody else drives. `CBUS2`
+  defaults to `TXDEN` if hardware transmit-enable is ever wanted.
+* **Bias the receive pair.** Between replies the display's driver may be
+  tri-stated, leaving the host's receiver inputs floating — and that is almost
+  certainly what the 2026-08 scope session was looking at. Without fail-safe bias
+  a UART reads the noise as framing errors and phantom bytes.
+* Termination is optional over a metre at 9600 baud; the display carries none.
+
+**One thing that came out of thinking it through, and is specific to this unit:**
+there is **no signal ground in the cable** — four conductors and a shield, no
+return. RS-422 receivers need the common mode inside roughly ±7 V, and with the
+display's line side floating there is nothing defining it. Short bench leads
+usually settle harmlessly, but it is the first thing to suspect if the link is
+intermittent. Recorded as such.
+
+Related: non-isolated adapters are less dangerous here than the earlier blanket
+advice implied, because **the display isolates its own line side** — a
+non-isolated adapter bonds the PC ground to a floating line side, not to the
+mains-powered chassis. Still worth restoring isolation for anything permanent.
+
+---
+
 ## 2026-09-05 — Polarity traced, and the wiring diagram is one column short
 
 **Owner traced `A`/`B` on both pairs:**
