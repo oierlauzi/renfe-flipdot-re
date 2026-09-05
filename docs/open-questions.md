@@ -11,8 +11,9 @@ delete them from here — this file should shrink over time.
 - [x] **Electrical standard — answered: opto-isolated RS-485 / RS-422.** Two
       SN75176BP transceivers and three 6N139 optocouplers on daughter 1.
       → [hardware/connectors.md](../hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)
-- [ ] **4-wire or 2-wire?** Two transceivers and four conductors say 4-wire full
-      duplex, but the pins have not been traced. Decides which adapter to buy.
+- [x] **4-wire, confirmed** — each pair lands on a different SN75176BP.
+- [ ] **Which pair is inbound and which outbound**, and how they map to DB37 pin
+      numbers. The last thing standing between the repo and a wiring diagram.
 - [ ] **Frame format.** Start/end delimiters, addressing, checksum, text
       payload encoding. → [docs/serial-protocol.md](serial-protocol.md)
 - [ ] **Does the unit reply?** Only two `OUT 0x80` sites exist. If one is an

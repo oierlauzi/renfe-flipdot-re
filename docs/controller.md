@@ -36,20 +36,16 @@ Not just "it also works" — it maps onto the problem almost exactly:
 * **It fits inside the enclosure**, powered from the existing 24 V rail through a
   small buck converter, so the finished object stays a self-contained sign rather
   than a display tethered to a laptop.
-* **If the link turns out to be 2-wire RS-485**, the ESP32's UART peripheral has a
-  native half-duplex mode (`UART_MODE_RS485_HALF_DUPLEX`) that drives the DE pin
-  in hardware, removing the usual turnaround headache.
-* The **3.9 ms reply turnaround and the continuous status frame**
-  ([serial-protocol.md](serial-protocol.md#timing-c)) are trivial for an
-  interrupt-driven hardware UART.
+* The **3.9 ms reply turnaround** ([serial-protocol.md](serial-protocol.md#timing-c))
+  is trivial for an interrupt-driven hardware UART. Note the unit **replies but
+  never announces itself**, so the host drives the exchange throughout.
 
 ### The ESP32 catch: 3.3 V logic
 
 Everything on the display side is 5 V-era CMOS, so check levels at every boundary.
 
-**Transceivers.** Use genuine 3.3 V parts — **MAX3485** (half duplex) or
-**MAX3490** (full duplex), not the 5 V MAX485/MAX490 that most cheap breakout
-modules carry. A 5 V module will usually *accept* 3.3 V as a logic high, but its
+**Transceivers.** Use a genuine 3.3 V part — **MAX3490** (full duplex) — not the
+5 V MAX490 that most cheap breakout modules carry. A 5 V module will usually *accept* 3.3 V as a logic high, but its
 receiver output swings to 5 V straight into a 3.3 V pin. That is the classic way
 to damage an ESP32 on this kind of project.
 
@@ -77,14 +73,13 @@ mid-transmission.
 | Part | Why | Cost |
 | --- | --- | --- |
 | USB-RS-422 adapter, or isolated RS-485 | Bring-up and experimentation on a PC | low |
-| MAX3490 (full duplex) / MAX3485 (half duplex) | The permanent ESP32 build; 3.3 V parts | very low |
+| MAX3490 (full duplex, 3.3 V) | The permanent ESP32 build | very low |
 | ADM2587E-class isolated module | If you would rather buy isolation than build it | moderate |
 
-**4-wire versus 2-wire** is the one thing to get right. Two SN75176BPs and four
-populated conductors point to **4-wire full duplex**, with RTS gating the driver
-because slaves share the return pair. A 2-wire half-duplex dongle will not drive
-that. Confirm by tracing the transceiver pins before buying
-([hardware/connectors.md](../hardware/connectors.md#what-is-left-to-measure)).
+**It is 4-wire — settled by tracing**: each cable pair lands on a different
+SN75176BP ([hardware/connectors.md](../hardware/connectors.md#it-is-4-wire-one-pair-per-transceiver-c)).
+So buy a **4-wire RS-422** adapter. Most cheap USB-RS485 dongles are 2-wire half
+duplex with automatic direction control and **will not drive this link**.
 
 ## Two gotchas that will cost an evening each
 
@@ -118,13 +113,10 @@ on your own board. Do not tie a laptop's ground to the display chassis.
 
 Now that the standard is known, the list is short:
 
-1. **A USB-to-RS-485/RS-422 adapter.** Prefer one sold as **RS-422 / 4-wire**, or
-   an isolated RS-485 module built on an ADM2587E-class part. **Check it does
-   4-wire**: most cheap USB-RS485 dongles are 2-wire half duplex with automatic
-   direction control and cannot drive a 4-wire link.
+1. **A USB-to-RS-422 adapter — 4-wire.** Not a 2-wire RS-485 dongle; the link is
+   confirmed 4-wire. An isolated 4-wire module (ADM2587E-class) is ideal.
 2. **An ESP32 dev board** plus a **MAX3490** (3.3 V, full duplex, independent
-   driver and receiver) for the permanent installation. `MAX3485` if it turns out
-   to be 2-wire.
+   driver and receiver) for the permanent installation.
 3. **A bench supply with current limiting**, to power the unit safely.
 
 **Keep the isolation.** The display's interface is opto-isolated because it is

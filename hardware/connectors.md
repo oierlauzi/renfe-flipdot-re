@@ -109,15 +109,29 @@ one receiver in a DIP8, sharing a single `A`/`B` pair, with separate driver-enab
 differential transceiver, and a board that has two of them is a differential
 board.
 
-#### Why two transceivers, and what that implies about the wiring **[L]**
+#### It is 4-wire: one pair per transceiver **[C]**
 
-A single SN75176B is a **2-wire half-duplex** device — its driver and receiver
-share the same `A`/`B` pins. To run **4-wire full duplex** you need two packages
-and use half of each: one driver onto the outbound pair, one receiver from the
-inbound pair.
+**Traced by the owner, 2026-09: one cable pair lands on the `A`/`B` pins of one
+SN75176BP, the other pair on the `A`/`B` pins of the other.**
 
-The unit has **two transceivers and four populated conductors**. That is exactly
-the 4-wire arrangement, and it fits everything else already known:
+That rules out 2-wire. A 2-wire link puts both directions on a single pair and a
+single transceiver; here each pair has its own. So the four conductors are **two
+independent unidirectional pairs — 4-wire full duplex**.
+
+The one competing reading — *two independent half-duplex channels*, which the
+`MAESTRA` label makes tempting — **does not survive the parts count**:
+
+| Evidence | Why it forces one channel, not two |
+| --- | --- |
+| **One USART.** U3, the only M82C51A-2 in the unit, has one `TxD` and one `RxD` | Two independent channels would need two USARTs, or external muxing that is not on the board |
+| **Three optocouplers**, not four or more | Exactly enough for one TX data, one RX data and one control line crossing the barrier |
+| **Two transceivers, each half-used** | The classic 4-wire idiom: the driver of one, the receiver of the other |
+
+So: **the display drives one pair and listens on the other.** Which pair is which
+is still open — that needs `DI` (pin 4) and `RO` (pin 1) followed back through the
+optocouplers.
+
+This fits everything else already known:
 
 * **Multidrop with addressing.** `GS <addr>` selects one unit of many and `0x7F`
   broadcasts ([../docs/serial-protocol.md](../docs/serial-protocol.md)). In 4-wire
@@ -171,11 +185,10 @@ side.
 
 #### What is left to measure
 
-- [ ] **Which pair is which.** Trace the two SN75176BP `A`/`B` pins (6 and 7) to
-      the terminal block. The package whose **driver** is used feeds the outbound
-      pair; the one whose **receiver** is used takes the inbound pair.
-- [ ] **Confirm 4-wire rather than two 2-wire channels** — check whether both
-      transceivers' `DE` pins are driven, or only one.
+- [x] ~~Which pair goes where~~ — **one pair per transceiver, so 4-wire.** Done.
+- [ ] **Which pair is inbound and which outbound.** Follow `DI` (pin 4) and `RO`
+      (pin 1) on each package back through the optocouplers: the one whose `DI` is
+      driven feeds the pair the display **transmits** on.
 - [ ] **Find what drives `DE`.** If it traces back through an optocoupler to the
       8251A's RTS, the half-duplex-on-a-shared-return reading is confirmed.
 - [ ] **Check for 120 Ω** across either pair. Absent is expected for a mid-bus

@@ -20,6 +20,45 @@ Entry template:
 
 ---
 
+## 2026-09-05 — 4-wire confirmed, and the parts count rules out the alternative
+
+**Owner traced the pairs:** one cable pair lands on the `A`/`B` pins of one
+SN75176BP, the other pair on the `A`/`B` pins of the other. **[C]**
+
+That rules out 2-wire outright — a 2-wire link puts both directions on one pair
+and one transceiver. So the four DB37 conductors are **two independent
+unidirectional pairs: 4-wire full duplex.**
+
+**The competing reading was worth taking seriously and does not survive.** Two
+transceivers each with a driver *and* a receiver could equally be **two
+independent half-duplex channels** — and the `MAESTRA` label makes that tempting:
+a master would plausibly have one channel upstream to the station controller and
+one downstream to slave signs. Three things kill it:
+
+* **There is one USART.** U3 is the only M82C51A-2 in the unit; one `TxD`, one
+  `RxD`. Two independent channels need two USARTs or external muxing, and neither
+  is on the board.
+* **There are three optocouplers**, not four or more — exactly enough for one TX
+  data, one RX data and one control line.
+* **Each transceiver is half-used**, which is the standard 4-wire idiom.
+
+It also retires a small oddity: RTS turnaround on a *full-duplex* link looks
+redundant until you notice the bus is **multidrop**, where slaves share the return
+pair and each must tri-state until addressed.
+
+**Practical effect:** the purchasing question is closed. A **4-wire RS-422**
+adapter, not a 2-wire RS-485 dongle — most cheap dongles are half duplex with
+automatic direction control and would not drive this link at all. `controller.md`
+and `TODO.md` updated accordingly, and the ESP32 notes lose their
+`UART_MODE_RS485_HALF_DUPLEX` branch.
+
+**What is left on the physical layer** is one trace: follow `DI` (pin 4) and `RO`
+(pin 1) on each package back through the optocouplers to learn which pair the
+display transmits on, then map both pairs to DB37 pin numbers and wire colours.
+That is the last thing between this repository and a wiring diagram.
+
+---
+
 ## 2026-09-05 — The link is RS-485, and the current-loop case was built on unread parts
 
 **Owner read the five DIP8s on daughter 1**, which had been sitting as

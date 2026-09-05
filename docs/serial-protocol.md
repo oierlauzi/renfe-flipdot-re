@@ -17,19 +17,25 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 | **Signalling** | **RS-485 / RS-422 differential**, opto-isolated | **[C]** |
 | Transceivers | **2 x TI SN75176BP** on daughter 1 | **[C]** |
 | Isolation | **3 x HP 6N139** on daughter 1 — TX data, RX data, driver enable | **[C]** |
-| Wiring | 4-wire full duplex, driver enable under RTS | **[L]** |
+| Wiring | **4-wire full duplex** — one pair per transceiver, traced | **[C]** |
+| Direction control | driver enable under RTS, for a shared return pair | **[L]** |
 | Pinout | **unknown** | **[?]** |
 
 **Settled by reading the parts** (owner, 2026-09). Two SN75176BP differential bus
 transceivers make this an RS-485/RS-422 link; nothing about a current loop needs
 one, let alone two.
 
-A single SN75176B is 2-wire half duplex — its driver and receiver share one
-`A`/`B` pair — so **two packages are what you fit for 4-wire full duplex**, using
-the driver of one and the receiver of the other. Four populated conductors fit
-that exactly, and it explains the firmware's RTS turnaround: on a 4-wire multidrop
-bus the slaves share the return pair and each must tri-state its driver until
-addressed.
+**It is 4-wire, confirmed by tracing:** each cable pair lands on the `A`/`B` pins
+of a *different* SN75176BP. A 2-wire link would put both directions on one pair
+and one transceiver. Two independent half-duplex channels are ruled out by there
+being only **one USART** in the unit and only **three** optocouplers crossing the
+barrier — enough for one TX, one RX and one control line.
+
+That also explains the firmware's RTS turnaround, which would otherwise be odd on
+a full-duplex link: on a 4-wire **multidrop** bus the slaves share the return
+pair, so each must tri-state its driver until addressed.
+
+**For a host, this means a 4-wire RS-422 adapter, not a 2-wire RS-485 dongle.**
 
 > **Retracted: the current-loop reading.** Every earlier version of this document
 > gave "either RS-422/485 or a 20 mA current loop" and leaned towards the loop,

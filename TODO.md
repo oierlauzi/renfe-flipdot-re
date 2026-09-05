@@ -136,13 +136,17 @@ third is a safety precondition.
       setting?~~ **All moot.** With SN75176BPs on the board, the 560 Ω are 6N139
       LED drive and the ~1 kΩ are its output pull-ups. Three of each because three
       signals cross the barrier: TX data, RX data, driver enable.
-- [ ] **Which pair is which, and is it 4-wire?** Trace both SN75176BP `A`/`B`
-      pins (6, 7) to the terminal block, then follow `DI` (4) and `RO` (1) back
-      through the optocouplers. The package whose `DI` is driven feeds the
-      outbound pair. **This is the measurement that now matters** — it decides
-      whether you buy a 4-wire RS-422 adapter or a 2-wire RS-485 one.
-      - Result — outbound pair:
-      - Result — inbound pair:
+- [x] **4-wire confirmed** (owner, 2026-09): each cable pair lands on the `A`/`B`
+      pins of a *different* SN75176BP. Two independent half-duplex channels are
+      ruled out by there being one USART and three optocouplers. **Buy a 4-wire
+      RS-422 adapter, not a 2-wire RS-485 dongle.**
+      → [hardware/connectors.md](hardware/connectors.md#it-is-4-wire-one-pair-per-transceiver-c)
+- [ ] **Which pair is inbound, which outbound?** Follow `DI` (pin 4) and `RO`
+      (pin 1) on each SN75176BP back through the optocouplers; the package whose
+      `DI` is driven feeds the pair the display **transmits** on. Then map both
+      back to DB37 pin numbers and wire colours.
+      - Result — display transmits on:
+      - Result — display receives on:
 - [ ] **Follow `DE` (pin 3) back.** If it reaches the 8251A's RTS through an
       optocoupler, the shared-return / turnaround reading is confirmed.
       - Result:
