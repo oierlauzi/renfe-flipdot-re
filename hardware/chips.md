@@ -18,7 +18,7 @@ package so they can be identified later; see
 | U8-U10 | ? | Mother | ? | unidentified |
 | (5 unlabelled) | ? (DIP8) | D1 | — | 3 have yellow bodies; likely optocouplers |
 | U17-U19 | ULN2003A (U17/U18 TI, U19 ST) | D2 | — | Darlington sinks, flip-dot drive; **21 sinks** in total |
-| U20 | ? (DIP40) | D2 | `0xE0-0xE5`? | unidentified; **81C55 candidate** |
+| U20 | M81C55-5 | D2 | `0xE0-0xE5` | Flip-dot interface; same part as U2 |
 
 D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 [../docs/io-map.md](../docs/io-map.md).
@@ -172,23 +172,22 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
   Darlington sinks**. A second-source part from a different manufacturer to
   U17/U18, which is ordinary production practice.
 
-## U20 — ?
-- **Manufacturer:**
-- **Part number:**
+## U20 — Static RAM with I/O Ports and Timer
+- **Manufacturer:** OKI
+- **Part number:** M81C55-5
 - **PCB:** Daughter 2
-- **Datasheet:** []
-- **Notes:** DIP40 package. **81C55/8155 candidate, but the evidence now cuts
-  both ways** — reading the top marking is the single highest-value chip
-  identification left on the boards.
+- **Datasheet:** [https://docs.rs-online.com/1f1a/0900766b800264a3.pdf]
+- **Notes:** **The same part as U2** (owner read the top marking, 2026-09),
+  serving an entirely different role: its I/O section at `0xE0-0xE5` is the
+  flip-dot interface. Port A carries glyph data, port B the encoded character
+  address, and port C the shift clock, serial data and the two attribute lines.
 
-  **For:** the firmware initialises a register group at I/O `0xE0` in exactly the
-  8155 layout (command, PA, PB, PC, timer LSB, timer MSB), and an 8155 is DIP40.
+  Its 256 bytes of RAM appear to be unused — the firmware's only RAM is U2's at
+  `0xA000`, and nothing addresses a second block.
 
-  **Against:** both command words the firmware writes (`0xCF` at `0x03FD`, `0x0D`
-  at `0x06EC`) select port C mode **ALT4**, in which all six port C pins are
-  handshake lines — `PC4` a hardware-driven output, `PC5` an *input*. Yet the
-  flip-dot drive needs software control of `PC4` as a shift clock and `PC5` as
-  serial data. On a genuine 81C55 that cannot work, so either this is a different
-  DIP40 with the same register offsets and a general-purpose port C, or `0xE3` is
-  a separate latch rather than the 8155's port C.
-  → [../docs/flipdot-interface.md](../docs/flipdot-interface.md#a7-has-a-contradiction-in-it-and-it-is-not-resolved-)
+  **Port C is in ALT2**, all six pins outputs, which is what the flip-dot drive
+  requires. An earlier revision of this file argued at length that the command
+  words selected **ALT4** and that this contradicted the 81C55 reading. That was
+  a decode error here, not a fault in the hardware: ALT4 is command bits 3:2 =
+  `10`, and both words carry `11`. See
+  [../docs/io-map.md](../docs/io-map.md#port-c-is-in-alt2--all-six-pins-are-outputs-c).

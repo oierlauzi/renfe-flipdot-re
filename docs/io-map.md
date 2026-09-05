@@ -15,7 +15,7 @@ Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
 | `0xA0-0xA5` | U2 M81C55-5 I/O section | DIP switches + baud-rate timer | **[C]** |
 | `0xC0-0xCF` | clock board | HH:MM digits, plus a time-setting keypad on `0xCD` | **[C]** |
 | `0xDE` | *unidentified input* | Active-low hardware status; sampled every RST7.5 tick | **[L]** |
-| `0xE0-0xE5` | 8155-class device (U20) | Flip-dot interface — but see the ALT4 contradiction | **[?]** |
+| `0xE0-0xE5` | **U20 OKI M81C55-5** | Flip-dot interface; port C in ALT2, all outputs | **[C]** |
 | `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
 | `0xE8-0xEF` | 8155-class device | Second display group. Initialised, but never painted on this unit | **[C]** |
 
@@ -93,7 +93,7 @@ banks of DIP switches are visible in
 [switches2](../hardware/photos/switches2.jpg) /
 [switches3](../hardware/photos/switches3.jpg), which matches.
 
-## 0xE0-0xEF — display interface **[L]**
+## 0xE0-0xEF — display interface **[C]**
 
 Two register groups initialised by `init_display_ifaces` (`0x03F2`) in a way that matches the
 81C55 register layout exactly (offset 0 = command, 1 = PA, 2 = PB, 3 = PC,
@@ -103,7 +103,7 @@ Two register groups initialised by `init_display_ifaces` (`0x03F2`) in a way tha
 ; group 1 — base 0xE0
 0x03F2  A=0x00 -> 0xE4     ; timer LSB
 0x03F5  A=0x46 -> 0xE5     ; timer MSB  (mode 01 continuous, count 0x600)
-0x03F9  A=0xCF -> 0xE0     ; command: PA out, PB out, PC ALT4, timer start
+0x03F9  A=0xCF -> 0xE0     ; command: PA out, PB out, PC ALT2 (all out), timer start
 0x03FD  A=0x80 -> 0xE1, 0xE2
         NOP NOP NOP
 0x0406  A=0x00 -> 0xE1, 0xE2, 0xE3
@@ -122,38 +122,49 @@ Two register groups initialised by `init_display_ifaces` (`0x03F2`) in a way tha
 Ports A/B/C of group 1 carry the flip-dot drive; group 2 is never painted on
 this unit. See [flipdot-interface.md](flipdot-interface.md).
 
-### The ALT4 problem: this may not be an 8155 after all **[!]**
+### Port C is in ALT2 — all six pins are outputs **[C]**
 
-The register *layout* argues strongly for an 8155. The *command word* argues
-against it, and the conflict is unresolved.
+U20 is an **OKI M81C55-5** (owner, 2026-09), the same part as U2. Decoding its
+command words against
+[the OKI datasheet](https://docs.rs-online.com/1f1a/0900766b800264a3.pdf) p.133:
 
-Only two command words are ever written to `0xE0`:
+```
+ 7    6    5    4    3    2    1    0
+TM2  TM1  IEB  IEA  PC2  PC1   PB   PA        bits 3:2 = 00 ALT1, 11 ALT2,
+                    \____/                                01 ALT3, 10 ALT4
+                    PC mode
+```
 
-| Site | Value | PA | PB | PC mode | Timer |
-| --- | --- | --- | --- | --- | --- |
-| `0x03FD` | `0xCF` | out | out | **ALT4** | start |
-| `0x06EC` | `0x0D` | out | **in** | **ALT4** | NOP |
+| Site | Value | Binary | PA | PB | bits 3:2 | PC mode | Timer |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `0x03F9` → `0xE0` | `0xCF` | `1100 1111` | out | out | `11` | **ALT2** | start |
+| `0x06EC` → `0xE0` | `0x0D` | `0000 1101` | out | **in** | `11` | **ALT2** | NOP |
+| `0x041D` → `0xE8` | `0xCF` | `1100 1111` | out | out | `11` | **ALT2** | start |
+| `0x0400` → `0xA0` (U2) | `0xC0` | `1100 0000` | in | in | `00` | **ALT1** | start |
 
-Both select **ALT4**, which on an 8155 commits all six port C pins to handshake
-duty — `PC0/PC1/PC3/PC4` outputs driven by the handshake logic, `PC2/PC5`
-*inputs*. None is software-settable.
+The datasheet's Port Control Assignment Table gives ALT2 as **`PC0`-`PC5` output
+port**, every pin. So `PC4` (shift clock) and `PC5` (serial data) are ordinary
+software-driven outputs, exactly as the flip-dot driver requires, and `PC0`/`PC1`
+are the attribute lines. U2's `0xC0` selects ALT1 — all inputs — which is equally
+consistent with its port C carrying DIP switches.
 
-But the flip-dot driver needs software control of exactly `PC4` (shift clock) and
-`PC5` (serial data), reading and writing `0xE3` on every bit. On a genuine 8155 in
-ALT4 that is impossible: `PC4` is not software-driven and `PC5` is an input.
+> **Retracted 2026-09-05: there was never an ALT4 problem.** This section
+> previously claimed both command words selected ALT4, which would have committed
+> port C to handshake duty and made the flip-dot decode impossible — recorded as
+> the project's only outright contradiction, **[!]**, and the reason "read U20's
+> top marking" was the highest-value hardware task left.
+>
+> **The contradiction was a decoding error of ours, not a fault in the evidence.**
+> ALT4 is bits 3:2 = `10`; `0xCF` and `0x0D` both carry `11`, which is ALT2. The
+> hardware was consistent all along.
+>
+> Two things had made the wrong reading look safe: it was never checked against
+> the datasheet's own table, and it happened to survive contact with U2, whose
+> `0xC0` also decodes correctly under the mistaken table because `00` means ALT1
+> either way.
 
-Note also that `0x06EC` configures **PB as an input**, which no part of the
-flip-dot interpretation accounts for.
-
-The most economical explanations are that U20 is a DIP40 with 8155-compatible
-register offsets but a general-purpose port C, or that `0xE3` is a discrete latch
-rather than the 8155's port C — which is less unlikely than it sounds, given that
-`0xE7` is already known to be a separate latch inside this same address range.
-
-**Everything derived from what the firmware writes is unaffected**; what is in
-question is whether those writes reach ribbon pins as a clock and data line. See
-[flipdot-interface.md](flipdot-interface.md#a7-has-a-contradiction-in-it-and-it-is-not-resolved-)
-for the full argument and what settles it.
+`0x06EC` configuring **PB as an input** is still unexplained, and is now the only
+loose end in this group.
 
 ## 0xE7 — expansion memory bank register **[C]**
 

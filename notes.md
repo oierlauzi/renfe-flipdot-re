@@ -20,6 +20,76 @@ Entry template:
 
 ---
 
+## 2026-09-05 — U20 read, and the contradiction was ours all along
+
+**Did:** Two hardware facts arrived from the owner. One of them closed the only
+**[!]** in the project, and not the way anyone expected.
+
+**1. U20 is an OKI M81C55-5** — the same part as U2.
+
+That alone confirms assumption **A7**. But A7 carried a contradiction: the docs
+held that both command words written to `0xE0` selected port C mode **ALT4**, in
+which `PC4` is handshake-driven and `PC5` is an input — while the flip-dot decode
+needs software control of exactly those two as clock and data. Three escape routes
+were on the table: U20 being some other DIP40, `0xE3` being a discrete latch, or
+OKI's ALT semantics differing from Intel's.
+
+**None was needed. The contradiction was our own arithmetic.** Pulled the OKI
+MSM81C55-5 datasheet, page 133, Port Control Assignment Table:
+
+```
+ 7    6    5    4    3    2    1    0
+TM2  TM1  IEB  IEA  PC2  PC1   PB   PA     bits 3:2 = 00 ALT1, 11 ALT2,
+                                                      01 ALT3, 10 ALT4
+```
+
+`0xCF` = `1100 1111` and `0x0D` = `0000 1101`. Both carry bits 3:2 = **`11`**,
+which is **ALT2 — `PC0`-`PC5` all output port**. ALT4 is `10`. The hardware was
+consistent the whole time.
+
+**Why it survived so long is the interesting part.** The wrong table was never
+checked against the datasheet, and it *also* decodes U2's `0xC0` correctly,
+because `00` means ALT1 under either reading — so the one cross-check available
+passed. Worse, the error was productive-looking: it promoted "read U20's top
+marking" to the highest-value hardware task in the project. A bad decode
+masquerading as an open question is harder to spot than a bad decode that just
+sits there.
+
+**Concluded:** U20 is an M81C55-5, port C in ALT2, all six pins outputs. `PC4`
+clock, `PC5` data, `PC0`/`PC1` attributes — exactly what the driver needs. The
+last step of the render chain closes: those register writes **do** reach ribbon
+pins. The emulator's model of `0xE3` as a readable latch is also right, since an
+8155 output port reads back its own latch, which the attribute read-modify-write
+depends on. **[C]**
+
+**Follow-on:** the two daughter-2 switches cannot feed U20's port C — it is all
+outputs. That TODO item needed rewriting.
+
+**2. The DC-DC converter is `Mercher 24 IMP 3-50-7`, input 9-36 VDC.**
+
+A 4:1 input range is the standard 24 V nominal spec, so it corroborates the 24 V
+rail independently of the chassis label. **[C] observed**
+
+Two things fell out of it:
+
+* **A stated expectation, falsified.** TODO.md reasoned that the part number under
+  the QA sticker "should give the rated output voltage without powering
+  anything". The module states its *input* range and says nothing about its
+  output. `VO+` to `VO-` still has to be measured.
+* **A contradiction between two of our own hardware docs, previously unnoticed.**
+  `psu.md` said the logic 5 V "almost certainly" comes from this converter.
+  `pcbs.md` said the converter is genuinely isolated, four nets and no shared
+  return, so its output floats with respect to the display's internal 0 V — and
+  concluded it exists to power an isolated line side. **An isolated floating rail
+  cannot be the logic supply.** Both were written confidently; neither cited the
+  other. The logic 5 V source is now marked **[?]** and finding the regulator is a
+  TODO.
+
+**Next:** measure the converter output. And `0x06EC` writing PB as an *input* on
+U20 is now the only unexplained thing in the `0xE0` group.
+
+---
+
 ## 2026-08-08 — The banks are lettered and numbered, and the two arguments split
 
 **Did:** the owner read the silkscreen around the two DIP banks on the
@@ -103,7 +173,6 @@ modules has been inspected — the topology bullet now says exactly that). **[C]
 **Next:** watch for the same pattern creeping back in as new corrections happen
 — write the story here first, then update `docs/` to just state the new belief.
 
----
 
 ## 2026-08-06 — Every label named, and the unit turns out to be a clock
 

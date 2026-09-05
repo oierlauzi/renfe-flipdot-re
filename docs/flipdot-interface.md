@@ -4,8 +4,7 @@ How a character in the message buffer becomes moving dots. The path is closed en
 to end and validated in emulation: glyphs sent to the virtual panel come back
 legible.
 
-Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess, **[!]** known
-contradiction.
+Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 
 ## What is settled
 
@@ -19,7 +18,7 @@ contradiction.
 | **Attributes** | port C bits 1:0, four states, set by `BEL` **[C]** |
 | **Driver** | `panel_11_draw` (`0x29D7`), selected by port C bits 4:0 = 3 **[C]** |
 | **Electrical** | ULN2003A sinks only; how the high side is driven is unknown **[?]** |
-| **U20's identity** | the ALT4 command word contradicts the 8155 reading **[!]** |
+| **U20** | OKI M81C55-5; port C in ALT2, all six pins outputs **[C]** |
 
 **Reading order.** [The panel is a serial shift register](#the-panel-is-a-serial-shift-register-c-from-the-rom)
 is the core; everything before it is context and everything after is either a
@@ -72,8 +71,9 @@ nothing panel-specific:
 * Timer preload `0x4600` → mode `01` (continuous square wave), count `0x600` =
   1536. A second, much slower timebase than the UART one — plausibly the
   dot-pulse or refresh clock. **[L]**
-* Command `0xCF` → port A output, port B output, port C in ALT4, timer running.
-  (The ALT4 part is the [known contradiction](#a7-has-a-contradiction-in-it-and-it-is-not-resolved-).)
+* Command `0xCF` → port A output, port B output, **port C in ALT2 — all six
+  pins outputs**, timer running. See
+  [io-map.md](io-map.md#port-c-is-in-alt2--all-six-pins-are-outputs-c).
 * Ports A and B are pulsed `0x80` then `0x00` with three `NOP`s in between — a
   deliberate short pulse, i.e. a **reset/home pulse to the panel**. **[L]**
 
@@ -120,7 +120,7 @@ Running the real ROM in [pit100_sim.py](../tools/pit100_sim.py) produces only
 **eight** display-port writes during boot, whatever the switch settings:
 
 ```
-PC=0x03FB  0xE0 <- 0xCF     command: PA/PB out, PC ALT4, timer start
+PC=0x03FB  0xE0 <- 0xCF     command: PA/PB out, PC ALT2 (all out), timer start
 PC=0x03FF  0xE1 <- 0x80     the short pulse on ports A and B
 PC=0x0401  0xE2 <- 0x80
 PC=0x0407  0xE1 <- 0x00
@@ -246,11 +246,10 @@ cable onto the existing ribbon header. Worth knowing it exists. See
 
 ## The panel is a serial shift register **[C] from the ROM**
 
-**Scope of that [C]:** confirmed for what the firmware *emits* — the register
-writes, their order, and their polarity are all read directly from the ROM. Whether
-those writes appear on ribbon pins as a clock and a data line depends on
-assumption **A7**, which currently has an unresolved contradiction — see
-[below](#a7-has-a-contradiction-in-it-and-it-is-not-resolved-).
+**Scope of that [C]:** the register writes, their order and their polarity are
+read directly from the ROM. That those writes appear on ribbon pins as a clock and
+a data line rests on assumption **A7** — U20 being an 8155 with `0xE3` as its
+port C — which is now [confirmed](#a7-is-resolved-u20-is-an-m81c55-5-in-alt2-c).
 
 The panel is fed **serially**, which dissolves the "21 lines cannot address 560
 dots" problem entirely.
@@ -657,54 +656,37 @@ revisiting if one is wrong.
 | A4 | Data is active low (low = dot on) | `CMA` precedes every DATA write, and `FF` then renders as a solid block | Send `FF` on the real panel and see whether it goes all-on or all-off | Every rendered glyph inverts |
 | A5 | The frame is 37 + 1 + 35 + 1 bits | Read directly from the loop counters `0x25` and `0x05`/`0x07` | Count clock edges per character on a logic analyser | The 37 leading bits are the least certain part; they may address a longer register chain |
 | A6 | An expansion board is present (`0xE7` != `0xFF`) for some captures | Without it the buffer at `0xE000` is unbacked | The unit has no LED matrix, so `0xE7` should read `0xFF` | The buffer question in [io-map.md](io-map.md) needs settling first — and see the prediction below |
-| A7 | **U20, the DIP40 on daughter 2, is an 81C55** and the register at `0xE3` is its port C | The firmware initialises `0xE0-0xE5` in exactly the 8155 register layout, and 8155s are DIP40 | **Read U20's top marking.** Then count clock edges on the ribbon: 74 per character confirms the pins follow the register writes | See the contradiction below — this one is not merely unconfirmed, it currently *conflicts* with the ALT4 command word |
 
-### A7 has a contradiction in it, and it is not resolved **[!]**
+### A7 is resolved: U20 is an M81C55-5 in ALT2 **[C]**
 
-Worth stating plainly rather than leaving implied by an **[L]** mark. The firmware
-writes only two command words to `0xE0`, and **both select port C mode ALT4**:
+**Assumption A7 — that U20 is an 8155 and `0xE3` is its port C — is now
+confirmed, and the contradiction that hung off it was our own arithmetic.**
 
-| Site | Command | PA | PB | PC mode | Timer |
-| --- | --- | --- | --- | --- | --- |
-| `0x03FD` | `0xCF` | out | out | **ALT4** | start |
-| `0x06EC` | `0x0D` | out | **in** | **ALT4** | NOP |
+The owner read the top marking (2026-09): **OKI M81C55-5**, the same part as U2.
+And decoding the command words against the datasheet's own Port Control Assignment
+Table shows both select **ALT2**, in which `PC0`-`PC5` are all output pins — so
+`PC4` as shift clock and `PC5` as serial data are exactly what the part provides.
+Full decode in
+[io-map.md](io-map.md#port-c-is-in-alt2--all-six-pins-are-outputs-c).
 
-On a genuine 8155, ALT4 assigns every port C pin to handshake duty:
+> **Retracted.** This section previously argued at length that both command words
+> selected **ALT4**, which would have made `PC4` handshake-driven and `PC5` an
+> input, and therefore that the flip-dot decode and the 8155 reading could not
+> both be true. It offered three escape routes: that U20 was some other DIP40,
+> that `0xE3` was a discrete latch, or that OKI's ALT semantics differed from
+> Intel's.
+>
+> **None was needed.** ALT4 is bits 3:2 = `10`; `0xCF` and `0x0D` both carry `11`,
+> which is ALT2. The mistake was never checked against the datasheet table, and it
+> survived a long time because it also caused "read U20's top marking" to be
+> promoted to the most valuable hardware task in the project — which is how a bad
+> decode can look like a productive open question.
 
-```
-PC0 = A INTR (out)   PC1 = A BF (out)   PC2 = A STB (in)
-PC3 = B INTR (out)   PC4 = B BF (out)   PC5 = B STB (in)
-```
-
-**None of them is software-controlled.** But the flip-dot decode requires software
-control of exactly `PC4` as the shift clock and `PC5` as the serial data — and on
-an 8155 in ALT4, `PC4` is driven by the handshake logic and `PC5` is an *input*.
-Those two statements cannot both be true.
-
-So one of these must give:
-
-1. **U20 is not a plain 81C55.** A DIP40 with the same register offsets but
-   general-purpose port C would satisfy everything. The firmware is a generic
-   multi-panel build, so it may have been written against a different part.
-2. **`0xE3` is not the 8155's port C** but a separate latch. This is less far
-   fetched than it sounds: `0xE7` is *already established* as a discrete latch
-   outside the six 81C55 registers ([io-map.md](io-map.md#0xe7--expansion-memory-bank-register-c)),
-   so the `0xE0-0xEF` decode demonstrably holds more than one device. The
-   difficulty is that `0xE3` sits exactly at the 8155's port C offset.
-3. The ALT-mode semantics of the specific OKI M81C55-5 differ from Intel's.
-
-**What this does and does not undermine.** Everything derived purely from what the
-firmware *writes* stands regardless: the command protocol, the buffer and shadow,
-the repaint interlock, the address arithmetic, the glyph bit order and polarity,
-and the 74-bit frame. Those are statements about the ROM. What is in question is
-only the last step — whether those register writes reach ribbon pins as a clock
-and a data line. The `FF`-renders-as-a-solid-block validation does **not** settle
-it, because the emulator models `0xE3` as a plain readable latch; that check
-confirms the firmware's intent, not the hardware's response.
-
-**Resolving it needs one reading and one measurement**, both already on
-[TODO.md](../TODO.md): U20's top marking, and a count of clock edges per character
-on the ribbon.
+With A7 confirmed, the last step of the chain closes too: the register writes
+**do** reach ribbon pins as a clock and a data line, because `0xE3` is a genuine
+81C55 port C configured as outputs. The emulator's model of `0xE3` as a readable
+latch matches the part — an 8155 output port reads back its own latch, which is
+what the driver's read-modify-write on the attribute bits depends on.
 
 ### A falsifiable prediction about the missing LED panel
 

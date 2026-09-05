@@ -54,8 +54,9 @@ third is a safety precondition.
       the two protocol families the unit speaks. Its as-found **open** position
       tells us nothing about polarity, because either setting receives.
       - Result:
-- [ ] **What do the two daughter-2 switches feed?** Probably U20's port C
-      (I/O `0xE3`) rather than the 81C55.
+- [ ] **What do the two daughter-2 switches feed?** **Not U20's port C** — that
+      is in ALT2, all six pins outputs, so nothing can be read in on it. They must
+      reach U2's port A/B/C like the others, or something outside the 81C55s.
       - Result:
 
 ## P1 — One measurement, six answers
@@ -127,13 +128,22 @@ third is a safety precondition.
       with no shared ground — a buck or linear regulator would expose three pins.
       The doubled through-holes per pin are just current capacity and anchoring.
       → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
+- [x] **Converter part number read: `Mercher 24 IMP 3-50-7`, input 9-36 VDC**
+      (owner, 2026-09). The 4:1 input range corroborates the 24 V rail. **The
+      module does not state its output voltage anywhere**, so the expectation
+      recorded here — that the part number would give it without powering
+      anything — is falsified. → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
 - [ ] **Photograph the converter's QA sticker legibly, then remove it.** It looks
       handwritten, something like `30-01-9?` / `OK`, which would be the **only date
       evidence on the board** — the chassis plate has a serial but no date. Once
-      peeled it is gone. The printed part number underneath should give the rated
-      output voltage without powering anything.
+      peeled it is gone.
       - Result — sticker text:
-      - Result — part number underneath:
+- [ ] **Find the logic 5 V regulator.** psu.md assumed the daughter-1 converter
+      supplied it; that conflicts with the same converter's output being
+      galvanically isolated from the display 0 V. Neither daughter board's parts
+      list has another regulator, so look on the motherboard.
+      → [hardware/psu.md](hardware/psu.md#where-the-logic-5-v-comes-from-is-unresolved-)
+      - Result:
 - [ ] **Measure the DC-DC converter's output voltage** (`VO+` to `VO-`). Highest-
       value single measurement on the board. ~24 V makes the ~1 kΩ resistors
       loop-current setting (~20 mA) and nearly closes the case for a current loop;
@@ -169,17 +179,12 @@ third is a safety precondition.
 
 ## P3 — Settles specific open questions
 
-- [ ] **U20 top marking** (DIP40, daughter 2) — **now the highest-value chip
-      reading on the boards, and promoted from "confirm a guess" to "resolve a
-      contradiction".** The register layout at `0xE0-0xE5` says 81C55, but both
-      command words the firmware writes select port C mode **ALT4**, in which
-      `PC4` is not software-drivable and `PC5` is an input — while the flip-dot
-      drive needs software control of exactly those two as clock and data. On a
-      genuine 81C55 that cannot work, so either U20 is a different DIP40 with
-      8155-compatible offsets, or `0xE3` is a separate latch.
-      → [docs/flipdot-interface.md](docs/flipdot-interface.md#a7-has-a-contradiction-in-it-and-it-is-not-resolved-)
-      - Result — top marking:
-      - Result — does port C behave as GPIO (does `PC5` drive the ribbon)?
+- [x] **U20 top marking read: OKI M81C55-5** (owner, 2026-09) — the same part as
+      U2. This closed assumption **A7**, and with it the project's only recorded
+      contradiction. There was never an ALT4 problem: both command words carry
+      bits 3:2 = `11`, which is **ALT2, all six port C pins output**, exactly what
+      the flip-dot drive needs. The "ALT4" reading was our own decode error.
+      → [docs/io-map.md](docs/io-map.md#port-c-is-in-alt2--all-six-pins-are-outputs-c)
 - [x] ~~U19 marking.~~ It is a **third ULN2003A** (ST), so daughter 2 has 21
       Darlington sinks against the 81C55's 22 output bits — near enough
       one-for-one to look deliberate.

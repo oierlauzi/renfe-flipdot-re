@@ -57,11 +57,21 @@ Carries the screw terminal blocks that the four DB37 conductors land on, and an
 
 | Property | Value | Conf. |
 | --- | --- | --- |
+| Marking | **`Mercher 24 IMP 3-50-7`** | **[C]** observed |
 | Pins | `VI+`, `VI-`, `VO+`, `VO-`, each doubled into two connected through-holes | **[C]** |
 | Isolation | **Genuine** — see below | **[C]** |
-| Input voltage | *TODO* | |
-| Output voltage | *TODO* — **the highest-value measurement on the board** | |
-| Part number | Hidden under a handwritten sticker | |
+| Input voltage | **9-36 VDC**, printed on the module | **[C]** observed |
+| Output voltage | **not printed anywhere on the module** — still the highest-value measurement on the board | |
+
+A **9-36 VDC** input is the standard 4:1 wide range for a **24 V nominal**
+system, so it corroborates the 24 VDC rail recorded in
+[psu.md](psu.md#24-vdc-rail) independently of the chassis label. Whether the `24`
+in the part number also refers to that nominal is a guess. **[?]**
+
+> **A stated expectation, falsified.** [TODO.md](../TODO.md) reasoned that the
+> printed part number under the QA sticker "should give the rated output voltage
+> without powering anything". It does not — the module states its *input* range
+> and nothing about its output. Measuring `VO+` to `VO-` is unavoidable.
 
 **Four nets and no shared ground is the important detail.** A non-isolated
 converter — a buck or a linear regulator — necessarily shares a common return
