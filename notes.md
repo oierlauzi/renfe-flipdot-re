@@ -20,7 +20,7 @@ Entry template:
 
 ---
 
-## 2026-09-05 — Is an FT232RNL suitable? Only behind a transceiver
+## 2026-09-05 — Picking a USB adapter: three dongles checked
 
 Asked by the owner, and worth writing down because it is the first concrete
 purchasing question the project has been able to answer properly.
@@ -38,6 +38,34 @@ one pair.
 **The trap worth naming:** ready-made "FT232 + RS485" dongles are nearly all
 2-wire half duplex, built as FT232 + MAX485 with automatic direction control.
 They cannot drive this link at all.
+
+**Three specific dongles checked**, since the owner shortlisted them. All are
+FTDI-based and all claim 4-wire RS-422, so all three should work; they differ in
+documentation and in how they handle the reference problem.
+
+| | Jhoinrch B0FX2PTXQ7 | DSD TECH SH-U11 | Waveshare B0BTBR71PC |
+| --- | --- | --- | --- |
+| Bridge | FT232RNL | FT232RL | FT232RL |
+| Terminals | undocumented | `TxD± RxD± GND` | `TA TB RA RB PE` |
+| Isolated | no | no (`SH-U11F` is) | **yes** |
+| 120 Ω | undocumented | undocumented | jumper |
+
+**Waveshare for a permanent build; SH-U11 for bench bring-up.** Two reasons that
+are specific to this unit rather than generic advice:
+
+* **Waveshare's terminals are named `A`/`B`**, which maps straight onto the
+  display's transceiver pins with none of the `+`/`−` ambiguity that makes RS-485
+  wiring a coin flip.
+* **But isolation is a liability during bring-up here.** The display's line side
+  already floats and the cable has no signal ground, so an *isolated* adapter
+  leaves both ends floating with nothing defining the common mode. The
+  non-isolated SH-U11's `GND` terminal defines it — and that is safe precisely
+  because the display supplies the isolation, so you bond to a floating line
+  side, not to a mains-powered chassis.
+
+**None of the three documents fail-safe bias**, which is the failure most likely
+to bite: the display's driver may be tri-stated between replies, and an unbiased
+receiver delivers noise to the UART as framing errors and phantom bytes.
 
 **Five practical points, now in `controller.md`:**
 

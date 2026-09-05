@@ -95,12 +95,13 @@ The display **receives** on green/yellow and **replies** on blue/red. The DB37
 pin numbers are still untraced, so identify the conductors by colour at the
 connector.
 
-### Is an FT232RNL-based adapter suitable? **Only with a transceiver in front of it**
+### Choosing a USB adapter
 
-The FT232RNL is a **USB-to-UART** bridge: it produces logic-level serial, not
-differential. The display needs **4-wire RS-422**, so the chip alone is not an
-interface to it — but it is a perfectly good UART for the job, and everything the
-protocol needs is within its range.
+**On the FT232RNL specifically:** it is a **USB-to-UART** bridge producing
+logic-level serial, not differential. The chip *alone* is not an interface to this
+display — but it is a perfectly good UART for the job, and a dongle that pairs one
+with an RS-422 transceiver is exactly right. Everything the protocol needs is
+within its range.
 
 | Requirement | FT232RNL |
 | --- | --- |
@@ -117,6 +118,79 @@ one pair, which is the wrong shape for this link.
 half duplex**, built as FT232 + MAX485 with automatic direction control. They
 cannot drive a 4-wire link. Buy one sold explicitly as **RS-422** or **4-wire**,
 or build it from a bare FT232RNL board and a MAX3490.
+
+#### Three specific dongles, checked
+
+All three are FTDI-based and all three claim 4-wire RS-422, so all three should
+work. They differ in what they document and in how they handle the reference
+problem below.
+
+| | [Jhoinrch B0FX2PTXQ7](https://www.amazon.es/dp/B0FX2PTXQ7) | [DSD TECH SH-U11](https://www.deshide.com/product-details_SH-U11.html) | [Waveshare B0BTBR71PC](https://www.waveshare.com/usb-to-rs485-422.htm) |
+| --- | --- | --- | --- |
+| USB bridge | FT232RNL | FT232RL | FT232RL |
+| Transceiver | undocumented | undocumented | SP485EEN |
+| RS-422 4-wire | claimed | **yes** | **yes** |
+| Terminal names | undocumented | `TxD+ TxD- RxD+ RxD- GND` | `TA TB RA RB PE` |
+| Isolation | **no** — "TVS/ESD/OC" is protection, not isolation | **no** (the `SH-U11F` variant is) | **yes**, power and digital |
+| 120 Ω termination | undocumented | undocumented | **jumper-selectable** |
+| Vendor documentation | none found | product page | wiki + manual |
+
+**Pick:** the **Waveshare** for anything permanent — isolation, surge protection
+and selectable termination are all worth having on a station-length cable. The
+**SH-U11** is the better bench tool for a first attempt, for one specific reason
+given below. The **Jhoinrch** would probably work; it is only last because nothing
+about it is documented.
+
+If you want both properties, the **`SH-U11F`** is the isolated version of the
+DSD TECH part and keeps the `GND` terminal.
+
+##### The Waveshare's terminal names are an advantage here
+
+`TA`/`TB` and `RA`/`RB` are named `A`/`B`, which maps **directly** onto the
+display's transceiver pins with no `+`/`−` ambiguity:
+
+| Waveshare | Display wire |
+| --- | --- |
+| `TA` | **green** (display RX `A`) |
+| `TB` | **yellow** (display RX `B`) |
+| `RA` | **blue** (display TX `A`) |
+| `RB` | **red** (display TX `B`) |
+| `PE` | grey shield / drain |
+
+On the DSD TECH the mapping is the same idea through its `+`/`−` labels — start
+with `TxD+` → green, `TxD-` → yellow, `RxD+` → blue, `RxD-` → red, and swap a pair
+if the link is silent.
+
+##### The reference problem, and why it favours the cheap one for bring-up
+
+The display's line side **floats** (it is isolated from its own mains-powered
+logic), and **the cable has no signal ground** — four conductors and a shield.
+RS-422 receivers need the common mode inside roughly ±7 V, so something has to
+define it.
+
+* **A non-isolated adapter with a `GND` terminal** — the SH-U11 — defines it for
+  you: its ground is your PC's, and tying it to the cable shield references the
+  display's floating line side. This is safe here *because the display provides
+  the isolation*, so you are bonding to a floating line side, not to a
+  mains-powered chassis.
+* **An isolated adapter** — the Waveshare — leaves **both** sides floating, with
+  nothing tying their common mode together. Usually fine over a short lead, and
+  `PE` to the cable shield is the intended remedy, but it is the more likely of
+  the two to produce an intermittent link on a bench.
+
+##### What none of them documents
+
+**Fail-safe bias on the receive pair.** The display's driver may be tri-stated
+between replies, and an unbiased receiver input then floats and delivers noise to
+the UART as framing errors and phantom bytes. None of the three lists bias
+resistors. If you see garbage between valid replies, that is the cause — add
+roughly 680 Ω from `RA` to `VCC` and `RB` to ground, or filter at the software
+layer.
+
+**Termination default.** Waveshare's own page and manual disagree about whether
+the 120 Ω is enabled by default. At 9600 baud over a bench lead it makes no
+practical difference; leave it as shipped and only think about it for a long
+cable.
 
 #### Five things that will each cost an evening
 
@@ -197,7 +271,7 @@ or none. That rules out some obvious-looking hardware:
 ### Isolation
 
 Covered above under
-[the FT232RNL notes](#isolation-less-urgent-than-it-looks-but-do-not-skip-it-for-a-permanent-build):
+[Choosing a USB adapter](#isolation-less-urgent-than-it-looks-but-do-not-skip-it-for-a-permanent-build):
 the display isolates its own line side, so a non-isolated adapter is tolerable on
 the bench, but a permanent installation should put the isolation back.
 
@@ -206,9 +280,9 @@ the bench, but a permanent installation should put the isolation back.
 Now that the standard is known, the list is short:
 
 1. **A USB-to-RS-422 adapter — 4-wire.** Not a 2-wire RS-485 dongle; the link is
-   confirmed 4-wire. An isolated 4-wire module (ADM2587E-class) is ideal. A bare
-   FT232RNL board plus a `MAX3490` does the same job — see
-   [the FT232RNL notes](#is-an-ft232rnl-based-adapter-suitable-only-with-a-transceiver-in-front-of-it).
+   confirmed 4-wire. Three concrete candidates are compared under
+   [Choosing a USB adapter](#choosing-a-usb-adapter); the Waveshare isolated unit
+   is the pick for a permanent build, the DSD TECH `SH-U11` for bench bring-up.
 2. **An ESP32 dev board** plus a **MAX3490** (3.3 V, full duplex, independent
    driver and receiver) for the permanent installation.
 3. **A bench supply with current limiting**, to power the unit safely.
