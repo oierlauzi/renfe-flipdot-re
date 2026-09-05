@@ -17,7 +17,7 @@ delete them from here — this file should shrink over time.
 - [x] **`A`/`B` polarity traced** — `A` = green (RX) / blue (TX), `B` = yellow
       (RX) / red (TX).
 - [ ] **DB37 pin numbers.** The single remaining gap in the wiring diagram.
-- [ ] **Red or orange?** The fourth conductor is recorded both ways.
+
 - [ ] **Frame format.** Start/end delimiters, addressing, checksum, text
       payload encoding. → [docs/serial-protocol.md](serial-protocol.md)
 - [ ] **Does the unit reply?** Only two `OUT 0x80` sites exist. If one is an

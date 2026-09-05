@@ -88,7 +88,7 @@ duplex with automatic direction control and **will not drive this link**.
 | driver output `A` | **green** | `A` (pin 6) |
 | driver output `B` | **yellow** | `B` (pin 7) |
 | receiver input `A` | **blue** | `A` (pin 6) |
-| receiver input `B` | **red** *(colour unconfirmed — may be orange)* | `B` (pin 7) |
+| receiver input `B` | **red** | `B` (pin 7) |
 | — | grey overall shield | chassis / drain, one end only |
 
 The display **receives** on green/yellow and **replies** on blue/red. The DB37

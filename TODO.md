@@ -81,7 +81,7 @@ third is a safety precondition.
       - Result — green (RX `A`) → pin:
       - Result — yellow (RX `B`) → pin:
       - Result — blue (TX `A`) → pin:
-      - Result — red/orange (TX `B`) → pin:
+      - Result — red (TX `B`) → pin:
 - [ ] **Locate the receive pair.** Trace from the terminal block to U7 (6N139).
       Whatever reaches its pins 2 and 3 is the **RX** pair.
       - Result:
@@ -150,11 +150,7 @@ third is a safety precondition.
 - [x] **`A`/`B` polarity traced (owner, 2026-09):** `A` → **green** (RX) and
       **blue** (TX); `B` → **yellow** (RX) and **red** (TX). Wiring table in
       [docs/controller.md](docs/controller.md#wiring).
-- [ ] **Is the fourth conductor red or orange?** First recorded as orange, traced
-      as red. Only one can be right, and a wiring diagram naming the wrong colour
-      is worse than one naming none.
-      - Result:
-- [ ] **Is `DE` on the orange-blue package driven from RTS, or tied high?**
+- [ ] **Is `DE` on the blue-red package driven from RTS, or tied high?**
       Driven → multidrop, several signs share the return pair. Tied high →
       point-to-point. Changes what the host must tolerate between replies.
       - Result:

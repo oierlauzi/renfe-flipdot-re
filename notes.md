@@ -34,11 +34,14 @@ bar one thing: the display **listens on green/yellow** and **replies on
 blue/red**, 4-wire RS-422, opto-isolated, 8E1 by default. `controller.md` now
 carries an actual wiring table instead of a comparison of candidate standards.
 
-**A colour discrepancy, flagged rather than smoothed over.** The four conductors
-were first recorded as **orange**, blue, green, yellow; this trace reports
-**red**. Orange and red are easy to confuse on a photograph and only one can be
-right. Recorded as a discrepancy in both places rather than silently picking one,
-because a wiring diagram naming the wrong colour is worse than one naming none.
+**A colour discrepancy, flagged and then resolved the same day.** The four
+conductors were first recorded as **orange**, blue, green, yellow; the trace
+reported **red**. Rather than silently picking one, both places carried the
+discrepancy until the owner checked the cable: **it is red**. The original
+"orange" was read off a photograph.
+
+Small, but worth the entry: a wiring diagram that names the wrong colour is worse
+than one that names none, and the cost of asking was one question.
 
 **A trap worth writing down about `A`/`B`.** The labels are genuinely
 inconsistent in the field — TIA-485 and most transceiver datasheets disagree about
@@ -54,9 +57,9 @@ Also noted: the idle polarity *through the isolation barrier* is untraced — th
 6N139s may invert — so the line's resting state cannot be predicted from the
 UART's.
 
-**What is left:** the DB37 pin numbers, the red/orange question, and whether `DE`
-on the transmit package is driven from RTS (multidrop) or tied high
-(point-to-point). Nothing else on the physical layer.
+**What is left:** the DB37 pin numbers, and whether `DE` on the transmit package
+is driven from RTS (multidrop) or tied high (point-to-point). Nothing else on the
+physical layer.
 
 ---
 

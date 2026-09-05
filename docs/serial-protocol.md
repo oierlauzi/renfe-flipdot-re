@@ -13,7 +13,7 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 | Property | Value | Conf. |
 | --- | --- | --- |
 | Connector | DB37 female, only 4 conductors populated | **[C]** |
-| Wire colours | green, yellow, blue, red *(fourth colour unconfirmed)*; grey overall shield | **[L]** |
+| Wire colours | green, yellow, blue, red; grey overall shield | **[C]** |
 | **Signalling** | **RS-485 / RS-422 differential**, opto-isolated | **[C]** |
 | Transceivers | **2 x TI SN75176BP** on daughter 1 | **[C]** |
 | Isolation | **3 x HP 6N139** on daughter 1 — TX data, RX data, driver enable | **[C]** |

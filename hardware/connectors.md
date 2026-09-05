@@ -12,17 +12,15 @@ daughter 1.
 | ? | **green** | `A` (6) | RX | **display RECEIVES** (host → display) | **[C]** |
 | ? | **yellow** | `B` (7) | RX | **display RECEIVES** | **[C]** |
 | ? | **blue** | `A` (6) | TX | display transmits | **[L]** |
-| ? | **red** *(or orange — see below)* | `B` (7) | TX | display transmits | **[L]** |
+| ? | **red** | `B` (7) | TX | display transmits | **[L]** |
 | — | grey (shield) | — | — | chassis / drain | **[?]** |
+
+The four conductors are **green, yellow, blue and red**. (Earlier revisions of
+this file said *orange* for the fourth — that was read off a photograph and is
+wrong; the cable is red.)
 
 **Only the DB37 pin numbers are still missing.** Everything else in that table is
 traced.
-
-> **A colour discrepancy to resolve.** The four conductors were first recorded as
-> **orange**, blue, green and yellow; the pin trace reported **red** on the
-> transmit pair. Orange and red are easy to confuse on a photograph, and only one
-> of them can be right. **Check the fourth conductor against the cable**, because
-> a wiring diagram that names the wrong colour is worse than one that names none.
 
 ### Attempt 1: oscilloscope, 2026-08 — transitions present, signal unclear
 
@@ -168,7 +166,7 @@ Against the SN75176B pinout that is unambiguous:
 
 **That package can only ever receive.** So the **yellow-green pair is the inbound
 pair — host to display** — and by elimination the blue-red pair is the one the display
-transmits on. **[C]** for yellow-green, **[L]** for orange-blue until its `DI` is
+transmits on. **[C]** for green/yellow, **[L]** for blue/red until its `DI` is
 seen to be driven.
 
 It also confirms the three-optocoupler account: the receive transceiver needs
@@ -234,9 +232,6 @@ side.
       receive-only. Orange-blue is the transmit pair by elimination.
 - [x] ~~Which conductor is `A` and which is `B`~~ — **green = `A`, yellow = `B`**
       on the receive pair; **blue = `A`, red = `B`** on the transmit pair.
-- [ ] **Confirm the fourth conductor's colour** — red or orange? Both are on
-      record and they disagree.
-      - Result:
 - [ ] **DB37 pin numbers for all four.** The last missing column.
 - [ ] **Is `DE` on the blue-red package driven or tied high?** Driven from RTS
       → multidrop; tied high → point-to-point. See
