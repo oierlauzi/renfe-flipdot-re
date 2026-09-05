@@ -20,6 +20,57 @@ Entry template:
 
 ---
 
+## 2026-09-05 — U9 and U10 are glue logic, and U9 explains the whole I/O map
+
+**Owner read them: `U10` is a CD74HC373E, `U9` a CD74HC138E.**
+
+**My `AM26LS31`/`AM26LS32` guess is dead.** It was made from the DIP16 package
+plus the `RP RN TP TN` block, marked **[?]**, and killed by one reading — which is
+what the mark is for. Both parts are ordinary glue.
+
+**`U10` is the 8085 address latch**, and this one is required rather than merely
+consistent: the CPU multiplexes the low address byte onto `AD0-AD7`, the 81C55s
+latch internally, but the **M27256 EPROM cannot** — its `A0-A7` has to come from a
+'373 strobed by `ALE`, with `A8-A14` straight off the CPU. Textbook.
+
+**`U9` is the chip-select decoder the docs have been calling "the unidentified
+decoder" for months**, and it accounts for the entire I/O map. Decoding **A6:A4
+with A7 as an enable** gives eight 16-port blocks:
+
+| Output | Block | Device |
+| --- | --- | --- |
+| `Y0` | `0x80-0x8F` | USART |
+| `Y2` | `0xA0-0xAF` | U2 81C55 |
+| `Y4` | `0xC0-0xCF` | clock board |
+| `Y5` | `0xD0-0xDF` | `hw_status_in` |
+| `Y6` | `0xE0-0xEF` | display group, `0xE7`, second group |
+
+`Y1`, `Y3` and `Y7` unused. Two checks against the ROM rather than against
+plausibility:
+
+* **All 31 ports the firmware touches land in exactly one block**, with no block
+  holding two unrelated devices.
+* **Nothing below `0x80` is ever touched** — swept across the whole image. That is
+  what tying `A7` to an enable forces, and would otherwise be a coincidence.
+
+And the obvious alternative decode is ruled out: `A7:A5` as the select inputs
+would put `0xC0-0xCF` and `0xD0-0xDF` on the same output, and the clock board and
+`hw_status_in` demonstrably need separate selects. **[L]** overall — the pins are
+not traced, and what feeds the '138's other two enables is inference.
+
+**Consequence for `RP RN TP TN`:** with U9 and U10 out of the running, **nothing
+identified on the motherboard can drive a differential pair**. `U8`, the last
+unidentified part on the board, now decides it — either it is a transceiver and
+the motherboard has its own line interface (which would also give `U7` a job), or
+the block is simply **daughter 1's four line conductors brought to a terminal
+block**, parallel to the DB37.
+
+The second is more economical, and would be quietly useful: the block is
+**labelled by direction**, `RP`/`RN` receive and `TP`/`TN` transmit, which is
+precisely the mapping the DB37 lacks.
+
+---
+
 ## 2026-09-05 — An `RP RN TP TN` block on the motherboard, and it may explain U7
 
 **Owner found a four-way terminal block on the motherboard**, unconnected in this

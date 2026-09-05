@@ -19,6 +19,43 @@ Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
 | `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
 | `0xE8-0xEF` | 8155-class device | Second display group. Initialised, but never painted on this unit | **[C]** |
 
+## How the I/O map is decoded **[L]**
+
+`U9` is a **CD74HC138E**, a 3-to-8 line decoder — the chip-select generator this
+document previously referred to as "the unidentified decoder". Its eight
+active-low outputs account for the whole I/O map if it decodes **A6:A4**, with
+**A7 as an enable**:
+
+| Output | Block | Device |
+| --- | --- | --- |
+| `Y0` | `0x80-0x8F` | U3 M82C51A-2 USART |
+| `Y1` | `0x90-0x9F` | *unused* |
+| `Y2` | `0xA0-0xAF` | U2 M81C55-5 |
+| `Y3` | `0xB0-0xBF` | *unused* |
+| `Y4` | `0xC0-0xCF` | clock board |
+| `Y5` | `0xD0-0xDF` | `hw_status_in` (`0xDE`) |
+| `Y6` | `0xE0-0xEF` | display group + `0xE7` + the second group |
+| `Y7` | `0xF0-0xFF` | *unused* |
+
+Two things make this more than a plausible arrangement:
+
+* **Every one of the 31 ports the firmware touches lands in exactly one block**,
+  and no block holds two unrelated devices.
+* **The firmware never touches a port below `0x80`** — checked across the whole
+  ROM. That is exactly what tying `A7` to an enable would force, and it would be a
+  strange coincidence otherwise.
+
+**The obvious alternative is ruled out.** Decoding `A7:A5` as the three select
+inputs would put `0xC0-0xCF` and `0xD0-0xDF` on the *same* output, and the clock
+board and `hw_status_in` demonstrably need separate selects.
+
+It stays **[L]** because the pins have not been traced: the `138`'s other two
+enables presumably carry `IO/M` and a read/write strobe, very likely via the
+`MC14584B` Schmitt triggers (`U5`), but that is inference. What the decoder does
+*not* explain is the sub-division inside `Y6` — `0xE0-0xE5` (U20), `0xE7` (a
+separate latch) and `0xE8-0xED` (the second group) all share one select, so
+something downstream decodes `A3:A0`.
+
 ## 0x80-0x81 — M82C51A-2 USART **[C]**
 
 Standard 8251A register pair.
@@ -346,10 +383,12 @@ are written fixed constants and never read.
       feature — and the ribbon would have to reach a keypad and four more digits.
 - [ ] What do `0xC0` and `0xC1` hold? Seconds fits, but the firmware only ever
       writes zero to them, so the ROM cannot answer it.
-- [ ] Identify U9 (DIP16), U10 (DIP20) and U20 (DIP40) and map them onto the
-      `0xC0`/`0xE0`/`0xE8` decode windows.
-- [ ] Trace which address lines form the `0x80` / `0xA0` / `0xC0` / `0xE0`
-      chip selects (U5/U11 MC14584B + the unidentified decoder).
+- [x] **U9 = CD74HC138E** (the I/O decoder), **U10 = CD74HC373E** (the address
+      latch), **U20 = M81C55-5**. Only `U8` is left unidentified on the
+      motherboard.
+- [ ] Confirm the `U9` decode by tracing its pins: `A`/`B`/`C` to CPU `A4`/`A5`/`A6`,
+      and what feeds its three enables. The block layout is inferred from the
+      firmware's port usage, not read off the board.
 - [ ] **Find what `IN 0xDE` reads — bit by bit.** Its role is now known even if
       its meaning is not: `0x19FC`, called from the RST7.5 tick at `0x02C0`,
       samples the port, complements it (so it is **active low**) and ORs it into

@@ -282,20 +282,35 @@ with daughter 1 carrying three of its own and the
 conversion on daughter 1. A differential port *on the motherboard* gives U7 an
 obvious job: isolating **this** interface.
 
-### And it promotes `U9` to a high-value reading **[?]**
+### But the motherboard has no transceiver to drive it
 
-`U9` is an unidentified **DIP16** on the motherboard. **`AM26LS31` (quad
-differential driver) and `AM26LS32` (quad differential receiver) are both DIP16**,
-and are the standard RS-422 parts of this era — exactly what an `RP`/`RN`/`TP`/`TN`
-block would hang off. Reading `U9` and `U10` would confirm or kill this in one
-step. That is a guess from package size alone, so **[?]**.
+`U9` and `U10` were the candidates for that — and both turned out to be glue
+logic: **`U9` is a CD74HC138E** I/O decoder, **`U10` a CD74HC373E** address latch
+([chips.md](chips.md)). The `AM26LS31`/`AM26LS32` guess made from their package
+size is dead.
+
+So nothing identified on the motherboard can put a signal on a differential pair.
+That leaves two possibilities, and **`U8` — the last unidentified part on the
+board — decides between them**:
+
+* **`U8` is a transceiver**, and the motherboard really does have its own line
+  interface. This would also give `U7` a job.
+* **`U8` is something else**, in which case `RP`/`RN`/`TP`/`TN` carries no
+  motherboard-generated signal and is almost certainly **daughter 1's four line
+  conductors brought to a terminal block** — a wiring convenience parallel to the
+  DB37, not a second port.
+
+The second is the more economical reading, and it has a pleasant consequence if
+true: the block would be a **labelled** connection point, `RP`/`RN` for the pair
+the display receives on and `TP`/`TN` for the pair it transmits on, which is
+exactly the mapping the DB37 lacks.
 
 ### What the block actually is — three readings, none settled
 
 | Reading | Would mean | Discriminating trace |
 | --- | --- | --- |
-| **The same link, alternative connection point** — daughter 1's pairs brought to the motherboard | wire here instead of the DB37 | continuity from `RP`/`RN`/`TP`/`TN` to daughter 1's SN75176BP `A`/`B` pins (6, 7) |
-| **A second, independent line interface** on the motherboard, used when daughter 1 is not fitted | the product ships with either interface | continuity to `U7`, `U9`, `U10` but **not** to daughter 1 |
+| **The same link, alternative connection point** — daughter 1's pairs brought to the motherboard | wire here instead of the DB37, with direction already labelled | continuity from `RP`/`RN`/`TP`/`TN` to daughter 1's SN75176BP `A`/`B` pins (6, 7) |
+| **A second, independent line interface** on the motherboard, used when daughter 1 is not fitted | the product ships with either interface | continuity to `U7` and `U8`, but **not** to daughter 1 |
 | **A downstream bus to slave signs** — the `MAESTRA` angle | a second channel | hard to reconcile with there being only one USART; see [pcbs.md](pcbs.md#architecture-one-function-per-board-l) |
 
 **All three are settled by continuity, power off.** Also worth checking whether

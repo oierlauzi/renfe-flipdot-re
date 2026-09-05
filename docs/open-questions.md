@@ -43,7 +43,8 @@ delete them from here — this file should shrink over time.
 
 ## Hardware identification
 
-- [ ] U8, U9 (DIP16), U10 (DIP20) on the motherboard.
+- [ ] **U8** on the motherboard — the last unidentified part there. U9 is a
+      CD74HC138E decoder and U10 a CD74HC373E address latch.
 - [ ] The five unlabelled DIP8s on daughter 1, three of them yellow and likely
       optocouplers. They carry no silkscreen designators.
 - [ ] U19 (DIP16, ST) and U20 (DIP40) on daughter 2. Is U20 a third 81C55?

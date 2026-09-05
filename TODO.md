@@ -84,12 +84,10 @@ third is a safety precondition.
       8251A's `TxD`/`RxD` directly?
       → [hardware/connectors.md](hardware/connectors.md#motherboard-terminal-block--rp-rn-tp-tn-c-observed-unconnected)
       - Result:
-- [ ] **Read `U9` (DIP16) and `U10` (DIP20) on the motherboard.** `AM26LS31` and
-      `AM26LS32` are both DIP16 and are the era's standard RS-422 driver/receiver
-      pair — which would explain both the terminal block and why `U7` sits on the
-      motherboard. Promoted from a generic "identify the unknowns".
-      - Result — U9:
-      - Result — U10:
+- [x] **U9 = CD74HC138E, U10 = CD74HC373E** (owner, 2026-09). Both glue logic:
+      the I/O chip-select decoder and the 8085 address latch. **The RS-422 guess
+      was wrong**, and the motherboard has no identified differential transceiver.
+      → [docs/io-map.md](docs/io-map.md#how-the-i-o-map-is-decoded-l)
 - [ ] **DB37 pin numbers — the last missing column.** Everything else about the
       link is traced; only the mapping from wire colour to connector pin is
       unknown. Number the pins from the connector shell and photograph the
@@ -205,7 +203,10 @@ third is a safety precondition.
 - [x] ~~U19 marking.~~ It is a **third ULN2003A** (ST), so daughter 2 has 21
       Darlington sinks against the 81C55's 22 output bits — near enough
       one-for-one to look deliberate.
-- [ ] **U8, U9 (DIP16), U10 (DIP20)** markings — motherboard.
+- [ ] **U8 marking** — the last unidentified part on the motherboard, and now the
+      deciding factor for what `RP RN TP TN` is: with U9 and U10 identified as
+      glue logic, U8 is the only remaining candidate for anything that could drive
+      a differential pair from this board.
       - Result:
 - [ ] **Where does the flip-dot high side come from?** ULN2003As can only sink,
       but a dot needs current both ways. Either the panel carries high-side

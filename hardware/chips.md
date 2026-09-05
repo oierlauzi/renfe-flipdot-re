@@ -15,7 +15,9 @@ package so they can be identified later; see
 | U5, U11 | MC14584BCP | Mother, D1 | — | Hex Schmitt trigger |
 | U6 | 7555 | Mother | — | Timer (watchdog / reset?) |
 | U7 | 6N139 | Mother? | — | Optocoupler; **board attribution doubtful**, see below |
-| U8-U10 | ? | Mother | ? | unidentified; **U9 (DIP16) is an RS-422 driver/receiver candidate** |
+| U8 | ? | Mother | ? | **the last unidentified part on the motherboard** |
+| U9 | CD74HC138E | Mother | — | 3-to-8 decoder: the I/O chip selects |
+| U10 | CD74HC373E | Mother | — | Octal latch: demultiplexes AD0-7 for the EPROM |
 | (3 unlabelled) | 6N139 (yellow DIP8) | D1 | — | Optocouplers: the isolation barrier |
 | (2 unlabelled) | **SN75176BP** (black DIP8) | D1 | — | **RS-485/422 differential transceivers** |
 | U17-U19 | ULN2003A (U17/U18 TI, U19 ST) | D2 | — | Darlington sinks, flip-dot drive; **21 sinks** in total |
@@ -122,25 +124,35 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Datasheet:** []
 - **Notes:**
 
-## U9 — ? **DIP16, now worth reading first**
-- **Manufacturer:** 
-- **Part number:**
+## U9 — 3-to-8 Line Decoder
+- **Manufacturer:** Texas Instruments
+- **Part number:** CD74HC138E
 - **PCB:** Mother
-- **Datasheet:** []
-- **Notes:** DIP16 package. The motherboard has an unconnected `RP RN TP TN`
-  terminal block — differential pair naming — and **`AM26LS31` (quad differential
-  driver) and `AM26LS32` (quad differential receiver) are both DIP16**, the
-  standard RS-422 parts of the era. If U9 is one of those, the motherboard has a
-  line interface of its own, which would also explain why `U7` (a 6N139) sits on
-  this board rather than on daughter 1. **[?]** — a guess from package size.
-  → [connectors.md](connectors.md#motherboard-terminal-block--rp-rn-tp-tn-c-observed-unconnected)
+- **Datasheet:** [https://www.ti.com/lit/ds/symlink/cd74hc138.pdf]
+- **Notes:** **The chip-select generator** — the "unidentified decoder" the docs
+  have been looking for. Three select inputs and three enables produce eight
+  active-low outputs, and the observed I/O map fits a decode of **A6:A4 with A7 as
+  an enable** exactly: eight 16-port blocks at `0x80`, `0x90` … `0xF0`.
+  → [../docs/io-map.md](../docs/io-map.md#how-the-i-o-map-is-decoded-l)
 
-## U10 — ?
-- **Manufacturer:** 
-- **Part number:**
+## U10 — Octal Transparent Latch
+- **Manufacturer:** Texas Instruments
+- **Part number:** CD74HC373E
 - **PCB:** Mother
-- **Datasheet:** []
-- **Notes:** DIP20 Package
+- **Datasheet:** [https://www.ti.com/lit/ds/symlink/cd74hc373.pdf]
+- **Notes:** **The 8085 address latch.** The CPU multiplexes the low address byte
+  onto `AD0-AD7` and strobes `ALE` to say when it is valid; a '373 holds it to give
+  a stable `A0-A7`. The 81C55s latch internally and do not need it, but the
+  **M27256 EPROM does** — its `A0-A7` can only come from here, with `A8-A14`
+  straight off the CPU. Textbook 8085 glue, and required by the design rather than
+  merely consistent with it.
+
+> **Retracted: the RS-422 guess.** Both were until now recorded as candidates for
+> `AM26LS31`/`AM26LS32` differential driver and receiver parts, on the strength of
+> the DIP16 package and the motherboard's `RP RN TP TN` terminal block. **Both are
+> glue logic.** The guess was marked **[?]** and cost nothing, but it means the
+> motherboard has **no identified differential transceiver** — see
+> [connectors.md](connectors.md#motherboard-terminal-block--rp-rn-tp-tn-c-observed-unconnected).
 
 ## U11 — Hex Schmitt Trigger
 - **Manufacturer:** Motorola
