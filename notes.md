@@ -20,6 +20,63 @@ Entry template:
 
 ---
 
+## 2026-09-05 — A board architecture, and a flip-flop it ends
+
+**Owner supplied the model the three boards were built to:** motherboard = the
+logic; daughter 1 = converting the motherboard's USART to the physical media;
+daughter 2 = driving the display. With one constraint attached — **no
+communication with the station controller passes through daughter 2.**
+
+It is a product-modularity argument, and it earns its place because it *rules
+things out*. Written into `pcbs.md` as an explicit constraint.
+
+**It ended a flip-flop of mine, in favour of the original text.** Over two
+sessions the supply question went:
+
+1. `psu.md` said the logic 5 V comes from the daughter-1 converter; `pcbs.md` said
+   the converter is isolated and powers a line side. I spotted the conflict,
+   **judged `pcbs.md` right**, marked the 5 V source **[?]** and added a TODO to
+   hunt for a regulator on the motherboard.
+2. The converter decoded as **5 V / 500 mA**. That looked like a logic rail, so I
+   **reversed**, declared `psu.md` right, and closed the regulator hunt as a
+   "non-item".
+3. **Both moves were wrong, and the disproof was already in the repository.**
+   `pcbs.md`, two sections above the one I was editing: *"Two TO-220 regulators on
+   gold heatsinks supply the logic rails"* — on the motherboard.
+
+So the motherboard powers itself, and daughter 1's isolated 5 V is the line-side
+supply, which is what `pcbs.md` concluded originally. Its *reasoning* was bad —
+four converter pins prove input-to-output isolation and nothing about which side
+carries the display 0 V — but its conclusion was right, and the architecture
+requires it: a media-conversion board has no business powering the CPU.
+
+**Lesson worth keeping:** I twice reasoned about which board supplied what without
+reading the board sections of the file I was editing. The architecture model
+would have settled it in one line either time.
+
+**What the constraint changes elsewhere:**
+
+* **A "second channel for the LED matrix" on daughter 1 is out.** It had been
+  offered in `connectors.md` to explain three signals in each direction. The LED
+  panel is a display; it belongs behind daughter 2. **RTS** explains the third
+  signal, and the firmware drives it on every reply.
+* **The current-loop case is now genuinely open, and one assertion in it was
+  unsound.** `connectors.md` called "there is no transceiver IC" the *strongest*
+  argument — but only **three** of daughter 1's five DIP8s are yellow and probably
+  optocouplers; the other two have never been read. **SN75176, MAX485 and LTC485
+  are all DIP8.** That was an argument from unread parts. Combined with an
+  isolated 5 V rail on the line side — which suits an isolated differential
+  transceiver at least as well as a loop — reading those two packages is now the
+  cheapest way to settle the physical layer.
+* **Strain the model does not resolve:** U7, the 6N139 optocoupler, is on the
+  **motherboard**, not daughter 1. If media conversion is daughter 1's job, an
+  isolation barrier on the motherboard needs explaining. Either the barrier is at
+  the motherboard and daughter 1 sits on the isolated side — which is what its own
+  isolated supply would be for — or U7 does something narrower than "serial RX
+  isolation". Flagged, not resolved.
+
+---
+
 ## 2026-09-05 — U20 read, the ALT4 contradiction dissolves, and the converter decodes
 
 **Did:** Two hardware facts arrived from the owner. One of them closed the only

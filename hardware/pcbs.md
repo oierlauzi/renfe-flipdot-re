@@ -2,6 +2,42 @@
 
 Three boards. Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 
+## Architecture: one function per board **[L]**
+
+The three boards divide the job cleanly, and stating that up front is useful
+because it **rules hypotheses out**:
+
+| Board | Function |
+| --- | --- |
+| **Mother** | The logic. CPU, RAM, EPROM, USART, DIP switches, and its own regulators. |
+| **Daughter 1** | **Media conversion only.** Takes the USART's logic-level signals from the motherboard and puts them on whatever physical layer the installation uses. |
+| **Daughter 2** | **Display drive only.** U20's ports and the Darlington sinks, out to the panel ribbon. |
+
+This is a modular product: the same motherboard serves any physical layer by
+swapping daughter 1, and any panel family by swapping daughter 2 — which is
+exactly what the firmware's 13 panel drivers and switch-selected line settings
+imply.
+
+**The constraint that does the work: no communication with the station controller
+passes through daughter 2.** Anything reached down the daughter-2 ribbon is a
+*display* — the flip-dot line, the LED panel, the `0xE7` expansion that backs the
+message buffer. The host link enters at the DB37 and stops at daughter 1.
+
+Two things this immediately settles, and one it strains:
+
+* **The logic supply is the motherboard's own.** Two TO-220 regulators on gold
+  heatsinks sit on it (below). Daughter 1's isolated converter is therefore *not*
+  the logic supply — a media-conversion board has no business powering the CPU.
+* **A "second channel for the LED matrix" on daughter 1 is ruled out.** That was
+  offered in [connectors.md](connectors.md) to explain three signals in each
+  direction. The LED panel is a display, so it belongs behind daughter 2.
+* **Strain: U7, the 6N139 optocoupler, is on the *motherboard*.** If media
+  conversion is daughter 1's job, the isolation barrier sitting on the
+  motherboard needs explaining. Either the barrier is at the motherboard and
+  daughter 1 lives on the isolated side (which is what its own isolated supply
+  would be for), or U7 does something narrower than "serial RX isolation". Worth
+  a trace.
+
 ## Telenorma part numbers **[C] — but verify the digits against the board**
 
 **The motherboard carries the Telenorma logo.** Combined with the EPROM's
@@ -82,21 +118,28 @@ so the module is worth a second look.
 A 24 V nominal input corroborates the 24 V rail recorded in
 [psu.md](psu.md#24-vdc-rail) independently of the chassis label.
 
-> **Retracted: the "isolated line side" inference.** This section used to argue
-> that four nets and no shared ground meant "the output is galvanically floating
-> with respect to the display's internal 0 V", and concluded the module "exists to
-> power an isolated line side" — the premise the whole active-current-loop reading
-> rested on.
+**The output is the isolated line-side supply, not the logic rail.** Daughter 1's
+job is media conversion, and the motherboard has its own TO-220 regulators for the
+logic — so an isolated 5 V on the comms board is there to power whatever sits on
+the far side of the isolation barrier. That is what an isolated brick on a line
+interface is normally for.
+
+> **This conclusion was retracted and then restored, wrongly in between.** For one
+> revision the section above claimed the *four-pin count* proved the output floats
+> against the display's 0 V, which does not follow — four pins prove
+> input-to-output isolation and say nothing about which side the display 0 V is
+> on. When the output turned out to be **5 V / 500 mA**, that looked like a logic
+> rail and the whole conclusion was reversed.
 >
-> **Four pins only establish input-to-output isolation.** They say nothing about
-> *which side* carries the display's 0 V, and that was assumed, not shown. With
-> the output now known to be **5 V at 500 mA**, the far likelier arrangement is the
-> ordinary one: `VO-` **is** the logic 0 V, and it is the 24 V input that floats
-> relative to the logic — which is exactly what you want for equipment hanging off
-> a shared station DC bus.
+> **The reversal was wrong**, and the disproof was already in this file: *"Two
+> TO-220 regulators on gold heatsinks supply the logic rails"* — on the
+> motherboard, in the Motherboard section. The original conclusion stands; only
+> its justification was bad.
 >
-> A 5 V / 500 mA rail is a logic supply. It is not a plausible source of 20 mA
-> loop current at 24 V.
+> What *does* change with the 5 V figure: this rail cannot source 20 mA at current
+> loop voltages, so an **active** loop powered from it is implausible. An isolated
+> 5 V supply feeding optocouplers and a line driver fits either a **passive**
+> current loop or an isolated differential link.
 
 **Four nets and no shared ground** does establish one thing: a non-isolated
 converter — a buck or a linear regulator — shares a common return between input

@@ -43,7 +43,7 @@ beyond the lighting:
 | Input to the electronics | **24 VDC** | **[C]** |
 | Current draw, idle | *TODO* | |
 | Current draw, flipping | *TODO* | |
-| Logic rail | **5 V**, from the `24 IMP 3-05-7` module on daughter 1 | **[L]** |
+| Logic rail | **5 V**, from two TO-220 regulators **on the motherboard** | **[L]** |
 | Connector | *TODO* | |
 | Polarity | *TODO* | |
 
@@ -52,27 +52,27 @@ A relatively large DC-DC converter module is soldered to daughter 1 (see
 out**, isolated. The 24 V rail itself goes to the flip-dot coils via the ULN2003A
 sinks on daughter 2.
 
-### The logic 5 V comes from the converter **[L]**
+### The logic 5 V comes from the motherboard, not the converter **[L]**
 
-Settled by the module's own type code, `24 IMP 3-05-7`: **5 V out at 500 mA**,
-from a 10-36 V input ([pcbs.md](pcbs.md#the-dc-dc-converter)). That is a logic
-supply, and 500 mA is a comfortable budget for this board's CMOS parts — an
-MSM80C85AH, two M81C55-5s, an M82C51A-2 and a 32 KiB EPROM.
+Two TO-220 regulators on gold heatsinks sit on the motherboard
+([pcbs.md](pcbs.md#motherboard)) and supply the logic rails from the 24 V input.
+That is consistent with the board architecture: the motherboard is the logic, and
+it powers itself.
 
-It stays **[L]** rather than **[C]** only because nobody has traced `VO+` to the
-5 V net.
+Daughter 1's Melcher `24 IMP 3-05-7` is a **separate, isolated 5 V** for the
+**line side** of the serial interface — the job a media-conversion board actually
+has. See [pcbs.md](pcbs.md#the-dc-dc-converter).
 
-> **A contradiction, and I picked the wrong side of it.** For one revision this
-> section carried the 5 V source as **[?]**, on the grounds that
-> [pcbs.md](pcbs.md#the-dc-dc-converter) said the converter's output floats
-> against the display's 0 V and therefore powers an isolated line side — which
-> would leave the logic supply unaccounted for. I judged that the likelier of the
-> two readings and sent someone hunting for a regulator on the motherboard.
+> **I flip-flopped on this, and the answer was already written down.** This file
+> originally said the logic ran from the daughter-1 converter. I first downgraded
+> that to **[?]** on a bad argument in `pcbs.md`, then — when the converter turned
+> out to be 5 V — reversed and declared the converter *was* the logic supply, and
+> closed a TODO to look for a motherboard regulator as a "non-item".
 >
-> **It was the other one.** Four converter pins prove input-to-output isolation
-> and nothing about which side the display's 0 V is on; that had been assumed.
-> This file's original claim — the logic runs from the daughter-1 converter — was
-> right all along, and the 24 V input is what floats relative to the logic.
+> **Both moves were wrong.** `pcbs.md` had recorded the two TO-220 regulators on
+> the motherboard from the start, in a section above the one I was editing. The
+> converter is the isolated line-side supply, which is what `pcbs.md` concluded
+> originally — its *reasoning* was faulty, its conclusion was not.
 
 ## Safety
 

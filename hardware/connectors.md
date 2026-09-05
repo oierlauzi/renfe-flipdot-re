@@ -93,16 +93,26 @@ receive direction can be attempted with confidence.
 
 The passive inventory in [pcbs.md](pcbs.md) is more informative than it looks.
 
-#### The strongest argument: there is no transceiver IC
+#### The main argument: no *identified* transceiver IC
 
-Daughter 1 carries a DC-DC converter, a hex Schmitt trigger, five DIP8s that are
-almost certainly optocouplers, and a handful of resistors, diodes and capacitors.
-**That is the parts list for an opto-isolated current loop built from discretes.**
+Daughter 1 carries a DC-DC converter, a hex Schmitt trigger, five DIP8s and a
+handful of resistors, diodes and capacitors. **That reads like an opto-isolated
+current loop built from discretes.**
 
 An RS-422 or RS-485 interface of this era would normally use a purpose-made
-differential transceiver — a 26LS31/26LS32 pair, 75174/75175, SN75179, or
-similar. None is present. A hex Schmitt trigger driving optocouplers is not how
-anyone builds RS-422; it is exactly how everyone builds a current loop.
+differential transceiver — a 26LS31/26LS32 pair, 75174/75175, SN75179 or similar
+— and none of those is a DIP8, so none is present.
+
+> **But this is weaker than it was written.** Only **three** of the five DIP8s are
+> yellow-bodied and likely optocouplers
+> ([chips.md](chips.md#the-five-dip8s-on-daughter-1--unidentified-and-unlabelled));
+> the other two are **unidentified and unmarked**. Several common RS-485
+> transceivers *are* DIP8 — SN75176, MAX485, LTC485 — so this is an argument from
+> parts nobody has read yet. Reading those two packages would settle the physical
+> layer faster than any measurement on the list below.
+>
+> An isolated 5 V rail on the line side, which daughter 1 does have, suits an
+> isolated differential transceiver at least as well as it suits a loop.
 
 #### Neither resistor value is a termination
 
@@ -129,48 +139,56 @@ it — the node voltage does.**
 #### Three of each, not two
 
 Three 560 Ω and three ~1 kΩ suggests **three signals in each direction**, not one.
-Candidates: transmit data, receive data, and a third line — RTS, or a second
-channel for the LED matrix. Worth keeping in mind when tracing: do not assume
-only two signals exist.
+The obvious third is **RTS**, which the firmware drives through
+`line_turnaround` on every reply.
 
-#### Retracted: the converter does not supply the line
+> A "second channel for the LED matrix" was also offered here. **The board
+> architecture rules it out** — the LED panel is a display, so it belongs behind
+> daughter 2, and no host communication passes through daughter 1 to a display.
+> See [pcbs.md](pcbs.md#architecture-one-function-per-board-l).
 
-This section argued that the isolated converter gave "the line side its own
-supply", making the transmitter *active* rather than a passive switch, and that
-an **active-transmit, active-receive current loop** was consistent with the
-optocouplers, the missing transceiver, the ~1 kΩ resistors, the isolation and the
-scope transitions.
+Worth keeping in mind when tracing: do not assume only two signals exist.
 
-**Two of those legs have since gone.**
+#### The line side has its own isolated supply **[L]**
 
-* The converter's type code is `24 IMP 3-05-7`: **5 V out at 500 mA**
-  ([pcbs.md](pcbs.md#the-dc-dc-converter)). That is the logic supply, not a
-  line-side rail, and it cannot source 20 mA at loop voltages. This project's own
-  stated test — *"if the isolated rail is ~24 V the resistors are loop-current
-  setting; if it is 5 V they are not"* — has been answered, on the "they are not"
-  side.
-* The scope transitions are no longer explained by the unit's status frame
-  either: the firmware transmits **nothing unprompted**
-  ([serial-protocol.md](../docs/serial-protocol.md#the-transmitted-status-frame-c)).
+Daughter 1's Melcher `24 IMP 3-05-7` gives an **isolated 5 V / 500 mA**
+([pcbs.md](pcbs.md#the-dc-dc-converter)). The motherboard has its own TO-220
+regulators, so this rail is not the logic supply — it powers the far side of the
+isolation barrier, which is what a media-conversion board needs.
 
-What survives is weaker and worth stating plainly: daughter 1 has optocouplers, no
-differential transceiver, and series resistors on the line — so the interface is
-**opto-isolated and not RS-422**. Whether it is a current loop, and whether this
-end drives it or merely receives, is open again. A **passive** loop, powered from
-the far end, now fits the parts at least as well.
+So the transmitter **can** be active rather than a bare passive switch. But note
+what the 5 V figure costs:
 
-The ~1 kΩ resistors may still be fed from the 24 V input rail rather than the
-converter output, which would keep an active loop alive — but nothing has traced
-them.
+* **An active 20 mA current loop from this rail is implausible.** 5 V cannot drive
+  20 mA around a loop with any useful compliance. The project's own stated test —
+  *"if the isolated rail is ~24 V the ~1 kΩ resistors are loop-current setting; if
+  it is 5 V they are not"* — has been answered on the "they are not" side.
+* An isolated **5 V** feeding optocouplers and a line driver fits either a
+  **passive** current loop, powered from the far end, or an **isolated
+  differential** link. Both remain open.
+
+The ~1 kΩ resistors could still be fed from the **24 V input** rather than `VO+`,
+which would revive an active loop. Nobody has traced them.
+
+> **Retracted, then restored.** An intermediate revision of this section removed
+> the isolated-supply argument entirely, on the grounds that a 5 V output made the
+> converter the logic rail. It does not — the motherboard's regulators do that.
+> Only the *active 20 mA loop from this rail* is dead.
+
+Separately, the scope transitions no longer have an explanation: the earlier
+attribution to the unit's own status frame is retracted, because the firmware
+transmits **nothing unprompted**
+([serial-protocol.md](../docs/serial-protocol.md#the-transmitted-status-frame-c)).
 
 #### What would settle it
 
 - [ ] **Confirm `VO-` is *not* continuous with the display's 0 V / chassis**
       (power off, continuity). It should read open. If it beeps, the isolation is
       not where this analysis assumes it is and the reasoning needs revisiting.
-- [ ] **Confirm `VO+` reaches the 5 V logic net** and `VI+`/`VI-` the 24 V rail.
-      That confirms the ordinary arrangement now assumed in
-      [psu.md](psu.md#the-logic-5-v-comes-from-the-converter-l).
+- [ ] **Confirm `VO-` is *not* continuous with the display 0 V**, and that `VO+`
+      does *not* reach the motherboard's 5 V net. Both should be open if the rail
+      is line-side only, as [psu.md](psu.md#the-logic-5-v-comes-from-the-motherboard-not-the-converter-l)
+      now assumes.
 - [x] ~~Measure the converter's output voltage.~~ **Answered by the type code:
       5 V, 500 mA.** By the criterion stated here, the ~1 kΩ resistors are *not*
       loop-current setting from this rail.

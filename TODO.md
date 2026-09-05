@@ -120,10 +120,16 @@ third is a safety precondition.
       - no diode behaviour, ~120 Ω or ~12 kΩ → **RS-422/485**
       - Result:
 - [x] ~~120 Ω termination?~~ Daughter 1's only resistor values are **560 Ω** and
-      **~1 kΩ**. Nothing near 120 Ω, and **no differential transceiver IC at all** —
-      the parts are a DC-DC converter, one hex Schmitt trigger and five DIP8s,
-      three of them probable optocouplers. That is a discrete opto-isolated interface, not RS-422.
+      **~1 kΩ**, nothing near 120 Ω. No *classic* differential transceiver either —
+      but see the next item, because that argument is weaker than it was written.
       → [hardware/connectors.md](hardware/connectors.md#what-daughter-1s-parts-imply-l)
+- [ ] **Read the two unidentified DIP8s on daughter 1.** Three of the five are
+      yellow and probably optocouplers; the other two have never been read.
+      **SN75176, MAX485 and LTC485 are all DIP8**, so "no differential transceiver"
+      is an argument from unread parts. With an isolated 5 V rail on the line side,
+      an isolated RS-485 transceiver fits as well as a current loop. Reading these
+      two packages would settle the physical layer faster than any measurement.
+      - Result:
 - [x] **The converter is genuinely isolated.** Four nets (`VI+`/`VI-`/`VO+`/`VO-`)
       with no shared ground — a buck or linear regulator would expose three pins.
       The doubled through-holes per pin are just current capacity and anchoring.
@@ -138,14 +144,15 @@ third is a safety precondition.
       evidence on the board** — the chassis plate has a serial but no date. Once
       peeled it is gone.
       - Result — sticker text:
-- [x] ~~Find the logic 5 V regulator.~~ **There is no missing regulator.** This
-      item existed because pcbs.md inferred the converter's output floats against
-      the display 0 V; four pins only prove input-to-output isolation, and with a
-      5 V / 500 mA output the ordinary reading holds — `VO-` is the logic 0 V.
-      → [hardware/psu.md](hardware/psu.md#the-logic-5-v-comes-from-the-converter-l)
+- [x] ~~Find the logic 5 V regulator.~~ **Already documented, and never missing:
+      two TO-220 regulators on gold heatsinks, on the motherboard**
+      ([hardware/pcbs.md](hardware/pcbs.md#motherboard)). Daughter 1's isolated
+      converter is the **line-side** supply, not the logic rail — which is also
+      what the board architecture requires.
+      → [hardware/psu.md](hardware/psu.md#the-logic-5-v-comes-from-the-motherboard-not-the-converter-l)
 - [x] ~~Measure the DC-DC converter's output voltage.~~ **Answered by the type
-      code: 5 V, 500 mA.** By the criterion recorded here, the ~1 kΩ resistors are
-      ordinary opto drive from this rail and prove nothing about a current loop.
+      code: 5 V, 500 mA, isolated — the line-side supply.** By the criterion
+      recorded here, an *active* 20 mA loop cannot be driven from this rail.
 - [ ] **Trace the ~1 kΩ resistors' supply end** — `VO+`, or the 24 V input rail?
       Only the second keeps an *active* current loop alive.
       - Result:
