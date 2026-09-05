@@ -81,6 +81,13 @@ SN75176BP ([hardware/connectors.md](../hardware/connectors.md#it-is-4-wire-one-p
 So buy a **4-wire RS-422** adapter. Most cheap USB-RS485 dongles are 2-wire half
 duplex with automatic direction control and **will not drive this link**.
 
+**Which pair is which:** drive the **yellow-green** pair — its transceiver is
+strapped receive-only, so that is the display's input — and listen on
+**orange-blue**. Two things are still unknown and both are quick continuity
+checks: which conductor of each pair is `A` versus `B` (getting it backwards
+inverts the data, and is the classic reason an RS-485 link stays silent), and the
+DB37 pin numbers.
+
 ## Two gotchas that will cost an evening each
 
 ### Parity

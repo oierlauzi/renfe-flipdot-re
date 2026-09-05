@@ -7,13 +7,17 @@ populated**: orange, blue, green and yellow, inside a grey overall-shielded
 cable (see [photos/DB37_back.jpg](photos/DB37_back.jpg)). They land on a
 terminal block on daughter 1.
 
-| Pin | Wire colour | Signal | Conf. |
-| --- | --- | --- | --- |
-| ? | orange | ? | **[?]** |
-| ? | blue | ? | **[?]** |
-| ? | green | ? | **[?]** |
-| ? | yellow | ? | **[?]** |
-| — | grey (shield) | chassis / drain | **[?]** |
+| Pin | Wire colour | Pair | Direction | Conf. |
+| --- | --- | --- | --- | --- |
+| ? | **yellow** | with green | **display RECEIVES** (host → display) | **[C]** |
+| ? | **green** | with yellow | **display RECEIVES** | **[C]** |
+| ? | orange | with blue | display transmits (by elimination) | **[L]** |
+| ? | blue | with orange | display transmits (by elimination) | **[L]** |
+| — | grey (shield) | — | chassis / drain | **[?]** |
+
+Which conductor of each pair is `A` and which is `B` is **not yet known**, and it
+matters — swapping them inverts the data. See
+[the receive pair](#the-yellow-green-pair-is-the-receive-side-c).
 
 ### Attempt 1: oscilloscope, 2026-08 — transitions present, signal unclear
 
@@ -144,6 +148,41 @@ This fits everything else already known:
 * **Three optocouplers, three signals.** TX data, RX data and the driver enable —
   matching the three 560 Ω and three ~1 kΩ resistors exactly.
 
+#### The yellow-green pair is the receive side **[C]**
+
+**Traced by the owner, 2026-09:** on the transceiver carrying the **yellow-green**
+pair, three pins are strapped to ground — `/RE`, `DE` and `D`.
+
+Against the SN75176B pinout that is unambiguous:
+
+| Pin | Name | Strapped | Effect |
+| --- | --- | --- | --- |
+| 2 | `/RE` | **GND** | receiver enable is active **low** → **receiver permanently on** |
+| 3 | `DE` | **GND** | driver enable is active **high** → **driver permanently tri-stated** |
+| 4 | `D` (`DI`) | **GND** | driver input tied to a defined level; irrelevant, the driver is off |
+
+**That package can only ever receive.** So the **yellow-green pair is the inbound
+pair — host to display** — and by elimination orange-blue is the pair the display
+transmits on. **[C]** for yellow-green, **[L]** for orange-blue until its `DI` is
+seen to be driven.
+
+It also confirms the three-optocoupler account: the receive transceiver needs
+exactly one signal crossing the barrier (`RO` → the USART's `RxD`), leaving two
+for the transmit side (`DI` ← `TxD`, and `DE`).
+
+##### The next question this raises: is `DE` on the other package driven, or tied high?
+
+This discriminates two quite different installations, and the answer changes what
+a host must do:
+
+| If the transmit package's `DE` is… | Then | Consequence |
+| --- | --- | --- |
+| driven from **RTS** through the third optocoupler | **multidrop** — several displays share the return pair, each tri-stating until addressed | the host must tolerate a pair that is undriven between replies, and terminate accordingly |
+| tied **high** | **point-to-point** — this display drives its return pair continuously | one display per host port, and the `GS <addr>` addressing is then a bus convention it does not electrically need |
+
+The firmware asserting RTS before every reply argues for the first, but that is an
+inference from software; the strap settles it. **[?]**
+
 #### The resistors, re-read
 
 | Resistor | Role under RS-485 |
@@ -186,39 +225,39 @@ side.
 #### What is left to measure
 
 - [x] ~~Which pair goes where~~ — **one pair per transceiver, so 4-wire.** Done.
-- [ ] **Which pair is inbound and which outbound.** Follow `DI` (pin 4) and `RO`
-      (pin 1) on each package back through the optocouplers: the one whose `DI` is
-      driven feeds the pair the display **transmits** on.
-- [ ] **Find what drives `DE`.** If it traces back through an optocoupler to the
-      8251A's RTS, the half-duplex-on-a-shared-return reading is confirmed.
+- [x] ~~Which pair is inbound~~ — **yellow-green**, its transceiver strapped
+      receive-only. Orange-blue is the transmit pair by elimination.
+- [ ] **Which conductor of each pair is `A` (pin 6) and which is `B` (pin 7).**
+      Swapping them inverts the data, so a wiring diagram needs this. Continuity
+      from each terminal to pins 6 and 7 settles it in two beeps.
+      - Result — yellow → pin:
+      - Result — green → pin:
+- [ ] **Is `DE` on the orange-blue package driven or tied high?** Driven from RTS
+      → multidrop; tied high → point-to-point. See
+      [above](#the-next-question-this-raises-is-de-on-the-other-package-driven-or-tied-high).
+- [ ] **Confirm the orange-blue package's `DI` is driven** (rather than strapped),
+      which upgrades the transmit-pair assignment from **[L]** to **[C]**.
 - [ ] **Check for 120 Ω** across either pair. Absent is expected for a mid-bus
       node and means the host end must terminate.
 - [ ] **Idle differential voltage**, powered, nothing connected: near 0 V with a
       few volts common mode is normal for an undriven RS-485 pair.
 
-### Measurement plan
+### Measurement plan — what is left
 
-Pure continuity work, doable before powering anything up.
+Most of this section's original content is done. What remains is continuity work
+on daughter 1 and the DB37:
 
-1. **Number the pins** from the connector shell, and photograph the numbering
-   alongside the wires so the mapping is unambiguous later.
-2. **Buzz out** each of the 4 wires from its DB37 pin to the daughter 1
-   terminal block; record the terminal number.
-3. **Trace each terminal to an SN75176BP `A`/`B` pin** (pins 6 and 7). That
-   splits the four conductors into the two pairs and says which package handles
-   which.
-4. **Establish direction per package.** For each SN75176BP, follow `DI` (pin 4,
-   driver input) and `RO` (pin 1, receiver output) back through the
-   optocouplers. The package whose `DI` is driven feeds the **outbound** pair;
-   the one whose `RO` is used takes the **inbound** pair.
-5. **Follow `DE`** (pin 3) back. If it reaches the 8251A's RTS through an
-   optocoupler, the shared-return reading is confirmed.
-6. **Powered, nothing connected:** measure the idle differential across each
-   pair. Near 0 V with a few volts common mode is a normal undriven RS-485 pair.
+1. **Number the DB37 pins** from the connector shell and photograph the numbering
+   alongside the wires, so the colour-to-pin mapping is unambiguous later. **This
+   is the one remaining gap in a complete wiring diagram.**
+2. **Buzz each of the four wires** from its DB37 pin to the daughter 1 terminal
+   block, and from there to an SN75176BP pin 6 or 7. That gives colour → pin →
+   `A`/`B` in one pass.
+3. **Check the orange-blue package's `DE` and `DI`** as above.
 
-Only after that is it worth reaching for a scope — and remember the unit
-**answers, it does not announce**, so a host has to be polling before the
-outbound pair carries anything.
+Only then is a scope worth setting up — and remember the unit **answers, it does
+not announce**, so a host must be polling before its transmit pair carries
+anything.
 
 ## Flip-dot panel ribbon — daughter 2
 

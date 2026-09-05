@@ -12,8 +12,10 @@ delete them from here — this file should shrink over time.
       SN75176BP transceivers and three 6N139 optocouplers on daughter 1.
       → [hardware/connectors.md](../hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)
 - [x] **4-wire, confirmed** — each pair lands on a different SN75176BP.
-- [ ] **Which pair is inbound and which outbound**, and how they map to DB37 pin
-      numbers. The last thing standing between the repo and a wiring diagram.
+- [x] **Direction found** — the display receives on the **yellow-green** pair
+      (transceiver strapped receive-only); orange-blue is the reply pair.
+- [ ] **`A`/`B` polarity within each pair, and the DB37 pin numbers.** All that
+      now stands between this repo and a complete wiring diagram.
 - [ ] **Frame format.** Start/end delimiters, addressing, checksum, text
       payload encoding. → [docs/serial-protocol.md](serial-protocol.md)
 - [ ] **Does the unit reply?** Only two `OUT 0x80` sites exist. If one is an

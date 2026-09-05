@@ -141,12 +141,20 @@ third is a safety precondition.
       ruled out by there being one USART and three optocouplers. **Buy a 4-wire
       RS-422 adapter, not a 2-wire RS-485 dongle.**
       → [hardware/connectors.md](hardware/connectors.md#it-is-4-wire-one-pair-per-transceiver-c)
-- [ ] **Which pair is inbound, which outbound?** Follow `DI` (pin 4) and `RO`
-      (pin 1) on each SN75176BP back through the optocouplers; the package whose
-      `DI` is driven feeds the pair the display **transmits** on. Then map both
-      back to DB37 pin numbers and wire colours.
-      - Result — display transmits on:
-      - Result — display receives on:
+- [x] **Direction found (owner, 2026-09): the display RECEIVES on the
+      yellow-green pair.** Its transceiver has `/RE`, `DE` and `D` all strapped to
+      ground — receiver permanently on, driver permanently tri-stated, so that
+      package can only listen. Orange-blue is the transmit pair by elimination.
+      → [hardware/connectors.md](hardware/connectors.md#the-yellow-green-pair-is-the-receive-side-c)
+- [ ] **Which conductor is `A` (pin 6) and which is `B` (pin 7)**, on each pair.
+      Reversing them inverts the data — the classic reason an RS-485 link stays
+      silent. Two continuity beeps.
+      - Result — yellow / green → A / B:
+      - Result — orange / blue → A / B:
+- [ ] **Is `DE` on the orange-blue package driven from RTS, or tied high?**
+      Driven → multidrop, several signs share the return pair. Tied high →
+      point-to-point. Changes what the host must tolerate between replies.
+      - Result:
 - [ ] **Follow `DE` (pin 3) back.** If it reaches the 8251A's RTS through an
       optocoupler, the shared-return / turnaround reading is confirmed.
       - Result:

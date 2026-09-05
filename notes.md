@@ -20,6 +20,47 @@ Entry template:
 
 ---
 
+## 2026-09-05 — Direction found: the display listens on yellow-green
+
+**Owner traced the straps:** on the transceiver carrying the **yellow-green**
+pair, `/RE`, `DE` and `D` are all tied to ground.
+
+Against the SN75176B pinout that reads straight off:
+
+* `/RE` is active **low** → grounding it leaves the **receiver permanently on**
+* `DE` is active **high** → grounding it leaves the **driver permanently
+  tri-stated**
+* `D` (the driver input) is tied to a defined level, which is moot with the driver
+  off
+
+**That package can only ever receive.** So **yellow-green is the pair the display
+listens on**, and orange-blue is the pair it replies on — the second by
+elimination, **[L]** until its `DI` is seen to be driven rather than strapped.
+**[C]** for the receive side.
+
+It also confirms the three-optocoupler account arrived at from the parts count: the
+receive transceiver needs exactly one signal crossing the isolation barrier
+(`RO` → `RxD`), leaving two for the transmit side (`DI` ← `TxD`, and `DE`).
+
+**The strap raises a sharper question than it answers**, and nobody has looked at
+it: is `DE` on the *other* package driven, or tied high?
+
+| `DE` on the transmit package | Installation | What a host must do |
+| --- | --- | --- |
+| driven from **RTS** through the third optocoupler | **multidrop** — several signs share the return pair, each tri-stating until addressed | tolerate an undriven pair between replies; terminate at the bus ends |
+| tied **high** | **point-to-point** — this sign drives its return pair continuously | one display per host port, and `GS <addr>` is a convention it does not electrically need |
+
+The firmware asserting RTS before every reply argues for multidrop, but that is an
+inference from software. One continuity check settles it.
+
+**Remaining on the physical layer, and it is now small:** which conductor of each
+pair is `A` (pin 6) versus `B` (pin 7) — reversing them inverts the data, and is
+the classic reason an RS-485 link comes up silent — and the DB37 pin numbers.
+Both are continuity beeps. After that the repository has a complete wiring
+diagram.
+
+---
+
 ## 2026-09-05 — 4-wire confirmed, and the parts count rules out the alternative
 
 **Owner traced the pairs:** one cable pair lands on the `A`/`B` pins of one
