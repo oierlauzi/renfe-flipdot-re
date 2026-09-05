@@ -15,9 +15,9 @@ port when the physical layer is known.
 Two things a caller must know, both from docs/:
 
 * Text is **CP437**, not Latin-1. `Ñ` is 0xA5. See encode().
-* The display **transmits a status frame continuously**, unprompted, forever. Any
-  reply reader has to skip those or it will mistake them for responses. The
-  transports below do that.
+* The display **answers, it never announces**. Nothing arrives unless you asked
+  for it, so a reader that sees unprompted bytes is looking at line noise, not at
+  the display -- see tools/bringup.py.
 """
 
 import argparse
@@ -350,10 +350,12 @@ class PIT100:
 
 
 def strip_status_frames(data):
-    """Remove the continuously transmitted 18 18 1E 15 <addr> frames.
+    """Remove any 18 18 1E 15 <addr> status frame from a reply.
 
-    Any real controller needs this: the unit talks unprompted, so a naive reader
-    sees status bytes interleaved with genuine replies.
+    An earlier version of this file said the unit emitted these "continuously,
+    unprompted, forever". **It does not** -- the firmware transmits nothing it was
+    not asked for, and the frame belongs to handler C. Kept because the frame can
+    still appear inside a reply, and stripping it is harmless.
     """
     out, i = bytearray(), 0
     while i < len(data):
@@ -389,6 +391,17 @@ class SimTransport:
         self.m.tx_bytes.clear()
         return raw
 
+    def settle(self, seconds=3.0):
+        """Give the render pass time to finish.
+
+        A full 64-character repaint is 64 frames of 74 clocked bits with delays
+        between them, which needs far more emulated cycles than a command
+        exchange. Roughly a million steps per second of wall clock keeps the
+        emulator's sense of time in the same neighbourhood as the real unit's.
+        """
+        self.m.run(int(seconds * 1_000_000), tick=2000)
+        self.m.tx_bytes.clear()
+
 
 class SerialTransport:
     """The real thing, once the physical layer is known.
@@ -410,6 +423,10 @@ class SerialTransport:
     def write(self, data):
         self.s.write(data)
         self.s.flush()
+
+    def settle(self, seconds=3.0):
+        """Wait for the panel to finish repainting. Dots are mechanical."""
+        time.sleep(seconds)
 
     def read_reply(self, n, settle=0.05):
         time.sleep(0.01)                     # the firmware's turnaround delay

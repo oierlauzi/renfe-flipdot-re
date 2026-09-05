@@ -82,6 +82,10 @@ verify: $(BUILD)  ## Reassemble src/ and prove it matches the original ROM
 	  exit 1; \
 	fi
 
+.PHONY: bringup-selftest
+bringup-selftest:  ## Exercise tools/bringup.py against the emulator (~25 s)
+	PYTHONPATH=tools $(PYTHON) tools/bringup.py --sim --stage demo --address 5
+
 .PHONY: disasm
 disasm:  ## Regenerate src/firmware.asm from the ROM
 	$(PYTHON) tools/disasm.py --asm > $(ASM_SRC)

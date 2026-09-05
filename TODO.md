@@ -74,6 +74,9 @@ third is a safety precondition.
 
 ## P2 — Critical path to driving the display
 
+- [x] **Bring-up tooling written**: `tools/bringup.py`, staged adapter / quiet /
+      line-sweep / address-sweep / demo, with an emulator self-test
+      (`make bringup-selftest`). → [docs/controller.md](docs/controller.md#bring-up-toolsbringuppy)
 - [ ] **DB37 pin numbers — the last missing column.** Everything else about the
       link is traced; only the mapping from wire colour to connector pin is
       unknown. Number the pins from the connector shell and photograph the

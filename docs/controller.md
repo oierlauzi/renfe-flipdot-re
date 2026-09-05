@@ -304,6 +304,36 @@ A sensible division of labour: **bring the link up on a PC with a USB adapter**,
 where you can iterate quickly and log everything, then **move the working
 protocol onto an ESP32** for the finished object.
 
+## Bring-up: `tools/bringup.py`
+
+A staged script for the first power-up, written against the SH-U11's wiring.
+Each stage prints what a failure *means* rather than just failing.
+
+```sh
+pip install pyserial
+python3 tools/bringup.py --port /dev/ttyUSB0        # every stage, in order
+python3 tools/bringup.py --port /dev/ttyUSB0 --stage line
+make bringup-selftest                               # run it against the emulator
+```
+
+| Stage | What it does | What a failure tells you |
+| --- | --- | --- |
+| `adapter` | device node exists; reads the FTDI **latency timer** | 16 ms default will dominate every exchange — it prints the `echo 1 \| sudo tee` fix |
+| `quiet` | listens 3 s **sending nothing** | anything received is *not* the display, which never announces itself — almost certainly a floating, unbiased receive pair |
+| `line` | sweeps baud x format sending broadcast `SUB`, looking for `AK0052.139U1` | silence everywhere means reversed pair polarity, or the unit is on handler A or C rather than the command protocol |
+| `address` | sweeps `GS 0-31` to find the unit's own address | the DIP switch sense is unresolved, so the address is genuinely unknown until this runs |
+| `demo` | identify, cursor, status, fill, write, read back | a mismatch after an `ACK` means the message was stored but not painted — `RS` releases the repaint interlock |
+
+**The `line` stage is the one that earns its keep.** The switch *sense* is still
+unknown ([dip-switches.md](dip-switches.md)), so the recorded switch positions give
+two different answers — 4800 8N1 or 2400 7E1 — and the sweep simply tries both
+first, then everything else. `SUB` is the right probe because it needs no prior
+state, works under broadcast addressing, and returns a string known in advance.
+
+`make bringup-selftest` runs the address and demo stages against the emulator, so
+the script is debugged before the adapter arrives. It takes about 25 seconds,
+most of it emulating the panel repaint.
+
 ## Plan B: drive the panel directly
 
 Worth knowing this exists, because it sidesteps the unresolved physical layer
