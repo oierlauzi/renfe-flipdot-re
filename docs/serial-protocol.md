@@ -14,15 +14,29 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 | --- | --- | --- |
 | Connector | DB37 female, only 4 conductors populated | **[C]** |
 | Wire colours | orange, blue, green, yellow (grey overall shield) | **[C]** |
-| Isolation | HP/Agilent 6N139 optocoupler (U7) on the motherboard | **[C]** |
-| Signalling | 2 pairs — either RS-422/RS-485 or a 20 mA current loop | **[L]** |
+| **Signalling** | **RS-485 / RS-422 differential**, opto-isolated | **[C]** |
+| Transceivers | **2 x TI SN75176BP** on daughter 1 | **[C]** |
+| Isolation | **3 x HP 6N139** on daughter 1 — TX data, RX data, driver enable | **[C]** |
+| Wiring | 4-wire full duplex, driver enable under RTS | **[L]** |
 | Pinout | **unknown** | **[?]** |
 
-The 6N139 is the decisive clue: an opto-isolated receiver on a 1980s-90s
-Spanish rail installation almost always means either a 20 mA current loop or an
-isolated RS-422 link, not plain RS-232. Two pairs is consistent with
-full-duplex (TX pair + RX pair). See [../hardware/connectors.md](../hardware/connectors.md)
-for the measurement plan.
+**Settled by reading the parts** (owner, 2026-09). Two SN75176BP differential bus
+transceivers make this an RS-485/RS-422 link; nothing about a current loop needs
+one, let alone two.
+
+A single SN75176B is 2-wire half duplex — its driver and receiver share one
+`A`/`B` pair — so **two packages are what you fit for 4-wire full duplex**, using
+the driver of one and the receiver of the other. Four populated conductors fit
+that exactly, and it explains the firmware's RTS turnaround: on a 4-wire multidrop
+bus the slaves share the return pair and each must tri-state its driver until
+addressed.
+
+> **Retracted: the current-loop reading.** Every earlier version of this document
+> gave "either RS-422/485 or a 20 mA current loop" and leaned towards the loop,
+> on the strength of the optocouplers, the resistor values and an argument that no
+> differential transceiver was present. There were two, unread, on the board the
+> argument was made from. See
+> [../hardware/connectors.md](../hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c).
 
 ## Link layer **[C] unless noted**
 

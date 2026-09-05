@@ -113,65 +113,48 @@ third is a safety precondition.
       nothing replaces it. Re-scope with the link quiet and note whether the
       activity is periodic.
       - Result:
-- [ ] **Identify the electrical standard — diode test, power OFF, no scope
-      needed.** Multimeter in diode mode across each pair, both polarities:
-      - ~1.1-1.6 V one way and open the other → **20 mA current loop** (the
-        6N139's LED)
-      - no diode behaviour, ~120 Ω or ~12 kΩ → **RS-422/485**
-      - Result:
-- [x] ~~120 Ω termination?~~ Daughter 1's only resistor values are **560 Ω** and
-      **~1 kΩ**, nothing near 120 Ω. No *classic* differential transceiver either —
-      but see the next item, because that argument is weaker than it was written.
-      → [hardware/connectors.md](hardware/connectors.md#what-daughter-1s-parts-imply-l)
-- [ ] **Read the two unidentified DIP8s on daughter 1.** Three of the five are
-      yellow and probably optocouplers; the other two have never been read.
-      **SN75176, MAX485 and LTC485 are all DIP8**, so "no differential transceiver"
-      is an argument from unread parts. With an isolated 5 V rail on the line side,
-      an isolated RS-485 transceiver fits as well as a current loop. Reading these
-      two packages would settle the physical layer faster than any measurement.
-      - Result:
+- [x] **Electrical standard identified: opto-isolated RS-485 / RS-422.** Daughter
+      1 carries **2 x TI SN75176BP** differential transceivers (the two black
+      DIP8s) and **3 x HP 6N139** optocouplers (the three yellow ones) — owner,
+      2026-09. No diode test needed; no current loop.
+      → [hardware/connectors.md](hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)
+- [x] ~~120 Ω termination?~~ Absent, and **no longer evidence of anything**:
+      RS-485 terminates only at the two ends of the bus, and a station sign is
+      unlikely to be an end node. Your host end will need the 120 Ω.
 - [x] **The converter is genuinely isolated.** Four nets (`VI+`/`VI-`/`VO+`/`VO-`)
       with no shared ground — a buck or linear regulator would expose three pins.
       The doubled through-holes per pin are just current capacity and anchoring.
       → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
 - [x] **Converter identified: `24 IMP 3-05-7`, Melcher IMP series** (owner,
-      2026-09). The type code gives everything without powering anything:
-      **10-36 V DC in, 5 V / 500 mA out**, isolated. So the 24 V rail is
-      corroborated, and **the logic 5 V comes from this module** — it is not a
-      line-side supply. → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
+      2026-09): **10-36 V DC in, 5 V / 500 mA out**, isolated. It is the
+      **line-side** supply — the motherboard's own TO-220 regulators make the
+      logic rails. → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
+- [x] ~~Find the logic 5 V regulator.~~ **Already documented, and never missing:
+      two TO-220 regulators on gold heatsinks, on the motherboard**
+      ([hardware/pcbs.md](hardware/pcbs.md#motherboard)).
+- [x] ~~Trace the ~1 kΩ resistors / measure their value / are they loop-current
+      setting?~~ **All moot.** With SN75176BPs on the board, the 560 Ω are 6N139
+      LED drive and the ~1 kΩ are its output pull-ups. Three of each because three
+      signals cross the barrier: TX data, RX data, driver enable.
+- [ ] **Which pair is which, and is it 4-wire?** Trace both SN75176BP `A`/`B`
+      pins (6, 7) to the terminal block, then follow `DI` (4) and `RO` (1) back
+      through the optocouplers. The package whose `DI` is driven feeds the
+      outbound pair. **This is the measurement that now matters** — it decides
+      whether you buy a 4-wire RS-422 adapter or a 2-wire RS-485 one.
+      - Result — outbound pair:
+      - Result — inbound pair:
+- [ ] **Follow `DE` (pin 3) back.** If it reaches the 8251A's RTS through an
+      optocoupler, the shared-return / turnaround reading is confirmed.
+      - Result:
 - [ ] **Photograph the converter's QA sticker legibly, then remove it.** It looks
       handwritten, something like `30-01-9?` / `OK`, which would be the **only date
       evidence on the board** — the chassis plate has a serial but no date. Once
       peeled it is gone.
       - Result — sticker text:
-- [x] ~~Find the logic 5 V regulator.~~ **Already documented, and never missing:
-      two TO-220 regulators on gold heatsinks, on the motherboard**
-      ([hardware/pcbs.md](hardware/pcbs.md#motherboard)). Daughter 1's isolated
-      converter is the **line-side** supply, not the logic rail — which is also
-      what the board architecture requires.
-      → [hardware/psu.md](hardware/psu.md#the-logic-5-v-comes-from-the-motherboard-not-the-converter-l)
-- [x] ~~Measure the DC-DC converter's output voltage.~~ **Answered by the type
-      code: 5 V, 500 mA, isolated — the line-side supply.** By the criterion
-      recorded here, an *active* 20 mA loop cannot be driven from this rail.
-- [ ] **Trace the ~1 kΩ resistors' supply end** — `VO+`, or the 24 V input rail?
-      Only the second keeps an *active* current loop alive.
-      - Result:
-- [ ] **Confirm `VO-` is not continuous with the display's 0 V / chassis.** Should
-      read open. If it beeps, the isolation is not where this analysis assumes.
-      - Result:
-- [ ] **Does a ~1 kΩ resistor run from `VO+` to a terminal screw or an opto pin?**
-      An isolated rail feeding the line through a current-setting resistor *is* an
-      active current loop. This is the measurement that closes the question.
-      - Result:
-- [ ] **Measure the three ~1 kΩ resistors** with a meter, to remove the colour-band
-      ambiguity (1.0 / 1.02 / 1.2 kΩ are all plausible readings).
-      - Result:
-- [ ] **Trace one ~1 kΩ resistor**: does it sit between a terminal-block screw and
-      an optocoupler pin?
-      - Result:
-- [ ] **How are the 4 diodes arranged?** A full bridge across an input pair means
-      a polarity-insensitive current-loop input — a strong signature. Individual
-      diodes across opto LEDs are just reverse protection.
+- [ ] **How are the 4 diodes arranged?** Previously framed as a current-loop
+      test (a full bridge would mean a polarity-insensitive loop input). With the
+      link now known to be RS-485 they are more likely transient protection across
+      the pairs.
       - Result:
 - [ ] **Three of each resistor value suggests three signals per direction**, not
       one. Do not assume only TX and RX exist when tracing — look for a third

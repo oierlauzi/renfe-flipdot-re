@@ -8,8 +8,11 @@ delete them from here — this file should shrink over time.
 - [ ] **DB37 pinout.** Which 4 of the 37 pins are populated, and which is TX+,
       TX-, RX+, RX-? Continuity-trace from the connector to the daughter 1
       terminal block and on to U7 (6N139). → [hardware/connectors.md](../hardware/connectors.md)
-- [ ] **Electrical standard.** RS-422/485 differential, or 20 mA current loop?
-      Decides what transceiver to build. → [hardware/connectors.md](../hardware/connectors.md)
+- [x] **Electrical standard — answered: opto-isolated RS-485 / RS-422.** Two
+      SN75176BP transceivers and three 6N139 optocouplers on daughter 1.
+      → [hardware/connectors.md](../hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)
+- [ ] **4-wire or 2-wire?** Two transceivers and four conductors say 4-wire full
+      duplex, but the pins have not been traced. Decides which adapter to buy.
 - [ ] **Frame format.** Start/end delimiters, addressing, checksum, text
       payload encoding. → [docs/serial-protocol.md](serial-protocol.md)
 - [ ] **Does the unit reply?** Only two `OUT 0x80` sites exist. If one is an

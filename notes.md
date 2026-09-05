@@ -20,6 +20,68 @@ Entry template:
 
 ---
 
+## 2026-09-05 — The link is RS-485, and the current-loop case was built on unread parts
+
+**Owner read the five DIP8s on daughter 1**, which had been sitting as
+"unidentified" for the whole project:
+
+* **three yellow — HP 6N139** optocouplers
+* **two black — TI SN75176BP** differential bus transceivers
+
+**That settles the physical layer: opto-isolated RS-485 / RS-422.** Nothing about
+a 20 mA current loop needs a differential transceiver, let alone two.
+
+**Why two, and what it implies.** A single SN75176B is 2-wire half duplex — its
+driver and receiver share one `A`/`B` pair — so two packages are what you fit for
+**4-wire full duplex**, using the driver of one and the receiver of the other.
+Four conductors are populated on the DB37. And it explains something the protocol
+work had already turned up without being able to account for: the firmware
+asserts RTS through `line_turnaround` before *every* reply. On a 4-wire multidrop
+bus the slaves share the return pair and each must tri-state its driver until
+addressed — which is exactly what `DE` under RTS does. Three optocouplers for
+three signals: TX data, RX data, driver enable, matching the three 560 Ω and
+three ~1 kΩ resistors. **[L]** for the 4-wire reading; the pins are untraced.
+
+**What this kills, and it is a lot.** The current-loop theory was one of the
+project's longest-running threads, and every leg of it was bad:
+
+* *"The strongest argument: there is no transceiver IC."* There were two, in the
+  same parts list the argument was written from. I had already flagged this as an
+  argument from unread parts one session earlier — it should have been flagged the
+  day it was written.
+* *"Neither resistor value is a termination."* True and irrelevant: RS-485
+  terminates at the **two ends of the bus**, and a station sign is unlikely to be
+  an end node. Absence of 120 Ω was never evidence against differential.
+* *"`(24 − 1.35) / 1 kΩ ≈ 22 mA`, so a ~1 kΩ resistor from 24 V is a 20 mA loop."*
+  The section recorded its own caveat — that this assumes the far end sits at 24 V
+  — and then leaned on the conclusion anyway. The rail is 5 V and the resistors are
+  opto LED drive and pull-ups.
+* *"German clock-bus installations of the era ran on 20 mA loops."* A plausible
+  historical pattern doing work the parts list should have been doing.
+
+**And it probably explains the scope mystery.** The 2026-08 attempt saw
+"transitions with an AC component" that would not resolve into a differential, and
+three conclusions were drawn — that the unit was transmitting, that those pins
+were therefore the transmit side, and that the transmitter was active rather than
+passive. All three are now retracted. The firmware transmits nothing unprompted,
+and an **unterminated, unbiased RS-485 pair floats when undriven** and picks up
+whatever is nearby — with a fluorescent ballast inside the same enclosure. That is
+what "unclean, AC component" looks like. **[L]** — but it means there was probably
+never a signal there at all.
+
+**Net effect on the goal:** this is the cheapest outcome the project was hedging
+between. `controller.md` had a shopping list covering four physical layers; it now
+says buy a USB-RS-422 adapter, keep the isolation, and terminate at your end. The
+remaining question is 4-wire versus 2-wire, and that is a pin trace, not a
+measurement.
+
+**Also flagged, not resolved:** `U7` is recorded as a 6N139 **on the motherboard**.
+With three on daughter 1 forming a complete barrier, a fourth on the logic board is
+redundant and on the wrong side of the board architecture. Most likely the board
+attribution was misrecorded — worth checking which board the `U7` silkscreen is on.
+
+---
+
 ## 2026-09-05 — A board architecture, and a flip-flop it ends
 
 **Owner supplied the model the three boards were built to:** motherboard = the

@@ -1,12 +1,16 @@
 # Building a replacement controller
 
-Planning notes for the host side. **The electrical standard is not yet
-identified** — see
-[hardware/connectors.md](../hardware/connectors.md) — so this compares the
-candidates rather than picking one.
+Planning notes for the host side.
 
-The good news: every candidate is an ordinary asynchronous UART at a low baud
-rate. Only the *physical layer* differs, and that is one small board either way.
+**The electrical standard is settled: opto-isolated RS-485 / RS-422.** Daughter 1
+carries two **TI SN75176BP** differential transceivers and three **6N139**
+optocouplers
+([hardware/connectors.md](../hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)).
+That is the cheapest and most ordinary outcome of the ones this document used to
+hedge between — an off-the-shelf adapter talks to it.
+
+Above the physical layer it is an ordinary asynchronous UART at a low baud rate,
+8E1 by default, with the format and rate set by DIP switches.
 
 ## Choosing a host
 
@@ -49,9 +53,9 @@ modules carry. A 5 V module will usually *accept* 3.3 V as a logic high, but its
 receiver output swings to 5 V straight into a 3.3 V pin. That is the classic way
 to damage an ESP32 on this kind of project.
 
-**Optocoupler drive**, if it turns out to be a current loop. The original board
-uses 560 Ω from 5 V for about 6.5 mA. From 3.3 V that same resistor gives only
-3.5 mA, so scale it:
+**Optocoupler drive**, if you build your own isolation rather than buying an
+isolated module. The original board uses 560 Ω from 5 V into a 6N139, about
+6.5 mA. From 3.3 V the same resistor gives only 3.5 mA, so scale it:
 
 | Resistor | from 3.3 V | from 5 V |
 | --- | --- | --- |
@@ -68,40 +72,19 @@ keep UART0 for the USB console and use UART1 or UART2 for the display; and give
 it a supply that tolerates WiFi transmit bursts, or it will brown out
 mid-transmission.
 
-## Sourcing, per candidate
+## Sourcing
 
-| Standard | USB adapter | Pi / Arduino path | Cost | Difficulty |
-| --- | --- | --- | --- | --- |
-| **RS-485, 2-wire** | Everywhere. Generic CH340/FTDI + MAX485 dongles | MAX485 / SP3485 breakout on the UART pins | very low | trivial |
-| **RS-422, 4-wire** | Available but less common; look for "USB to RS-422" rather than RS-485 | MAX490 / MAX3490 breakout (full duplex, separate driver and receiver) | low | trivial |
-| **RS-232** | Everywhere, the classic USB-serial cable | MAX3232 level-shifter breakout | very low | trivial |
-| **20 mA current loop** | Niche and expensive — industrial RS-232-to-current-loop converters | **DIY**: an optocoupler and two resistors per direction | ~nothing in parts | easy, but you build it |
+| Part | Why | Cost |
+| --- | --- | --- |
+| USB-RS-422 adapter, or isolated RS-485 | Bring-up and experimentation on a PC | low |
+| MAX3490 (full duplex) / MAX3485 (half duplex) | The permanent ESP32 build; 3.3 V parts | very low |
+| ADM2587E-class isolated module | If you would rather buy isolation than build it | moderate |
 
-### If it turns out to be differential (RS-422/485)
-
-The likeliest case: four conductors, full duplex, and the firmware manipulates
-RTS with turnaround delays. **Check whether you need 4-wire.** Most cheap
-USB-RS485 dongles are *2-wire half duplex* with automatic direction control, and
-those cannot drive a 4-wire full-duplex link. For 4-wire you want either a
-USB-RS422 adapter or a **MAX490**-class transceiver, which has an independent
-driver and receiver rather than a shared bus.
-
-### If it turns out to be a current loop
-
-Do not hunt for a USB adapter. They exist, they are industrial, and they cost
-more than the rest of the project. A loop interface is a handful of parts:
-
-* **Driving the display's receive side** — you must *source* the loop current.
-  A transistor or optocoupler output switching a current-limited supply
-  (e.g. 24 V through a resistor sized for ~20 mA) in series with the display's
-  RX pins. Your UART TX drives the optocoupler LED.
-* **Reading the display's transmit side** — put a sense resistor in the loop and
-  feed the voltage across it into an optocoupler or comparator, whose output goes
-  to your UART RX.
-
-The display's own receiver is a 6N139, a high-gain but not especially fast
-optocoupler, which tells you the design never intended high speed. At 300-9600
-baud almost any optocoupler works; a 6N137 or 6N139 is a safe match.
+**4-wire versus 2-wire** is the one thing to get right. Two SN75176BPs and four
+populated conductors point to **4-wire full duplex**, with RTS gating the driver
+because slaves share the return pair. A 2-wire half-duplex dongle will not drive
+that. Confirm by tracing the transceiver pins before buying
+([hardware/connectors.md](../hardware/connectors.md#what-is-left-to-measure)).
 
 ## Two gotchas that will cost an evening each
 
@@ -131,25 +114,31 @@ long cable in a station. **Preserve that isolation.** Either buy an isolated
 adapter (RS-485 modules built on ADM2587E-class parts) or keep the optocouplers
 on your own board. Do not tie a laptop's ground to the display chassis.
 
-## What to buy before the standard is known
+## What to buy
 
-A hedge that covers every outcome for very little:
+Now that the standard is known, the list is short:
 
-1. **A plain USB-to-TTL-serial adapter** (FT232R, CP2102 or CH340). Useful
-   regardless, supports arbitrary parity, and becomes the UART behind whatever
-   physical layer turns out to be needed.
-2. **A MAX490 (full duplex) and a MAX485 (half duplex) breakout.** Covers both
-   differential cases.
-3. **A few optocouplers** (6N137/6N139) and assorted resistors. Covers the
-   current loop case.
-4. **A bench supply with current limiting.** Needed to power the unit safely
-   anyway, and it is what sources the loop current if it is a current loop.
-5. **An ESP32 dev board**, for the permanent installation once the link works.
-   If buying transceivers specifically for it, get the **3.3 V** MAX3485/MAX3490
-   rather than the 5 V parts.
+1. **A USB-to-RS-485/RS-422 adapter.** Prefer one sold as **RS-422 / 4-wire**, or
+   an isolated RS-485 module built on an ADM2587E-class part. **Check it does
+   4-wire**: most cheap USB-RS485 dongles are 2-wire half duplex with automatic
+   direction control and cannot drive a 4-wire link.
+2. **An ESP32 dev board** plus a **MAX3490** (3.3 V, full duplex, independent
+   driver and receiver) for the permanent installation. `MAX3485` if it turns out
+   to be 2-wire.
+3. **A bench supply with current limiting**, to power the unit safely.
 
-Total is roughly the price of one industrial converter, and it works whichever
-way the measurement goes.
+**Keep the isolation.** The display's interface is opto-isolated because it is
+mains-powered, has a fluorescent ballast inside the enclosure, and was built to
+run down a long station cable. Buy an isolated adapter or keep optocouplers on
+your own board; do not tie a laptop's ground to the display chassis.
+
+**Termination:** the unit carries no 120 Ω, which is normal for a mid-bus node.
+Your end of the link will need it.
+
+> **Removed: the hedging shopping list.** This section used to buy for every
+> outcome — a MAX490 *and* a MAX485, plus 6N137/6N139 optocouplers and resistors
+> "to cover the current loop case", plus a bench supply "to source the loop
+> current". There is no current loop.
 
 A sensible division of labour: **bring the link up on a PC with a USB adapter**,
 where you can iterate quickly and log everything, then **move the working

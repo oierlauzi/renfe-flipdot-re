@@ -90,10 +90,10 @@ The working queue is [docs/open-questions.md](docs/open-questions.md).
 
 ## Key findings so far
 
-* The external link is a **9600 baud, 8 data bits, even parity, 1 stop bit**
-  asynchronous serial line, opto-isolated, almost certainly RS-422/485 or a
-  20 mA current loop. Both the frame format and the baud rate are DIP-switch
-  selectable.
+* The external link is **opto-isolated RS-485 / RS-422** — two TI SN75176BP
+  transceivers and three 6N139 optocouplers on the interface board — carrying
+  **9600 baud, 8 data bits, even parity, 1 stop bit** by default. Both the frame
+  format and the baud rate are DIP-switch selectable.
 * The **font is fully decoded** and the code page identified as **IBM CP437**:
   256 glyphs of 5x7 at ROM `0x1C0D`, indexed directly by character code, one byte
   per column, bit 0 = top row. So `Ñ` is `0xA5` and `text.encode("cp437")` works.

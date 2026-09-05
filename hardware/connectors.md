@@ -21,37 +21,36 @@ All four pins probed. **Transitions were visible**, but the signal was not clean
 and appeared to carry an AC component. Two channels subtracted across candidate
 pairs did not resolve a clean differential either.
 
-**Transitions are a positive result, not a null one.** They mean something is
-actively driving that conductor, and the obvious candidate is the unit's own
-status frame: the firmware transmits `18 18 1E 15 <addr>` continuously, forever,
-with no prompting (see
-[../docs/serial-protocol.md](../docs/serial-protocol.md#the-transmitted-status-frame-c)).
-
-That gives three immediate conclusions:
-
-1. **The unit is alive and transmitting**, and the pins that showed transitions
-   are the **transmit** side. Record which ones they were.
-2. **The transmit side is not a bare passive switch.** A passive 20 mA loop
-   transmitter is just an optocoupler output with no supply of its own; on an open
-   circuit it cannot produce voltage transitions. Either the transmitter is
-   *active* (supplies its own loop current), or the interface is voltage-mode
-   after all. This weakens the plain passive-current-loop theory.
-3. **The waveform is decodable.** We know exactly what it should say, which makes
-   any capture a known-answer test.
+> **All three conclusions drawn from this are retracted**, and the observation
+> itself probably was not a signal.
+>
+> The reasoning was: transitions mean something is driving the line, the driver
+> must be the unit's own status frame, therefore those pins are the transmit side
+> and the transmitter is active rather than a passive switch.
+>
+> The premise is false. **The firmware transmits nothing unprompted**
+> ([../docs/serial-protocol.md](../docs/serial-protocol.md#the-transmitted-status-frame-c)),
+> so with the link quiet nothing was driving anything. And the line is now known
+> to be an **unterminated, unbiased RS-485 pair**, which floats when undriven and
+> picks up whatever is nearby — with a fluorescent ballast inside the same
+> enclosure. "Transitions, unclean, with an AC component" is what a floating
+> differential pair looks like. **[L]**
+>
+> So: the pins that showed transitions are **not** thereby the transmit side, and
+> nothing here says whether the transmitter is active or passive. Both questions
+> are open. See
+> [the physical layer](#the-physical-layer-opto-isolated-rs-422rs-485-c).
 
 ### Why it looked unclean
 
 Most likely causes, in order:
 
-1. **Timebase too slow.** The unit transmits *continuously*. A non-stop serial
-   stream viewed at a slow timebase looks precisely like a messy AC waveform —
-   that alone could account for the "AC component". At 9600 baud a bit is 104 µs
-   and a 5-byte frame about 5 ms; at 300 baud a bit is 3.3 ms and the frame
-   ~170 ms. The switch-selected rate may be anywhere in that range, so sweep the
-   timebase rather than assuming.
-2. **No trigger on the frame.** Asynchronous data free-runs unless you trigger on
-   an edge and use single-shot capture. Untriggered, successive frames overlay
-   into a smear.
+1. **There was probably no signal.** The likeliest reading now: an undriven
+   RS-485 pair with no termination and no fail-safe bias, floating. Nothing to
+   trigger on, and nothing to decode.
+2. **No trigger.** Asynchronous data free-runs unless you trigger on an edge and
+   use single-shot capture — but this only matters once the unit is actually being
+   polled, since it never transmits on its own.
 3. **Reference undefined.** U7 is an optocoupler, so the DB37 side floats
    relative to chassis. A ground clip on the chassis puts real transitions on top
    of a wandering hum baseline. Channel-subtract does not fix this — a scope's
@@ -61,6 +60,10 @@ Most likely causes, in order:
    centimetres from the probe.
 
 ### Attempt 2: capture one frame properly
+
+**First: the unit must be polled, or there is nothing to capture.** It replies;
+it does not announce itself. Until a host is driving the inbound pair, the only
+thing on the outbound pair is whatever noise a floating line collects.
 
 The interface is isolated and the far end is disconnected, so you may legitimately
 **clip the probe ground to one conductor of the pair and probe the other**. That
@@ -79,7 +82,7 @@ Then read three things off the capture:
 
 | Measurement | Tells you |
 | --- | --- |
-| **Peak-to-peak amplitude** | ±2-5 V → RS-422/485. ±5-12 V → RS-232. 12-30 V swinging to near a diode drop → an active current loop. |
+| **Peak-to-peak amplitude** | Expect **±2-5 V differential**, the RS-485 range. |
 | **Narrowest pulse width** | One bit time. Invert for the baud rate — which also settles the 81C55 TIMER IN question in [../docs/dip-switches.md](../docs/dip-switches.md). |
 | **Idle level** | Mark polarity, and hence whether the line is inverted. |
 
@@ -89,181 +92,120 @@ start bit and the parity/stop configuration the port B switches select. If it
 matches, the baud rate, polarity and framing are all confirmed at once, and the
 receive direction can be attempted with confidence.
 
-### What daughter 1's parts imply **[L]**
+### The physical layer: opto-isolated RS-422/RS-485 **[C]**
 
-The passive inventory in [pcbs.md](pcbs.md) is more informative than it looks.
+**Settled by reading the packages** (owner, 2026-09). Daughter 1's five DIP8s are:
 
-#### The main argument: no *identified* transceiver IC
-
-Daughter 1 carries a DC-DC converter, a hex Schmitt trigger, five DIP8s and a
-handful of resistors, diodes and capacitors. **That reads like an opto-isolated
-current loop built from discretes.**
-
-An RS-422 or RS-485 interface of this era would normally use a purpose-made
-differential transceiver — a 26LS31/26LS32 pair, 75174/75175, SN75179 or similar
-— and none of those is a DIP8, so none is present.
-
-> **But this is weaker than it was written.** Only **three** of the five DIP8s are
-> yellow-bodied and likely optocouplers
-> ([chips.md](chips.md#the-five-dip8s-on-daughter-1--unidentified-and-unlabelled));
-> the other two are **unidentified and unmarked**. Several common RS-485
-> transceivers *are* DIP8 — SN75176, MAX485, LTC485 — so this is an argument from
-> parts nobody has read yet. Reading those two packages would settle the physical
-> layer faster than any measurement on the list below.
->
-> An isolated 5 V rail on the line side, which daughter 1 does have, suits an
-> isolated differential transceiver at least as well as it suits a loop.
-
-#### Neither resistor value is a termination
-
-RS-422/485 wants **120 Ω** across the pair. The board has **560 Ω** and
-**~1 kΩ**, and nothing near 120 Ω. Termination is not always fitted, so this is
-suggestive rather than conclusive — but combined with the missing transceiver it
-points the same way.
-
-#### The values make sense as a current loop, with a caveat
-
-| Resistor | Plausible role | Current |
+| Count | Part | Function |
 | --- | --- | --- |
-| 3 x **560 Ω** | Optocoupler LED drive on the **logic** side, from 5 V | ~6.5 mA — comfortable for any opto |
-| 3 x **~1 kΩ** | Series element on the **line** side | ~20 mA if the node is at 24 V |
+| 3, yellow bodies | **HP 6N139** | high-speed optocouplers — the isolation barrier |
+| 2, black bodies | **TI SN75176BP** | **differential bus transceivers**, RS-485 / RS-422 |
 
-`(24 − 1.35 V) / 1 kΩ ≈ 22 mA`, and `/1.2 kΩ ≈ 19 mA`. **Whichever way the bands
-are read, a ~1 kΩ resistor from a 24 V rail is a 20 mA loop.**
+The SN75176B is *the* standard RS-485 transceiver of the period: one driver and
+one receiver in a DIP8, sharing a single `A`/`B` pair, with separate driver-enable
+(`DE`) and receiver-enable (`RE`) pins.
 
-The caveat matters: that arithmetic assumes the resistor's far end sits at ~24 V.
-From 5 V the same resistor gives ~3.6 mA, which would be an ordinary opto drive
-and would say nothing about current loops. **So the value alone does not settle
-it — the node voltage does.**
+**That ends the current-loop question.** Nothing about a 20 mA loop needs a
+differential transceiver, and a board that has two of them is a differential
+board.
 
-#### Three of each, not two
+#### Why two transceivers, and what that implies about the wiring **[L]**
 
-Three 560 Ω and three ~1 kΩ suggests **three signals in each direction**, not one.
-The obvious third is **RTS**, which the firmware drives through
-`line_turnaround` on every reply.
+A single SN75176B is a **2-wire half-duplex** device — its driver and receiver
+share the same `A`/`B` pins. To run **4-wire full duplex** you need two packages
+and use half of each: one driver onto the outbound pair, one receiver from the
+inbound pair.
 
-> A "second channel for the LED matrix" was also offered here. **The board
-> architecture rules it out** — the LED panel is a display, so it belongs behind
-> daughter 2, and no host communication passes through daughter 1 to a display.
-> See [pcbs.md](pcbs.md#architecture-one-function-per-board-l).
+The unit has **two transceivers and four populated conductors**. That is exactly
+the 4-wire arrangement, and it fits everything else already known:
 
-Worth keeping in mind when tracing: do not assume only two signals exist.
+* **Multidrop with addressing.** `GS <addr>` selects one unit of many and `0x7F`
+  broadcasts ([../docs/serial-protocol.md](../docs/serial-protocol.md)). In 4-wire
+  multidrop the master drives one pair to every slave, and the slaves share the
+  return pair — so each slave **must** tri-state its driver when not replying.
+* **Which is what RTS is for.** The firmware asserts RTS through
+  `line_turnaround` before every reply and drops it afterwards. Wired to `DE`,
+  that is textbook shared-return direction control, and it explains why a
+  supposedly full-duplex link bothers with turnaround delays at all.
+* **Three optocouplers, three signals.** TX data, RX data and the driver enable —
+  matching the three 560 Ω and three ~1 kΩ resistors exactly.
 
-#### The line side has its own isolated supply **[L]**
+#### The resistors, re-read
 
-Daughter 1's Melcher `24 IMP 3-05-7` gives an **isolated 5 V / 500 mA**
-([pcbs.md](pcbs.md#the-dc-dc-converter)). The motherboard has its own TO-220
-regulators, so this rail is not the logic supply — it powers the far side of the
-isolation barrier, which is what a media-conversion board needs.
-
-So the transmitter **can** be active rather than a bare passive switch. But note
-what the 5 V figure costs:
-
-* **An active 20 mA current loop from this rail is implausible.** 5 V cannot drive
-  20 mA around a loop with any useful compliance. The project's own stated test —
-  *"if the isolated rail is ~24 V the ~1 kΩ resistors are loop-current setting; if
-  it is 5 V they are not"* — has been answered on the "they are not" side.
-* An isolated **5 V** feeding optocouplers and a line driver fits either a
-  **passive** current loop, powered from the far end, or an **isolated
-  differential** link. Both remain open.
-
-The ~1 kΩ resistors could still be fed from the **24 V input** rather than `VO+`,
-which would revive an active loop. Nobody has traced them.
-
-> **Retracted, then restored.** An intermediate revision of this section removed
-> the isolated-supply argument entirely, on the grounds that a 5 V output made the
-> converter the logic rail. It does not — the motherboard's regulators do that.
-> Only the *active 20 mA loop from this rail* is dead.
-
-Separately, the scope transitions no longer have an explanation: the earlier
-attribution to the unit's own status frame is retracted, because the firmware
-transmits **nothing unprompted**
-([serial-protocol.md](../docs/serial-protocol.md#the-transmitted-status-frame-c)).
-
-#### What would settle it
-
-- [ ] **Confirm `VO-` is *not* continuous with the display's 0 V / chassis**
-      (power off, continuity). It should read open. If it beeps, the isolation is
-      not where this analysis assumes it is and the reasoning needs revisiting.
-- [ ] **Confirm `VO-` is *not* continuous with the display 0 V**, and that `VO+`
-      does *not* reach the motherboard's 5 V net. Both should be open if the rail
-      is line-side only, as [psu.md](psu.md#the-logic-5-v-comes-from-the-motherboard-not-the-converter-l)
-      now assumes.
-- [x] ~~Measure the converter's output voltage.~~ **Answered by the type code:
-      5 V, 500 mA.** By the criterion stated here, the ~1 kΩ resistors are *not*
-      loop-current setting from this rail.
-- [ ] **Trace the ~1 kΩ resistors' supply end.** If they come from the 24 V input
-      rail rather than `VO+`, an active loop is still possible.
-- [ ] **Does a ~1 kΩ resistor run from `VO+` to a terminal-block screw or an
-      optocoupler pin?** This is the single measurement that closes the question:
-      an isolated rail feeding the line through a current-setting resistor *is* an
-      active current loop.
-- [ ] **Trace one ~1 kΩ resistor**: does it sit between a terminal-block screw and
-      a 6N139/optocoupler pin?
-- [ ] **Measure the ~1 kΩ resistors** with a meter to remove the band ambiguity.
-- [ ] **Identify the 4 diodes' arrangement.** A full bridge on an input pair means
-      a polarity-insensitive current-loop input, which is a strong signature.
-      Individual diodes across opto LEDs are just reverse protection.
-
-### Attempt 3: the standard, without a scope
-
-Power **off**, multimeter in **diode mode**, across each pair, both polarities:
-
-| Reading | Interpretation |
+| Resistor | Role under RS-485 |
 | --- | --- |
-| ~1.1-1.6 V one way, open the other | **20 mA current loop.** That is the 6N139's LED. Decisive. |
-| No diode behaviour; ~120 Ω, or ~12 kΩ | **RS-422/485.** 120 Ω is a termination resistor, 12 kΩ a receiver input. |
-| Open both ways | Not the receive pair — try another combination |
+| 3 x **560 Ω** | 6N139 LED drive from 5 V — about 6.5 mA, right for the part |
+| 3 x **~1 kΩ** | 6N139 output pull-ups |
 
-Supporting checks:
+> **Retracted: the 20 mA arithmetic.** This section previously argued that
+> `(24 − 1.35 V) / 1 kΩ ≈ 22 mA` made a ~1 kΩ resistor from a 24 V rail "a 20 mA
+> loop, whichever way the bands are read". The caveat it recorded — that the
+> arithmetic assumes the far end sits at 24 V — turned out to be the whole story.
+> The isolated rail is **5 V**, and the parts are transceivers. These are opto
+> drive and pull-up resistors.
 
-- [ ] Look for a **120 Ω resistor across a pair** on daughter 1. Present →
-      RS-422/485. Absent, with series resistors feeding the opto → current loop.
-- [ ] Read the **series resistor value** feeding the 6N139 input. With the supply
-      voltage it gives the intended loop current directly: ~1 kΩ from 24 V is a
-      20 mA loop.
-- [ ] Determine whether the transmit side is **passive or active** — i.e. whether
-      anything on daughter 1 supplies current to the TX pair, or whether the yellow DIP8s
-      are bare switches expecting an external supply.
+> **Retracted: "neither resistor value is a termination".** True, and no longer
+> evidence of anything. RS-485 terminates only at the **two ends of the bus**; a
+> mid-bus slave carries no 120 Ω, and a station sign is very unlikely to be an end
+> node. Its absence was never an argument against differential signalling.
 
-### Attempt 4: if the transmitter turns out to be a passive loop after all
+> **Retracted: "there is no transceiver IC", the strongest argument of the old
+> case.** There were two, unread, in the same parts list the argument was built
+> from.
 
-Then you must **supply the loop current yourself** before anything is observable:
+#### This probably explains the scope transitions **[L]**
 
-1. Power the display. It transmits its status frame continuously.
-2. Put a current-limited source across the suspected TX pair — e.g. 24 V through
-   ~1 kΩ for roughly 20 mA. Mind the polarity; a loop only conducts one way.
-3. Scope **across the series resistor**, not across the pair. That converts the
-   loop current into a voltage you can actually see. Reference the scope ground
-   to your own supply's 0 V, not to the display chassis.
-4. You should see the frame at whatever baud the port B switches select.
+The 2026-08 attempt saw "transitions with an AC component" on the DB37 pins and
+could not resolve a clean differential. Two facts now bear on it: the firmware
+transmits **nothing unprompted**, and the line is an **RS-485 pair with no
+termination and no fail-safe bias**.
 
-A current probe or a USB current-loop adapter does the same job without the
-resistor trick.
+An undriven, unterminated, unbiased differential pair floats and picks up
+whatever is around it — and there is a fluorescent ballast inside the same
+enclosure ([psu.md](psu.md)). Noise on a floating pair is precisely "transitions,
+unclean, with an AC component". **[L]**
+
+That would mean the transitions were never a signal at all, which also disposes of
+the conclusion drawn from them — that the pins carrying them must be the transmit
+side.
+
+#### What is left to measure
+
+- [ ] **Which pair is which.** Trace the two SN75176BP `A`/`B` pins (6 and 7) to
+      the terminal block. The package whose **driver** is used feeds the outbound
+      pair; the one whose **receiver** is used takes the inbound pair.
+- [ ] **Confirm 4-wire rather than two 2-wire channels** — check whether both
+      transceivers' `DE` pins are driven, or only one.
+- [ ] **Find what drives `DE`.** If it traces back through an optocoupler to the
+      8251A's RTS, the half-duplex-on-a-shared-return reading is confirmed.
+- [ ] **Check for 120 Ω** across either pair. Absent is expected for a mid-bus
+      node and means the host end must terminate.
+- [ ] **Idle differential voltage**, powered, nothing connected: near 0 V with a
+      few volts common mode is normal for an undriven RS-485 pair.
 
 ### Measurement plan
 
-Do this before powering anything up. It is pure continuity work and it unblocks
-the whole project — see [../docs/open-questions.md](../docs/open-questions.md).
+Pure continuity work, doable before powering anything up.
 
 1. **Number the pins** from the connector shell, and photograph the numbering
    alongside the wires so the mapping is unambiguous later.
 2. **Buzz out** each of the 4 wires from its DB37 pin to the daughter 1
    terminal block; record the terminal number.
-3. **Trace from the terminal block to U7** (6N139 optocoupler). The two wires
-   reaching the 6N139 anode/cathode (pins 2 and 3) are the **receive** pair.
-4. **Find the transmit driver.** Look at the three yellow DIP8 parts on
-   daughter 1: if they are optocouplers, the TX path is opto-isolated too, and
-   whichever pair they drive is the transmit pair.
-5. **Measure the idle voltage** across each pair with the unit powered and
-   nothing connected. This distinguishes the two candidates:
-   * ~0 V differential with a few volts common mode → RS-422/RS-485.
-   * A constant current (~20 mA) flowing, or a supply feeding a series
-     resistor into the loop → 20 mA current loop.
-6. Record polarity: for a current loop, note which conductor sources current.
+3. **Trace each terminal to an SN75176BP `A`/`B` pin** (pins 6 and 7). That
+   splits the four conductors into the two pairs and says which package handles
+   which.
+4. **Establish direction per package.** For each SN75176BP, follow `DI` (pin 4,
+   driver input) and `RO` (pin 1, receiver output) back through the
+   optocouplers. The package whose `DI` is driven feeds the **outbound** pair;
+   the one whose `RO` is used takes the **inbound** pair.
+5. **Follow `DE`** (pin 3) back. If it reaches the 8251A's RTS through an
+   optocoupler, the shared-return reading is confirmed.
+6. **Powered, nothing connected:** measure the idle differential across each
+   pair. Near 0 V with a few volts common mode is a normal undriven RS-485 pair.
 
-Note the series resistor values feeding the 6N139 — with the supply voltage they
-give the loop current directly, which tells you the expected drive level.
+Only after that is it worth reaching for a scope — and remember the unit
+**answers, it does not announce**, so a host has to be polling before the
+outbound pair carries anything.
 
 ## Flip-dot panel ribbon — daughter 2
 

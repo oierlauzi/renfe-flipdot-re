@@ -14,9 +14,10 @@ package so they can be identified later; see
 | U4 | M27256F1 | Mother | `0x0000-0x7FFF` | 32 KiB EPROM, labelled `TELENORMA 18 JUN 96` |
 | U5, U11 | MC14584BCP | Mother, D1 | — | Hex Schmitt trigger |
 | U6 | 7555 | Mother | — | Timer (watchdog / reset?) |
-| U7 | 6N139 | Mother | — | Optocoupler, serial RX isolation |
+| U7 | 6N139 | Mother? | — | Optocoupler; **board attribution doubtful**, see below |
 | U8-U10 | ? | Mother | ? | unidentified |
-| (5 unlabelled) | ? (DIP8) | D1 | — | 3 have yellow bodies; likely optocouplers |
+| (3 unlabelled) | 6N139 (yellow DIP8) | D1 | — | Optocouplers: the isolation barrier |
+| (2 unlabelled) | **SN75176BP** (black DIP8) | D1 | — | **RS-485/422 differential transceivers** |
 | U17-U19 | ULN2003A (U17/U18 TI, U19 ST) | D2 | — | Darlington sinks, flip-dot drive; **21 sinks** in total |
 | U20 | M81C55-5 | D2 | `0xE0-0xE5` | Flip-dot interface; same part as U2 |
 
@@ -97,14 +98,22 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
   reaches the 8085 RESET IN pin.
 
 ## U7 — High Speed Optocoupler
-- **Manufacturer:** 
-- **Part number:** HP 6N139
-- **PCB:** Mother
+- **Manufacturer:** Hewlett-Packard
+- **Part number:** 6N139
+- **PCB:** Mother — **but this now needs re-checking**
 - **Datasheet:** [https://www.vishay.com/docs/83605/6n139.pdf]
-- **Notes:** Isolates the incoming serial line. **The key clue to the physical
-  layer**: an opto-isolated receiver here means a 20 mA current loop or isolated
-  RS-422, not plain RS-232. The series resistors feeding its input give the
-  expected drive current — see [connectors.md](connectors.md).
+- **Notes:** Recorded early on as the motherboard's serial RX isolation. Two later
+  findings make the board attribution doubtful:
+
+  1. Daughter 1 has **three 6N139s of its own**, which is the complete isolation
+     barrier for three signals. A fourth would be redundant.
+  2. The board architecture puts media conversion — and therefore isolation — on
+     daughter 1, not the motherboard
+     ([pcbs.md](pcbs.md#architecture-one-function-per-board-l)).
+
+  Either `U7` is on daughter 1 and the board was misrecorded, or the motherboard
+  really does carry a fourth optocoupler doing something else. **Check which board
+  the `U7` silkscreen is actually on.**
 
 ## U8 — ?
 - **Manufacturer:** 
@@ -134,17 +143,37 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Datasheet:** [https://www.onsemi.com/download/data-sheet/pdf/mc14584b-d.pdf]
 - **Notes:** 
 
-## The five DIP8s on daughter 1 — unidentified, and **unlabelled**
-- **Manufacturer:**
-- **Part number:**
-- **PCB:** Daughter 1
-- **Datasheet:** []
-- **Notes:** Daughter 1 carries **five DIP8 packages**, of which **three have
-  yellow bodies** and are the likely optocouplers; they are the candidates for the
-  serial isolation, see [connectors.md](connectors.md).
+## The five DIP8s on daughter 1 — identified **[C]**
 
-  **They carry no reference designators on the silkscreen.** Identify them by
-  position and body colour until real markings are read.
+Read by the owner, 2026-09. They carry **no reference designators** on the
+silkscreen, so they are described by body colour and position.
+
+### Three yellow DIP8s — HP 6N139 optocouplers
+- **Manufacturer:** Hewlett-Packard / Agilent
+- **Part number:** 6N139
+- **PCB:** Daughter 1
+- **Datasheet:** [https://www.vishay.com/docs/83605/6n139.pdf]
+- **Notes:** High-speed optocouplers forming the isolation barrier between the
+  motherboard's logic and the line side. **Three** of them for three signals —
+  transmit data, receive data and the driver enable — matching the three 560 Ω
+  LED-drive resistors and three ~1 kΩ pull-ups.
+
+### Two black DIP8s — TI SN75176BP differential bus transceivers
+- **Manufacturer:** Texas Instruments
+- **Part number:** SN75176BP
+- **PCB:** Daughter 1
+- **Datasheet:** [https://www.ti.com/lit/ds/symlink/sn75176b.pdf]
+- **Notes:** **These settle the physical layer: the link is RS-485 / RS-422, not a
+  current loop.** Each package holds one driver and one receiver sharing a single
+  `A`/`B` pair, with separate `DE` and `RE` enables — so a single one is a 2-wire
+  half-duplex transceiver, and **two are what you fit for 4-wire full duplex**,
+  using the driver of one and the receiver of the other. Four conductors are
+  populated on the DB37, which fits.
+  → [connectors.md](connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)
+
+  Earlier revisions of this file recorded these five packages as unidentified and
+  built an argument on their absence: *"an RS-422 interface would use a
+  differential transceiver; none is present"*. Two were, unread, the whole time.
 
 ## U17 — 7 NPN Darlington Pairs
 - **Manufacturer:** Texas Instruments

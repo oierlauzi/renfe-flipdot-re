@@ -65,10 +65,14 @@ Three consequences worth carrying:
    Telenorma part numbers, which is a far wider search than Spanish rail sources.
 2. **Documentation should be hunted under Telenorma and Bosch Telecom too**, not
    only PAGE Ibérica — see [references.md](references.md).
-3. **It quietly supports the current-loop theory.** German time-distribution and
-   clock-bus installations of that era commonly ran on **20 mA current loops**,
-   which is independently where the component analysis on daughter 1 already
-   points ([../hardware/connectors.md](../hardware/connectors.md#what-daughter-1s-parts-imply-l)). **[L]**
+3. ~~**It quietly supports the current-loop theory.**~~ **Retracted.** The
+   argument was that German time-distribution and clock-bus installations of the
+   era commonly ran on 20 mA current loops, agreeing with the component analysis
+   on daughter 1. The components turned out to be **two SN75176BP differential
+   transceivers**: the link is RS-485/RS-422
+   ([../hardware/connectors.md](../hardware/connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)).
+   A plausible historical pattern was doing work that the parts list should have
+   been doing.
 
 The decoded protocol also reads like a *generic intelligent display terminal*
 rather than something bespoke: ASCII control codes, `GS`-based addressing,

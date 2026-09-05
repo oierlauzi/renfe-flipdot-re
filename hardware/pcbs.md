@@ -31,12 +31,12 @@ Two things this immediately settles, and one it strains:
 * **A "second channel for the LED matrix" on daughter 1 is ruled out.** That was
   offered in [connectors.md](connectors.md) to explain three signals in each
   direction. The LED panel is a display, so it belongs behind daughter 2.
-* **Strain: U7, the 6N139 optocoupler, is on the *motherboard*.** If media
-  conversion is daughter 1's job, the isolation barrier sitting on the
-  motherboard needs explaining. Either the barrier is at the motherboard and
-  daughter 1 lives on the isolated side (which is what its own isolated supply
-  would be for), or U7 does something narrower than "serial RX isolation". Worth
-  a trace.
+* **Strain: `U7`, a 6N139, is recorded as being on the *motherboard*.** Daughter 1
+  turns out to carry **three 6N139s of its own** — a complete isolation barrier
+  for three signals — so a fourth on the logic board is redundant and sits on the
+  wrong side of this model. The likeliest resolution is that the board attribution
+  was misrecorded; **check which board the `U7` silkscreen is on**
+  ([chips.md](chips.md#u7--high-speed-optocoupler)).
 
 ## Telenorma part numbers **[C] — but verify the digits against the board**
 
