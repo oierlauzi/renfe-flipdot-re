@@ -43,38 +43,36 @@ beyond the lighting:
 | Input to the electronics | **24 VDC** | **[C]** |
 | Current draw, idle | *TODO* | |
 | Current draw, flipping | *TODO* | |
-| Logic rail | 5 V, source **unresolved** — see below | **[?]** |
+| Logic rail | **5 V**, from the `24 IMP 3-05-7` module on daughter 1 | **[L]** |
 | Connector | *TODO* | |
 | Polarity | *TODO* | |
 
 A relatively large DC-DC converter module is soldered to daughter 1 (see
-[pcbs.md](pcbs.md)), marked **`Mercher 24 IMP 3-50-7`** with a **9-36 VDC** input
-range — consistent with running from the 24 V rail. The 24 V rail itself goes to
-the flip-dot coils via the ULN2003A sinks on daughter 2.
+[pcbs.md](pcbs.md)), a Melcher **`24 IMP 3-05-7`**: **10-36 V DC in, 5 V / 500 mA
+out**, isolated. The 24 V rail itself goes to the flip-dot coils via the ULN2003A
+sinks on daughter 2.
 
-### Where the logic 5 V comes from is unresolved **[?]**
+### The logic 5 V comes from the converter **[L]**
 
-This file used to say the logic "almost certainly runs from" the daughter-1
-converter. **That cannot be reconciled with what the same converter is doing for
-the serial interface**, and the conflict was sitting unnoticed across two
-documents:
+Settled by the module's own type code, `24 IMP 3-05-7`: **5 V out at 500 mA**,
+from a 10-36 V input ([pcbs.md](pcbs.md#the-dc-dc-converter)). That is a logic
+supply, and 500 mA is a comfortable budget for this board's CMOS parts — an
+MSM80C85AH, two M81C55-5s, an M82C51A-2 and a 32 KiB EPROM.
 
-* [pcbs.md](pcbs.md#the-dc-dc-converter) establishes the converter is **genuinely
-  isolated** — four nets, no shared return — so its output floats with respect to
-  the display's internal 0 V, and concludes it exists to power an isolated line
-  side.
-* An isolated floating rail **cannot be the logic supply**, because the logic
-  shares 0 V with everything else in the unit.
+It stays **[L]** rather than **[C]** only because nobody has traced `VO+` to the
+5 V net.
 
-Both cannot be true. Either the converter feeds the line side and the logic 5 V
-comes from somewhere not yet identified, or the isolation reading is wrong. The
-first is far more likely given daughter 1's role, but nothing has been measured.
-**Find the 5 V regulator** — it is not on the parts list for either daughter
-board, so look on the motherboard.
-
-The 24 V rail is also the likeliest source for the serial loop current, if the
-interface turns out to be a current loop — worth checking whether it reaches the
-daughter-1 terminal block.
+> **A contradiction, and I picked the wrong side of it.** For one revision this
+> section carried the 5 V source as **[?]**, on the grounds that
+> [pcbs.md](pcbs.md#the-dc-dc-converter) said the converter's output floats
+> against the display's 0 V and therefore powers an isolated line side — which
+> would leave the logic supply unaccounted for. I judged that the likelier of the
+> two readings and sent someone hunting for a regulator on the motherboard.
+>
+> **It was the other one.** Four converter pins prove input-to-output isolation
+> and nothing about which side the display's 0 V is on; that had been assumed.
+> This file's original claim — the logic runs from the daughter-1 converter — was
+> right all along, and the 24 V input is what floats relative to the logic.
 
 ## Safety
 

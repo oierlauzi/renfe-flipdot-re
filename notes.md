@@ -20,7 +20,7 @@ Entry template:
 
 ---
 
-## 2026-09-05 — U20 read, and the contradiction was ours all along
+## 2026-09-05 — U20 read, the ALT4 contradiction dissolves, and the converter decodes
 
 **Did:** Two hardware facts arrived from the owner. One of them closed the only
 **[!]** in the project, and not the way anyone expected.
@@ -65,28 +65,43 @@ depends on. **[C]**
 **Follow-on:** the two daughter-2 switches cannot feed U20's port C — it is all
 outputs. That TODO item needed rewriting.
 
-**2. The DC-DC converter is `Mercher 24 IMP 3-50-7`, input 9-36 VDC.**
+**2. The DC-DC converter is a Melcher `24 IMP 3-05-7`** — corrected by the owner
+from an initial reading of `3-50-7`, with the IMP series datasheet as the source.
 
-A 4:1 input range is the standard 24 V nominal spec, so it corroborates the 24 V
-rail independently of the chassis label. **[C] observed**
+The type code gives everything without powering anything. From the selection
+chart: `24` = input class **10-36 V DC**, `IMP` = series, `3` = ~3 W power class,
+`05` = **5 V output**, `7` = version — and the chart's `5 V / 500 mA` row lists
+`24 IMP 3-05-7` under the 10-36 V column exactly. **[C]**
 
-Two things fell out of it:
+That resolves three things at once, and I had guessed one of them wrong.
 
-* **A stated expectation, falsified.** TODO.md reasoned that the part number under
-  the QA sticker "should give the rated output voltage without powering
-  anything". The module states its *input* range and says nothing about its
-  output. `VO+` to `VO-` still has to be measured.
-* **A contradiction between two of our own hardware docs, previously unnoticed.**
-  `psu.md` said the logic 5 V "almost certainly" comes from this converter.
-  `pcbs.md` said the converter is genuinely isolated, four nets and no shared
-  return, so its output floats with respect to the display's internal 0 V — and
-  concluded it exists to power an isolated line side. **An isolated floating rail
-  cannot be the logic supply.** Both were written confidently; neither cited the
-  other. The logic 5 V source is now marked **[?]** and finding the regulator is a
-  TODO.
+* **The 24 V rail is corroborated** independently of the chassis label.
+* **A contradiction between two of our own hardware docs** — noticed on the first
+  reading, decided wrongly. `psu.md` said the logic 5 V comes from this
+  converter; `pcbs.md` said four nets and no shared return meant the output floats
+  against the display's 0 V and therefore powers an isolated line side. Both were
+  written confidently, neither cited the other. **I judged pcbs.md the likelier
+  and sent someone hunting for a regulator on the motherboard.** It was the other
+  way round: four pins prove input-to-output isolation and say nothing about which
+  side carries the display 0 V — that had been assumed. A 5 V / 500 mA rail is a
+  logic supply, `VO-` is the logic 0 V, and it is the 24 V input that floats.
+* **The current-loop reading loses a leg.** `connectors.md` had a stated test:
+  *"if the isolated rail is ~24 V the ~1 kΩ resistors are loop-current setting and
+  the case is nearly closed; if it is 5 V they are not."* Answered, on the "they
+  are not" side. Together with the retraction of the status-frame explanation for
+  the scope transitions, the *active* loop reading now rests on nothing, and a
+  **passive** loop powered from the far end fits the parts at least as well. What
+  survives is only that the interface is opto-isolated and not RS-422.
 
-**Next:** measure the converter output. And `0x06EC` writing PB as an *input* on
-U20 is now the only unexplained thing in the `0xE0` group.
+  One thread left: the ~1 kΩ resistors might be fed from the 24 V input rail
+  rather than `VO+`, which would keep an active loop alive. Nobody has traced them.
+
+**A note on the brand.** The silkscreen was read as "Mercher"; the type key and
+the datasheet are **Melcher**'s (Switzerland, later Power-One). Worth a second
+look at the module, though it changes nothing technical.
+
+**Next:** `0x06EC` writing PB as an *input* on U20 is now the only unexplained
+thing in the `0xE0` group.
 
 ---
 

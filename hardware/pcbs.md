@@ -57,29 +57,52 @@ Carries the screw terminal blocks that the four DB37 conductors land on, and an
 
 | Property | Value | Conf. |
 | --- | --- | --- |
-| Marking | **`Mercher 24 IMP 3-50-7`** | **[C]** observed |
+| Type | **`24 IMP 3-05-7`**, Melcher IMP series | **[C]** observed |
+| Input | **10-36 V DC** (datasheet); module printing read as 9-36 V | **[C]** |
+| Output | **5 V, 500 mA nominal** | **[C]** datasheet |
+| Isolation | **Genuine**, input to output; 1500 V DC test voltage | **[C]** |
 | Pins | `VI+`, `VI-`, `VO+`, `VO-`, each doubled into two connected through-holes | **[C]** |
-| Isolation | **Genuine** — see below | **[C]** |
-| Input voltage | **9-36 VDC**, printed on the module | **[C]** observed |
-| Output voltage | **not printed anywhere on the module** — still the highest-value measurement on the board | |
 
-A **9-36 VDC** input is the standard 4:1 wide range for a **24 V nominal**
-system, so it corroborates the 24 VDC rail recorded in
-[psu.md](psu.md#24-vdc-rail) independently of the chassis label. Whether the `24`
-in the part number also refers to that nominal is a guess. **[?]**
+The type key decodes straight off the
+[IMP series selection chart](https://datasheet.octopart.com/48IMP6-1212-7-Melcher-datasheet-180627968.pdf):
 
-> **A stated expectation, falsified.** [TODO.md](../TODO.md) reasoned that the
-> printed part number under the QA sticker "should give the rated output voltage
-> without powering anything". It does not — the module states its *input* range
-> and nothing about its output. Measuring `VO+` to `VO-` is unavoidable.
+| Field | Meaning |
+| --- | --- |
+| `24` | input voltage class — **10-36 V DC**, i.e. 24 V nominal |
+| `IMP` | the series (1-12 W DC-DC converters) |
+| `3` | power class, ~3 W |
+| `05` | **output 5 V** |
+| `7` | version |
 
-**Four nets and no shared ground is the important detail.** A non-isolated
-converter — a buck or a linear regulator — necessarily shares a common return
-between input and output, and would expose three pins, not four. Two independent
-pairs means the output is **galvanically floating with respect to the display's
-internal 0 V**. That confirms the module exists to power an isolated line side,
-which is the premise the whole current-loop reading rests on
-([connectors.md](connectors.md#what-daughter-1s-parts-imply-l)).
+The chart's `5 V / 500 mA` row lists exactly `24 IMP 3-05-7` under the 10-36 V
+input column. Manufacturer **Melcher** (Switzerland, later Power-One) — the
+silkscreen was read as "Mercher", but the type key and the datasheet are Melcher's,
+so the module is worth a second look.
+
+A 24 V nominal input corroborates the 24 V rail recorded in
+[psu.md](psu.md#24-vdc-rail) independently of the chassis label.
+
+> **Retracted: the "isolated line side" inference.** This section used to argue
+> that four nets and no shared ground meant "the output is galvanically floating
+> with respect to the display's internal 0 V", and concluded the module "exists to
+> power an isolated line side" — the premise the whole active-current-loop reading
+> rested on.
+>
+> **Four pins only establish input-to-output isolation.** They say nothing about
+> *which side* carries the display's 0 V, and that was assumed, not shown. With
+> the output now known to be **5 V at 500 mA**, the far likelier arrangement is the
+> ordinary one: `VO-` **is** the logic 0 V, and it is the 24 V input that floats
+> relative to the logic — which is exactly what you want for equipment hanging off
+> a shared station DC bus.
+>
+> A 5 V / 500 mA rail is a logic supply. It is not a plausible source of 20 mA
+> loop current at 24 V.
+
+**Four nets and no shared ground** does establish one thing: a non-isolated
+converter — a buck or a linear regulator — shares a common return between input
+and output and would expose three pins, not four. So the module is genuinely
+isolated, input to output. What it does **not** establish is which side the
+display's 0 V sits on; see the retraction above.
 
 The doubling of each pin into two through-holes is ordinary brick-converter
 practice — current capacity and mechanical anchoring. It carries no further

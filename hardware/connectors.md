@@ -133,29 +133,49 @@ Candidates: transmit data, receive data, and a third line — RTS, or a second
 channel for the LED matrix. Worth keeping in mind when tracing: do not assume
 only two signals exist.
 
-#### The DC-DC converter explains the scope transitions
+#### Retracted: the converter does not supply the line
 
-An isolated DC-DC converter on this board means **the line side has its own
-supply**. That makes the transmitter *active* rather than a bare passive switch —
-which is exactly why transitions were visible on the scope when a passive loop
-would have shown nothing. The earlier note that "the transmitter is not a bare
-passive switch" now has a mechanism.
+This section argued that the isolated converter gave "the line side its own
+supply", making the transmitter *active* rather than a passive switch, and that
+an **active-transmit, active-receive current loop** was consistent with the
+optocouplers, the missing transceiver, the ~1 kΩ resistors, the isolation and the
+scope transitions.
 
-An **active-transmit, active-receive current loop** — this end supplying its own
-loop current from an isolated rail — is consistent with everything observed so
-far: the optocouplers, the missing transceiver, the ~20 mA resistors, the
-isolation, and the visible transitions.
+**Two of those legs have since gone.**
+
+* The converter's type code is `24 IMP 3-05-7`: **5 V out at 500 mA**
+  ([pcbs.md](pcbs.md#the-dc-dc-converter)). That is the logic supply, not a
+  line-side rail, and it cannot source 20 mA at loop voltages. This project's own
+  stated test — *"if the isolated rail is ~24 V the resistors are loop-current
+  setting; if it is 5 V they are not"* — has been answered, on the "they are not"
+  side.
+* The scope transitions are no longer explained by the unit's status frame
+  either: the firmware transmits **nothing unprompted**
+  ([serial-protocol.md](../docs/serial-protocol.md#the-transmitted-status-frame-c)).
+
+What survives is weaker and worth stating plainly: daughter 1 has optocouplers, no
+differential transceiver, and series resistors on the line — so the interface is
+**opto-isolated and not RS-422**. Whether it is a current loop, and whether this
+end drives it or merely receives, is open again. A **passive** loop, powered from
+the far end, now fits the parts at least as well.
+
+The ~1 kΩ resistors may still be fed from the 24 V input rail rather than the
+converter output, which would keep an active loop alive — but nothing has traced
+them.
 
 #### What would settle it
 
 - [ ] **Confirm `VO-` is *not* continuous with the display's 0 V / chassis**
       (power off, continuity). It should read open. If it beeps, the isolation is
       not where this analysis assumes it is and the reasoning needs revisiting.
-- [ ] **Trace `VI+`/`VI-` back**: to the 24 V rail, or to the 5 V logic rail?
-      That identifies which side of the converter is the display side.
-- [ ] **Measure the DC-DC converter's output voltage** (`VO+` to `VO-`). If the
-      isolated rail is ~24 V, the ~1 kΩ resistors are loop-current setting and the
-      case is nearly closed. If it is 5 V, they are not.
+- [ ] **Confirm `VO+` reaches the 5 V logic net** and `VI+`/`VI-` the 24 V rail.
+      That confirms the ordinary arrangement now assumed in
+      [psu.md](psu.md#the-logic-5-v-comes-from-the-converter-l).
+- [x] ~~Measure the converter's output voltage.~~ **Answered by the type code:
+      5 V, 500 mA.** By the criterion stated here, the ~1 kΩ resistors are *not*
+      loop-current setting from this rail.
+- [ ] **Trace the ~1 kΩ resistors' supply end.** If they come from the 24 V input
+      rail rather than `VO+`, an active loop is still possible.
 - [ ] **Does a ~1 kΩ resistor run from `VO+` to a terminal-block screw or an
       optocoupler pin?** This is the single measurement that closes the question:
       an isolated rail feeding the line through a current-setting resistor *is* an

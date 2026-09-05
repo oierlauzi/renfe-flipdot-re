@@ -128,26 +128,26 @@ third is a safety precondition.
       with no shared ground — a buck or linear regulator would expose three pins.
       The doubled through-holes per pin are just current capacity and anchoring.
       → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
-- [x] **Converter part number read: `Mercher 24 IMP 3-50-7`, input 9-36 VDC**
-      (owner, 2026-09). The 4:1 input range corroborates the 24 V rail. **The
-      module does not state its output voltage anywhere**, so the expectation
-      recorded here — that the part number would give it without powering
-      anything — is falsified. → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
+- [x] **Converter identified: `24 IMP 3-05-7`, Melcher IMP series** (owner,
+      2026-09). The type code gives everything without powering anything:
+      **10-36 V DC in, 5 V / 500 mA out**, isolated. So the 24 V rail is
+      corroborated, and **the logic 5 V comes from this module** — it is not a
+      line-side supply. → [hardware/pcbs.md](hardware/pcbs.md#the-dc-dc-converter)
 - [ ] **Photograph the converter's QA sticker legibly, then remove it.** It looks
       handwritten, something like `30-01-9?` / `OK`, which would be the **only date
       evidence on the board** — the chassis plate has a serial but no date. Once
       peeled it is gone.
       - Result — sticker text:
-- [ ] **Find the logic 5 V regulator.** psu.md assumed the daughter-1 converter
-      supplied it; that conflicts with the same converter's output being
-      galvanically isolated from the display 0 V. Neither daughter board's parts
-      list has another regulator, so look on the motherboard.
-      → [hardware/psu.md](hardware/psu.md#where-the-logic-5-v-comes-from-is-unresolved-)
-      - Result:
-- [ ] **Measure the DC-DC converter's output voltage** (`VO+` to `VO-`). Highest-
-      value single measurement on the board. ~24 V makes the ~1 kΩ resistors
-      loop-current setting (~20 mA) and nearly closes the case for a current loop;
-      5 V means they are ordinary opto drive and prove nothing.
+- [x] ~~Find the logic 5 V regulator.~~ **There is no missing regulator.** This
+      item existed because pcbs.md inferred the converter's output floats against
+      the display 0 V; four pins only prove input-to-output isolation, and with a
+      5 V / 500 mA output the ordinary reading holds — `VO-` is the logic 0 V.
+      → [hardware/psu.md](hardware/psu.md#the-logic-5-v-comes-from-the-converter-l)
+- [x] ~~Measure the DC-DC converter's output voltage.~~ **Answered by the type
+      code: 5 V, 500 mA.** By the criterion recorded here, the ~1 kΩ resistors are
+      ordinary opto drive from this rail and prove nothing about a current loop.
+- [ ] **Trace the ~1 kΩ resistors' supply end** — `VO+`, or the 24 V input rail?
+      Only the second keeps an *active* current loop alive.
       - Result:
 - [ ] **Confirm `VO-` is not continuous with the display's 0 V / chassis.** Should
       read open. If it beeps, the isolation is not where this analysis assumes.

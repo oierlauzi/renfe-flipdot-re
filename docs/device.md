@@ -22,7 +22,7 @@ date — and it dates the *firmware*, which is the date that matters most here.
 | Evidence | Reading |
 | --- | --- |
 | EPROM label | `TELENORMA 18 JUN 96` → **18 June 1996** |
-| DC-DC converter | `970593-960119980401` on the PCB; the module itself reads `Mercher 24 IMP 3-50-7`. The `9601` may be a 1996 date code **[?]** |
+| DC-DC converter | `970593-960119980401` on the PCB; the module is a Melcher `24 IMP 3-05-7`. The `9601` may be a 1996 date code **[?]** |
 | Converter QA sticker | handwritten, `30-01-9?` **[?]** |
 | Chassis plate serial | `985412?`, no date |
 
