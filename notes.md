@@ -20,167 +20,79 @@ Entry template:
 
 ---
 
-## 2026-09-06 — The module-address mechanism: a shared carrier board, 6 switches
+## 2026-09-06 — It works. Text on the real panel, over the real link
 
-**Did:** the owner disassembled one character module. This settles the question
-that flipdot-interface.md had left as **[?]** since the one-hot correction:
-*how does an individual module know its own address on the encoded 64-position
-bus?*
+**The goal of the project is met.** `HOLA MUNDO` is on the flip-dot line, put
+there over the original DB37 link with no hardware modification, from
+`tools/bringup.py` through a DSD TECH SH-U11.
 
-**Found:** modules do not mount individually. **Each pair of character modules
-shares a flip-dot carrier board**, which also carries the ribbon bus
-connector — so this unit's 16-character line is built from 8 such carriers, not
-16 standalone modules. Photographed:
-[hardware/photos/Flip-dot carrier.jpg](hardware/photos/Flip-dot%20carrier.jpg),
-[hardware/photos/Flip-dot daughter (front).jpg](hardware/photos/Flip-dot%20daughter%20%28front%29.jpg),
-[hardware/photos/Flip-dot daughter (back).jpg](hardware/photos/Flip-dot%20daughter%20%28back%29.jpg).
+```
+[quiet]   silent. Correct -- the unit replies, it never announces.
+[address] address 1 (GS byte 0x31) answers
+[demo]    version : AK0052.139U1        cursor: row 0, col 0        status: 0x00
+          writing 'HOLA MUNDO'  -> ACK
+          read back: 'HOLA MUNDO' -- MATCHES
+```
 
-The carrier has **6 address-setting switches**, DIP-style but each a wire
-hooked across two pins — same implementation as every other switch in this
-project. Six lines up exactly with the firmware's 6-bit module address
-(`0x00-0x3F`) and with the "~6-7 conductors" already estimated for it from the
-ROM alone — a hardware count and a firmware-derived estimate converging
-independently.
+**The unit's configuration: 1200 baud, 7E1, address 1.** Found by sweep, not by
+reading switches.
 
-Reading the carrier photo: silkscreen `37624.0 DV2 A.1` / `S7D5-2` plus a
-**Telenorma logo** (extends Telenorma's reach from the enclosure boards to the
-panel itself). Legible chips: `CD4015BE` (dual 4-bit shift register) x6,
-`CD4503BE` (hex 3-state buffer) x1, `CD4068BE` (8-input NAND) x1, `HEF4077BP`
-(quad EXNOR) x2 — an EXNOR/AND pair is the classic shape of an address
-comparator, and shift registers fit turning the serial bit stream into
-parallel drive, but none of this is traced, only read off the photo.
+**Three predictions from months of static analysis held up on contact:**
 
-The back of an individual module turned out to be its own small finding: 35
-diodes silkscreened `D11`-`D75` against row/column nets `X1Y1`-`X7Y5` — a plain
-5x7 diode matrix, matching the glyph cell exactly. So the module has no logic
-of its own; the carrier board must be what turns the incoming serial frame
-into row/column drive.
+* **The `quiet` stage found silence.** The firmware really does transmit nothing
+  unprompted — the retraction of the "transmits continuously" claim, made from
+  emulation, is now confirmed on hardware.
+* **`SUB` was the right bring-up command.** No prior state, works under broadcast,
+  known answer. It identified the line settings on the first sweep.
+* **The wiring derived from the strapping was right first time.** Green/yellow to
+  the display's receive pair, blue/red to its transmit; no pair swap needed.
 
-**What is still open, stated as the owner did:** with 6 switches shared by two
-modules, an even split would need 3 switches per module (8 addresses each,
-16 total) — too few for the 64-position field the firmware actually uses. The
-alternative that does reach 64 is a **base address plus a fixed per-socket
-offset**, using all 6 switch bits as a pair-base. That is a guess, offered
-explicitly as one — nothing has been traced to confirm it, and it may be a more
-exotic scheme entirely.
+**Two bugs found, both mine, both in the reply path:**
 
-**Terminology note.** The owner's first description called this board a
-"motherboard" and the two modules its "daughters" — both already taken in this
-project (the *motherboard* is the main control PCB; *daughter 1*/*daughter 2*
-are the two boards behind it). Agreed on **"flip-dot carrier board"** instead,
-to keep every existing cross-reference unambiguous. Updated
-[docs/flipdot-interface.md](docs/flipdot-interface.md#the-flip-dot-carrier-board-c-observed)
-and [hardware/connectors.md](hardware/connectors.md), the latter of which had
-never been updated after the earlier one-hot → encoded-address correction and
-was still saying "16 select lines, none has address switches" — directly
-contradicting the rest of the project. Fixed in the same pass.
+1. **`read_reply` counted bytes.** Reply lengths are not fixed — the SYN preamble
+   is build-configurable — so reading exactly *n* left the remainder in the OS
+   buffer and every later read was one reply behind. It showed as `TAB` returning
+   `16 16` (the previous reply's trailing SYNs, decoded as row/col −26) and `BS`
+   returning `41 4b` — `"AK"`, the start of the version string. Replaced with
+   drain-to-idle: the unit sends a reply as one burst, so any gap longer than a
+   few character times means it is done.
+2. **The address sweep never deselected.** A selected unit answers everything, so
+   the first address tried appeared to work. It reported **15**; the real address
+   is **1**. Now sends `RS` before each attempt.
 
-**Concluded:** the carrier board and its 6 switches are the address-decode
-mechanism, matching the firmware's addressing scheme on switch count alone.
-**[C]** The two-modules-per-carrier split is unresolved. **[?]**
+**A false alarm worth recording.** `STX HOLA MUNDO ETX` came back `15 31 30` —
+NAK, address `'1'`, error `0x30` "buffer overflow" — for a ten-byte message into a
+64-byte buffer. I checked whether `msg_error` was sticky: it is not, every reply
+path at `0x0F8C` clears it. Then swept message lengths 1 to 64 and **every one
+ACKed**, including exactly 64. So the NAK was real but not reproducible — the unit
+had been left mid-command by earlier probing, and the `STX` was almost certainly
+eaten as a pending parameter byte, appending the text at a stale write pointer.
+**Lesson: send `RS` first and start from a known state.**
 
-**Next:** trace which switch line(s) differ between a carrier's two module
-sockets — that is the one test that would confirm or kill the base+offset
-guess.
+**A documentation correction, from the same length sweep.** `TAB` does not reply
+with "two ASCII digits". It replies `0x30 + row`, `0x30 + column` — which only
+*looks* like digits below 10. Walking the cursor showed 10 → `':'`, 16 → `'@'`,
+32 → `'P'`, 63 → `'o'`, and 64 wrapping to row 1 column 0. The driver's arithmetic
+was right; the prose was wrong.
 
----
+**And the switch analysis does not survive contact. [!]** The recorded switch
+positions predicted address 26 at 4800 8N1, or address 5 at 2400 7E1, depending on
+the unresolved sense. The truth is **address 1 at 1200 7E1** — neither. Working
+back through the ROM's decode tables, port B must read `0101 110x` and port A bits
+4:0 `00001`. Two near-misses are worth chasing: bank B' as transcribed with
+closed = 1 gets **every format bit right** and misses only bit 5 of the baud
+field, and bank A' read in the *opposite* direction gives address 1 exactly. That
+the two banks would need opposite bit orders is not absurd if they are physically
+mirrored, but one sample cannot establish it. **The switches should be re-read now
+that there is a known answer to check them against.**
 
-## 2026-09-05 — U9 and U10 are glue logic, and U9 explains the whole I/O map
+**Also confirmed in passing:** `cfg_addr_mode` reads back `0x7F` rather than
+`0xFF` — the 7-bit link truncating bit 7. Replies are only 7-bit clean for ASCII,
+which is exactly why the ROM carries `ñ`/`Ñ` duplicated at `0x24`/`0x25`.
 
-**Owner read them: `U10` is a CD74HC373E, `U9` a CD74HC138E.**
-
-**My `AM26LS31`/`AM26LS32` guess is dead.** It was made from the DIP16 package
-plus the `RP RN TP TN` block, marked **[?]**, and killed by one reading — which is
-what the mark is for. Both parts are ordinary glue.
-
-**`U10` is the 8085 address latch**, and this one is required rather than merely
-consistent: the CPU multiplexes the low address byte onto `AD0-AD7`, the 81C55s
-latch internally, but the **M27256 EPROM cannot** — its `A0-A7` has to come from a
-'373 strobed by `ALE`, with `A8-A14` straight off the CPU. Textbook.
-
-**`U9` is the chip-select decoder the docs have been calling "the unidentified
-decoder" for months**, and it accounts for the entire I/O map. Decoding **A6:A4
-with A7 as an enable** gives eight 16-port blocks:
-
-| Output | Block | Device |
-| --- | --- | --- |
-| `Y0` | `0x80-0x8F` | USART |
-| `Y2` | `0xA0-0xAF` | U2 81C55 |
-| `Y4` | `0xC0-0xCF` | clock board |
-| `Y5` | `0xD0-0xDF` | `hw_status_in` |
-| `Y6` | `0xE0-0xEF` | display group, `0xE7`, second group |
-
-`Y1`, `Y3` and `Y7` unused. Two checks against the ROM rather than against
-plausibility:
-
-* **All 31 ports the firmware touches land in exactly one block**, with no block
-  holding two unrelated devices.
-* **Nothing below `0x80` is ever touched** — swept across the whole image. That is
-  what tying `A7` to an enable forces, and would otherwise be a coincidence.
-
-And the obvious alternative decode is ruled out: `A7:A5` as the select inputs
-would put `0xC0-0xCF` and `0xD0-0xDF` on the same output, and the clock board and
-`hw_status_in` demonstrably need separate selects. **[L]** overall — the pins are
-not traced, and what feeds the '138's other two enables is inference.
-
-**Consequence for `RP RN TP TN`:** with U9 and U10 out of the running, **nothing
-identified on the motherboard can drive a differential pair**. `U8`, the last
-unidentified part on the board, now decides it — either it is a transceiver and
-the motherboard has its own line interface (which would also give `U7` a job), or
-the block is simply **daughter 1's four line conductors brought to a terminal
-block**, parallel to the DB37.
-
-The second is more economical, and would be quietly useful: the block is
-**labelled by direction**, `RP`/`RN` receive and `TP`/`TN` transmit, which is
-precisely the mapping the DB37 lacks.
-
----
-
-## 2026-09-05 — An `RP RN TP TN` block on the motherboard, and it may explain U7
-
-**Owner found a four-way terminal block on the motherboard**, unconnected in this
-unit, labelled `RP RN TP TN`.
-
-**Those are differential pair names — receive/transmit, positive/negative — not a
-USART.** A raw 8251A header would be `TxD`/`RxD` and single-ended. So this is
-most likely a **second RS-422 port**, at line level.
-
-Two things fall out, and one of them closes an anomaly I flagged and could not
-explain:
-
-* **`U7`.** A 6N139 optocoupler recorded on the *motherboard* made no sense once
-  daughter 1 turned out to carry three of its own, and sat wrong with the board
-  architecture. **A differential port on the motherboard gives U7 a job**:
-  isolating that interface.
-* **`U9` is now worth reading before anything else.** It is an unidentified
-  **DIP16**, and `AM26LS31` (quad differential driver) and `AM26LS32` (quad
-  differential receiver) — the era's standard RS-422 pair — are both DIP16. That
-  is a guess from package size, **[?]**, but it is cheap to settle and would
-  confirm the whole reading.
-
-**What the block is remains open**, three ways: daughter 1's pairs brought to the
-motherboard as an alternative connection point; an independent interface used when
-daughter 1 is not fitted; or a downstream bus to slave signs. The last is hard to
-reconcile with there being only one USART. All three are settled by continuity
-with the power off, and that trace is now the first item on the list.
-
-**Also answered: what can be tested before the SH-U11 arrives.**
-
-* **The RS-232 adapter must not touch these pins.** RS-232 idles at −5 to −12 V
-  *continuously*, and a differential receiver's inputs are specified for about
-  −7 V to +12 V common mode. It might survive; there is no reason to find out.
-* **The scope is useful now** — DC across `TP`-`TN` says whether the driver is
-  enabled and idling or tri-stated, and each pin to 0 V gives the common-mode
-  point and the per-leg swing.
-* **The FTDI TTL adapter can drive a differential receiver**, with the standard
-  single-ended trick: TTL into one leg, the other biased to mid-rail through a
-  10k/10k divider, giving about ±2.5 V differential — far above the ±200 mV
-  threshold. The return leg of a 5 V driver is already a TTL-compatible swing, so
-  it can go straight to the FTDI's RX. Caveats recorded: set `VCCIO` to 5 V, and
-  note that this bypasses the isolation, so check what the ground node connects to
-  before committing.
-
-Written up in `connectors.md` with the wiring sketch.
+**Next:** the panel is 16 characters and the buffer is 64, so a 64-character
+message is the natural test of where the flip-dot line stops answering — the open
+question from the LED-panel argument.
 
 ---
 

@@ -271,7 +271,13 @@ class PIT100:
         return {"version": version, "config": raw[12:], "raw": raw}
 
     def cursor(self):
-        """TAB - reply is two ASCII digits, row then column."""
+        """TAB - reply is (0x30 + row, 0x30 + column). Returns (row, col).
+
+        **Not two ASCII digits**, though it looks like them for columns 0-9. The
+        firmware adds 0x30 to the raw value, so column 10 comes back as ':' and
+        column 63 as 'o'. Confirmed on hardware by walking the cursor: 16 -> '@',
+        32 -> 'P', 63 -> 'o', and 64 wraps to row 1 column 0.
+        """
         self.t.write(bytes((TAB,)))
         raw = self.t.read_reply(2)
         if len(raw) < 2:
@@ -391,6 +397,9 @@ class SimTransport:
         self.m.tx_bytes.clear()
         return raw
 
+    def flush_input(self):
+        self.m.tx_bytes.clear()
+
     def settle(self, seconds=3.0):
         """Give the render pass time to finish.
 
@@ -413,8 +422,12 @@ class SerialTransport:
 
     def __init__(self, port, baud=1200, bits=7, parity="E", timeout=1.0):
         import serial                                    # pyserial
+        self.timeout = timeout
+        self.bits = bits
+        # One character time on the wire: start + data + parity + stop.
+        self.char_time = (1 + bits + (0 if parity == "N" else 1) + 1) / baud
         self.s = serial.Serial(
-            port, baud, timeout=timeout,
+            port, baud, timeout=0.02,          # short: read_reply owns the timing
             bytesize=serial.SEVENBITS if bits == 7 else serial.EIGHTBITS,
             parity={"E": serial.PARITY_EVEN, "O": serial.PARITY_ODD,
                     "N": serial.PARITY_NONE}[parity],
@@ -428,19 +441,36 @@ class SerialTransport:
         """Wait for the panel to finish repainting. Dots are mechanical."""
         time.sleep(seconds)
 
-    def read_reply(self, n, settle=0.05):
-        time.sleep(0.01)                     # the firmware's turnaround delay
+    def read_reply(self, n=0, idle=None):
+        """Read until the line goes quiet, rather than counting bytes.
+
+        Counting was a bug. Reply lengths are not fixed -- the SYN preamble is
+        build-configurable (ROM 0x008A bit 1) and the error tail is conditional --
+        so a read for exactly `n` bytes leaves the remainder in the OS buffer, and
+        every later read is then one reply behind. On real hardware that showed up
+        as `TAB` returning the previous reply's trailing SYNs and `BS` returning
+        the first two bytes of the version string.
+
+        Draining to an idle gap is immune to that: the unit sends a reply as one
+        burst, so any silence longer than a few character times means it is done.
+        """
+        if idle is None:
+            idle = max(0.03, 4 * self.char_time)
         raw = bytearray()
-        deadline = time.time() + self.s.timeout
+        deadline = time.time() + self.timeout
+        last = None
         while time.time() < deadline:
-            chunk = self.s.read(max(1, n))
+            chunk = self.s.read(256)
             if chunk:
                 raw += chunk
-                if len(strip_status_frames(bytes(raw))) >= n:
-                    break
-            else:
+                last = time.time()
+            elif last is not None and time.time() - last >= idle:
                 break
         return strip_status_frames(bytes(raw))
+
+    def flush_input(self):
+        """Drop anything still buffered, so a command starts from a clean line."""
+        self.s.reset_input_buffer()
 
 
 def main():

@@ -9,6 +9,52 @@ are the three DIP switch banks visible in
 
 Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 
+## Measured configuration **[C] — from the unit itself, 2026-09-06**
+
+The link is up, and the unit's actual configuration is now known **by observation
+rather than by reading switches**:
+
+| Property | Value |
+| --- | --- |
+| Line rate | **1200 baud** |
+| Format | **7 data bits, even parity, 1 stop** |
+| Display address | **1** |
+| Protocol | handler B, the ASCII command set — so port C bit 5 is set |
+
+Working backwards through the decode tables below, that pins the two switch ports
+exactly:
+
+| Port | Required value | From |
+| --- | --- | --- |
+| **A** bits 4:0 | `0 0001` | address 1, seen in the `NAK`/`ACK` address byte `0x31` |
+| **B** bits 7:5 | `010` | 1200 baud is timer preload `0x40A0`, count 160 |
+| **B** bit 4 | `1` | 7 data bits |
+| **B** bits 3:2 | `11` | even parity |
+| **B** bit 1 | `0` | 1 stop bit |
+
+So **port B reads `0101 110x`** and **port A bits 4:0 read `00001`**.
+
+### This does not match the recorded switch positions **[!]**
+
+Neither polarity of the unresolved switch sense produces it. The predictions were
+address 26 at 4800 8N1 (closed = 0) or address 5 at 2400 7E1 (closed = 1); the
+truth is **address 1 at 1200 7E1**.
+
+Two near-misses are worth chasing, because each is a single bit or a single
+convention away:
+
+* **Bank B' as transcribed, with closed = 1**, gives `7E1` correctly — every
+  format bit right — but **2400 instead of 1200**. That is bit 5 alone.
+* **Bank A' read in the opposite direction**, with closed = 1, gives
+  `1 0 1 0 0 0 0 1` → bits 4:0 = `00001` = **address 1 exactly**.
+
+That the two banks would need opposite bit orders is not obviously absurd — they
+could be physically mirrored — but one sample is not enough to conclude it. **The
+switch positions should be re-read against the board with the unit powered**, now
+that there is a known answer to check them against. Until then the tables below
+describe the *decode*, which is read from the ROM and sound, rather than the
+*mapping* from physical switch to port bit, which is not.
+
 ## Port B bits 7:5 — line rate **[C]**
 
 At `0x0474` the firmware reads port B, masks `0xE0` and selects an 81C55 timer

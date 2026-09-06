@@ -228,7 +228,7 @@ can consume following bytes as parameters.
 | `0x06` | ACK | `0x1057` | |
 | `0x07` | BEL | `0x10C8` | |
 | `0x08` | BS | `0x10E1` | **status query** — replies `BS <status>`, and reading clears it |
-| `0x09` | TAB | `0x0DF5` | |
+| `0x09` | TAB | `0x0DF5` | reply is `0x30+row`, `0x30+col` — not decimal digits |
 | `0x0A` | LF | `0x0D31` | |
 | `0x0B` | VT | `0x0CA7` | |
 | `0x0C` | FF | `0x0FE9` | |
@@ -452,7 +452,7 @@ in a ROM-defined prefix and suffix (pointers `0x00D2-0x00D5` and
 | Code | | Reply |
 | --- | --- | --- |
 | `0x1A` SUB | **identify** — 45 bytes starting at ROM `0x0064`: the version string followed by the whole configuration block |
-| `0x09` TAB | **report cursor** — two ASCII digits, `row+0x30` then `col+0x30` |
+| `0x09` TAB | **report cursor** — `row+0x30` then `col+0x30`. Looks like two ASCII digits but is not: column 10 comes back `':'`, 63 comes back `'o'`. Confirmed on hardware |
 | `0x0E` SO | **read character at cursor** — one byte from the buffer |
 | `0x0F` SI | **read back what is displayed** — see below |
 | `0x08` BS | **status** — `BS` then one status byte, see below |

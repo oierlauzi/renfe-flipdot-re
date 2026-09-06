@@ -88,6 +88,24 @@ and [tools/extract_font.py](tools/extract_font.py) (`--png`) to regenerate it.
 
 The working queue is [docs/open-questions.md](docs/open-questions.md).
 
+## Status: the goal is met **[C]**
+
+**2026-09-06 — arbitrary text is on a real panel, over the original link, with no
+hardware modification.** A DSD TECH SH-U11 USB-RS-422 adapter, wired
+green/yellow to the display's receive pair and blue/red to its transmit pair,
+running `tools/bringup.py`:
+
+```
+[quiet]   silent. Correct -- the unit replies, it never announces.
+[address] address 1 (GS byte 0x31) answers
+[demo]    version : AK0052.139U1
+          cursor  : row 0, col 0
+          writing 'HOLA MUNDO'  -> ACK
+          read back: 'HOLA MUNDO' -- MATCHES
+```
+
+The unit runs at **1200 baud, 7 data bits, even parity, 1 stop, address 1**.
+
 ## Key findings so far
 
 * The external link is **opto-isolated RS-485 / RS-422** — two TI SN75176BP

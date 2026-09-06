@@ -198,10 +198,19 @@ def stage_line(port, verbose=False):
 
 # --------------------------------------------------------------------- stage 4
 def stage_address(dev, verbose=False):
-    """Find the unit's own address by trying each in turn without broadcasting."""
-    print("[address] sweeping GS 0-31 (broadcast already works)")
+    """Find the unit's own address by trying each in turn without broadcasting.
+
+    **Deselect before every attempt.** A selected unit answers everything, so
+    without the RS the first address tried appears to work -- and if a broadcast
+    ran earlier, every address does. That bug reported address 15 on real
+    hardware when the true address was 1.
+    """
+    print("[address] sweeping GS 0-31, deselecting before each")
     for addr in range(32):
         d = PIT100(dev, addr)
+        d.deselect()                  # RS: drop any existing selection
+        if hasattr(dev, "flush_input"):
+            dev.flush_input()
         d.select()
         try:
             info = d.identify()
