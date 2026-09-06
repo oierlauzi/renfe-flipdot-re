@@ -162,13 +162,17 @@ class PIT100:
         self.t.write(bytes((DLE,)))
 
     # ---------------------------------------------------------------- writing
-    def message(self, text, expect_reply=True):
+    def message(self, text, expect_reply=True, fold=False, seven_bit=False):
         """STX <text> ETX. Returns (ok, error) once the unit answers.
 
         The ACK means "stored", not "displayed" -- nothing is painted until the
         unit is deselected. Use show(), or call deselect() yourself.
+
+        `fold` drops the accents CP437 lacks on uppercase vowels; `seven_bit`
+        maps n-tilde and N-tilde onto their 0x24/0x25 duplicates. Both matter on
+        this unit, which runs a 7-bit link and displays Spanish place names.
         """
-        payload = encode(text)
+        payload = encode(text, fold=fold, seven_bit=seven_bit)
         if len(payload) > BUFFER_COLS:
             raise ValueError(
                 f"{len(payload)} bytes exceeds the {BUFFER_COLS}-byte buffer; "
@@ -339,7 +343,7 @@ class PIT100:
         raise ProtocolError(f"expected ACK or NAK, got {raw.hex(' ')}")
 
     # -------------------------------------------------------------- convenience
-    def show(self, text):
+    def show(self, text, fold=False, seven_bit=False):
         """Select, clear, write one line, confirm, then deselect. The everyday
         operation.
 
@@ -350,7 +354,7 @@ class PIT100:
         """
         self.select()
         self.clear()
-        ok, err = self.message(text)
+        ok, err = self.message(text, fold=fold, seven_bit=seven_bit)
         self.deselect()
         return ok, err
 

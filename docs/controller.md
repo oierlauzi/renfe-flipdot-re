@@ -334,6 +334,38 @@ state, works under broadcast addressing, and returns a string known in advance.
 the script is debugged before the adapter arrives. It takes about 25 seconds,
 most of it emulating the panel repaint.
 
+## Everyday use: `tools/say.py`
+
+Once the link is up, this is the whole interface:
+
+```sh
+tools/say.py                      # type lines; each one appears on the panel
+tools/say.py CHAMARTIN            # one line and exit
+echo ATOCHA | tools/say.py        # or from a pipe
+tools/say.py --fill               # every dot on
+tools/say.py --clear              # every dot off
+tools/say.py --cycle 3            # fill/clear three times, to find stuck dots
+tools/say.py --identify           # version and config, as a health check
+```
+
+Defaults are this unit's measured configuration — `/dev/ttyUSB0`, 1200 7E1,
+address 1 — overridable with `--port/--baud/--bits/--parity/--address`, or
+`--sim` to drive the emulator.
+
+It does two things automatically that are easy to get wrong by hand:
+
+* **Deselects before it starts.** A unit left mid-command by an earlier session
+  eats the next byte as a parameter, and the text then lands at a stale write
+  pointer — which surfaces as a spurious `buffer overflow` NAK for a short
+  message. Costs nothing to avoid.
+* **Deselects after every line.** The repaint task is held off while a unit is
+  selected, so text that is written and ACKed stays invisible until `RS`.
+
+It also folds accents CP437 lacks on uppercase vowels, maps `ñ`/`Ñ` onto the
+`0x24`/`0x25` duplicates the 7-bit link needs, refuses text longer than the
+64-byte buffer, and says so when only the first 16 characters will reach the
+flip-dot line.
+
 ## Plan B: drive the panel directly
 
 Worth knowing this exists, because it sidesteps the unresolved physical layer
