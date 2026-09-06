@@ -11,6 +11,7 @@ Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
 | | |
 | --- | --- |
 | **Topology** | 16 independent character modules on a shared 26-conductor bus, not daisy-chained **[C]** |
+| **Module carrier** | modules mount in pairs on a flip-dot carrier board (8 boards, 16 modules), each with 6 address-setting switches **[C]** |
 | **Addressing** | encoded binary position `0x00-0x3F` on port B, active low, `0x80` = idle **[C]** |
 | **Data path** | serial shift register: port C bit 4 clock, bit 5 data (active low) **[C]** |
 | **Frame** | 74 bits per character: 37 idle, 1 marker, 35 glyph, 1 trailing **[C]** |
@@ -149,16 +150,16 @@ From inspecting the panel (owner, 2026-08):
 
 * **Each character is an independent module** — sixteen of them. A single large
   matrix was never an option.
-* The modules hang off a **common bus**, the ribbon. They are **not daisy-chained**:
-  the ribbon passes across them without being interrupted and re-emitted per
-  module.
-* **No address-setting switches or links are visible on the rear of the
-  modules** — the only side inspected so far (the front needs extensive
-  disassembly). Whether the modules carry addressing configuration elsewhere is
-  still open — see below.
-* The ribbon **exits the unit** after passing all sixteen characters, and was
-  spliced to remove the display. It almost certainly continued to the **second
-  LED panel**.
+* **Modules mount in pairs on a shared flip-dot carrier board.** Eight carrier
+  boards make up this unit's 16-character line. Each carrier holds the ribbon
+  bus connector and the pair's address-setting switches — see
+  [below](#the-flip-dot-carrier-board-c-observed).
+* The carriers hang off a **common bus**, the ribbon. They are **not
+  daisy-chained**: it passes across them without being interrupted and
+  re-emitted per board.
+* The ribbon **exits the unit** after the last carrier, and was spliced to
+  remove the display. It almost certainly continued to the **second LED
+  panel**.
 
 ### The module address is encoded across 64 positions, not one-hot **[C]**
 
@@ -194,13 +195,53 @@ fall into place:
   scrolls, so it needs a share of the same bus. A 64-position encoded address
   serves both displays from one ribbon; 16 dedicated selects could not.
 
-### Consequence: the modules must decode their own address
+### The flip-dot carrier board **[C] observed**
 
-If the address is encoded and broadcast, each module has to know which position it
-is. That requires per-module configuration — switches, straps, or a wired-in code.
-**Only the rear of the modules has been inspected**, so whether that
-configuration is visible externally is open; the front faces are worth looking at
-specifically. **[?]**
+Resolved by disassembling one character module (owner, 2026-09):
+[modules do not mount individually — each pair shares a **flip-dot carrier
+board**](../hardware/photos/Flip-dot%20carrier.jpg), which also carries the
+ribbon bus connector. This unit's 16-character line is built from **8 carrier
+boards**.
+
+The carrier has **6 address-setting switches** — DIP-style layout, each
+implemented as a wire hooked across two pins, the same style used for every
+other switch in this project (see [dip-switches.md](dip-switches.md)). Six is
+not a coincidental count: it matches the firmware's 6-bit module-address field
+(`0x00-0x3F`, established above) exactly, and it lands inside the "~6-7
+conductors" already estimated for the encoded address below — a measured
+switch count now agreeing with an estimate reached from the ROM alone.
+
+**How the two modules on one carrier get distinct addresses from a single
+6-switch setting is not established.** The owner's working guess: the switches
+set a base value, and the two module sockets are wired to a fixed offset (say
+`+0`/`+1`), so one carrier answers to a *pair* of adjacent addresses and the 6
+bits still span the full 64-position range the firmware addresses, rather than
+64 independent per-module codes. Recorded as a guess because it is one —
+nothing has been traced to confirm it, and the split could turn out to be
+something else entirely. **[?]**
+
+The carrier's silkscreen reads `37624.0 DV2 A.1` / `S7D5-2` and carries the
+**Telenorma logo** — read off the photo, so check against the board before
+quoting it elsewhere. It extends Telenorma's design past the boards inside the
+enclosure and onto the panel itself, alongside the motherboard logo already
+recorded in
+[device.md](device.md#dating-and-the-telenorma-connection-c-for-the-label).
+
+Legible on the carrier, but not traced to a function: **CD4015BE** (dual 4-bit
+static shift register) x6, **CD4503BE** (hex non-inverting buffer, 3-state)
+x1, **CD4068BE** (8-input NAND gate) x1, **HEF4077BP** (quad EXCLUSIVE-NOR
+gate) x2. An XNOR-then-AND combination is the textbook shape of an address
+comparator, and shift registers are what turning a serial bit stream into
+parallel drive needs — a plausible reading of the parts list, not a confirmed
+one. **[?]**
+
+**The character module itself is a diode matrix, not a local shift
+register.** [The back of a module](../hardware/photos/Flip-dot%20daughter%20%28back%29.jpg)
+shows 35 diodes silkscreened `D11`-`D75` wired against row/column nets
+labelled `X1Y1`-`X7Y5` — a plain 5-column x 7-row matrix, matching the glyph
+cell size exactly. That places the serial-to-parallel conversion on the
+carrier board: the module itself has no logic of its own to decode a bit
+stream. **[L]**
 
 ### What that forces
 
@@ -221,7 +262,7 @@ Revised allocation, given that the address is encoded rather than one-hot:
 
 | Conductors | Function | Conf. |
 | --- | --- | --- |
-| ~6-7 | **encoded module address** (port B) | **[L]** |
+| 6 | **encoded module address** (port B) — matches the carrier board's 6 address switches | **[L]** |
 | 1 | shift clock — port C bit 4 | **[C]** |
 | 1 | serial data — port C bit 5 | **[C]** |
 | 1-2 | strobe / control — port B bit 7, port C bits 1:0 | **[L]** |

@@ -22,6 +22,9 @@ Physical description of the unit. Behaviour and register-level detail live in
 | [ROM_chip.jpg](photos/ROM_chip.jpg) | U4, the M27256 EPROM |
 | [sticker.jpg](photos/sticker.jpg) | Chassis label — model, serial, "MAESTRA" |
 | [switches1.jpg](photos/switches1.jpg) [switches2.jpg](photos/switches2.jpg) [switches3.jpg](photos/switches3.jpg) | The three DIP switch banks |
+| [Flip-dot carrier.jpg](photos/Flip-dot%20carrier.jpg) | The panel-side carrier board — address switches, ribbon connector, shared by a pair of character modules |
+| [Flip-dot daughter (front).jpg](photos/Flip-dot%20daughter%20%28front%29.jpg) | A character module, dot side |
+| [Flip-dot daughter (back).jpg](photos/Flip-dot%20daughter%20%28back%29.jpg) | A character module, diode-matrix side |
 
 When adding photos: no spaces in filenames, and prefer a focused shot of the
 thing being documented over another whole-board picture. If a photo is evidence

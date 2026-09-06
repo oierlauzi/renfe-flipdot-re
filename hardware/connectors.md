@@ -379,21 +379,30 @@ settings are unknown, `tools/bringup.py --stage line` sweeps them for you.
 
 ## Flip-dot panel ribbon — daughter 2
 
-**Topology, observed:** each character is an independent module; the sixteen modules
-hang off the ribbon as a **common bus** rather than being daisy-chained; none has
-address switches; and the ribbon **exits the unit** after the last character,
-spliced where the display was removed. It almost certainly continued to the
-**second LED panel**, making this one bus shared by both displays.
+**Topology, observed:** each character is an independent module, but modules
+mount in pairs on a shared **flip-dot carrier board** — 8 carriers for this
+unit's 16 characters — which also carries the ribbon connector and the pair's
+6 address-setting switches. Carriers hang off the ribbon as a **common bus**
+rather than being daisy-chained, and the ribbon **exits the unit** after the
+last carrier, spliced where the display was removed. It almost certainly
+continued to the **second LED panel**, making this one bus shared by both
+displays.
 
-That forces per-character **select lines** — see
-[../docs/flipdot-interface.md](../docs/flipdot-interface.md#what-that-forces).
+**Addressing is encoded, not one-hot** — see
+[../docs/flipdot-interface.md](../docs/flipdot-interface.md#the-flip-dot-carrier-board-c-observed).
+Each carrier's 6 switches match the firmware's 6-bit module-address field
+exactly. How the two modules sharing one carrier's switches get distinct
+addresses is still open.
 
-**Counted: 26 conductors.** That confirms the model and rules out the ~8-10
-alternative in which position would have been decoded on the panel. Expected
-allocation: 16 selects, 1 clock, 1 data, 2 control, and 6 for 24 V and returns.
+**Counted: 26 conductors.** That confirms a bus-based model and rules out the
+~8-10 alternative in which position would have been decoded on the panel.
+Expected allocation: ~6-7 for the encoded address, 1 clock, 1 data, 1-2
+control, and the remainder for 24 V and returns — see
+[../docs/flipdot-interface.md](../docs/flipdot-interface.md#the-ribbon-has-26-conductors-c).
 
-Next: trace which conductor is which. Look for **16 that each reach exactly one
-module**, **2 that reach every module**, and the remainder carrying supply.
+Next: trace which conductor is which. Look for the **group carrying a binary
+count**, the **two that toggle per bit** (clock and data), and the remainder
+carrying supply.
 
 
 Large ribbon header on daughter 2, driven by the ULN2003A Darlington arrays
@@ -405,11 +414,14 @@ Large ribbon header on daughter 2, driven by the ULN2003A Darlington arrays
 | Conductor count | **26** | **[C]** |
 | Type | Very likely 26-way IDC (13 x 2), standard width | **[L]** |
 | Pitch | *TODO* | |
-| Pinout | *TODO* — 16 selects + clock + data + control + supply expected | **[L]** |
+| Pinout | *TODO* — ~6-7 encoded address + clock + data + control + supply expected | **[L]** |
 
-For 16 characters x 5 columns = 80 columns and 7 rows, a plausible arrangement
-is 7 row lines plus a column address, or column-strobe shift registers on the
-panel itself. Counting ribbon conductors will discriminate immediately.
+Resolved: the panel is fed **serially**, not as a row/column matrix reaching
+over the ribbon — see
+[../docs/flipdot-interface.md](../docs/flipdot-interface.md#the-panel-is-a-serial-shift-register-c-from-the-rom).
+Each character module *is* wired internally as a 5x7 diode matrix, but that
+matrix is decoded locally on the flip-dot carrier board, not driven directly
+from the ribbon.
 
 ## Power
 

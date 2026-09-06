@@ -20,6 +20,71 @@ Entry template:
 
 ---
 
+## 2026-09-06 — The module-address mechanism: a shared carrier board, 6 switches
+
+**Did:** the owner disassembled one character module. This settles the question
+that flipdot-interface.md had left as **[?]** since the one-hot correction:
+*how does an individual module know its own address on the encoded 64-position
+bus?*
+
+**Found:** modules do not mount individually. **Each pair of character modules
+shares a flip-dot carrier board**, which also carries the ribbon bus
+connector — so this unit's 16-character line is built from 8 such carriers, not
+16 standalone modules. Photographed:
+[hardware/photos/Flip-dot carrier.jpg](hardware/photos/Flip-dot%20carrier.jpg),
+[hardware/photos/Flip-dot daughter (front).jpg](hardware/photos/Flip-dot%20daughter%20%28front%29.jpg),
+[hardware/photos/Flip-dot daughter (back).jpg](hardware/photos/Flip-dot%20daughter%20%28back%29.jpg).
+
+The carrier has **6 address-setting switches**, DIP-style but each a wire
+hooked across two pins — same implementation as every other switch in this
+project. Six lines up exactly with the firmware's 6-bit module address
+(`0x00-0x3F`) and with the "~6-7 conductors" already estimated for it from the
+ROM alone — a hardware count and a firmware-derived estimate converging
+independently.
+
+Reading the carrier photo: silkscreen `37624.0 DV2 A.1` / `S7D5-2` plus a
+**Telenorma logo** (extends Telenorma's reach from the enclosure boards to the
+panel itself). Legible chips: `CD4015BE` (dual 4-bit shift register) x6,
+`CD4503BE` (hex 3-state buffer) x1, `CD4068BE` (8-input NAND) x1, `HEF4077BP`
+(quad EXNOR) x2 — an EXNOR/AND pair is the classic shape of an address
+comparator, and shift registers fit turning the serial bit stream into
+parallel drive, but none of this is traced, only read off the photo.
+
+The back of an individual module turned out to be its own small finding: 35
+diodes silkscreened `D11`-`D75` against row/column nets `X1Y1`-`X7Y5` — a plain
+5x7 diode matrix, matching the glyph cell exactly. So the module has no logic
+of its own; the carrier board must be what turns the incoming serial frame
+into row/column drive.
+
+**What is still open, stated as the owner did:** with 6 switches shared by two
+modules, an even split would need 3 switches per module (8 addresses each,
+16 total) — too few for the 64-position field the firmware actually uses. The
+alternative that does reach 64 is a **base address plus a fixed per-socket
+offset**, using all 6 switch bits as a pair-base. That is a guess, offered
+explicitly as one — nothing has been traced to confirm it, and it may be a more
+exotic scheme entirely.
+
+**Terminology note.** The owner's first description called this board a
+"motherboard" and the two modules its "daughters" — both already taken in this
+project (the *motherboard* is the main control PCB; *daughter 1*/*daughter 2*
+are the two boards behind it). Agreed on **"flip-dot carrier board"** instead,
+to keep every existing cross-reference unambiguous. Updated
+[docs/flipdot-interface.md](docs/flipdot-interface.md#the-flip-dot-carrier-board-c-observed)
+and [hardware/connectors.md](hardware/connectors.md), the latter of which had
+never been updated after the earlier one-hot → encoded-address correction and
+was still saying "16 select lines, none has address switches" — directly
+contradicting the rest of the project. Fixed in the same pass.
+
+**Concluded:** the carrier board and its 6 switches are the address-decode
+mechanism, matching the firmware's addressing scheme on switch count alone.
+**[C]** The two-modules-per-carrier split is unresolved. **[?]**
+
+**Next:** trace which switch line(s) differ between a carrier's two module
+sockets — that is the one test that would confirm or kill the base+offset
+guess.
+
+---
+
 ## 2026-09-05 — U9 and U10 are glue logic, and U9 explains the whole I/O map
 
 **Owner read them: `U10` is a CD74HC373E, `U9` a CD74HC138E.**
