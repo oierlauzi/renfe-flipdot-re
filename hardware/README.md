@@ -16,9 +16,12 @@ Physical description of the unit. Behaviour and register-level detail live in
 | File | Subject |
 | --- | --- |
 | [cover_open.jpg](photos/cover_open.jpg) | Whole unit with the cover removed |
-| [mother_pcb_top.jpg](photos/mother_pcb_top.jpg) | Motherboard — CPU, RAM/IO, USART, EPROM |
-| [daughter_pcb1_top.jpg](photos/daughter_pcb1_top.jpg) | Daughter 1 — serial TX/RX, DC converter |
-| [daughter_pcb2_top.jpg](photos/daughter_pcb2_top.jpg) | Daughter 2 — flip-dot drive |
+| [Electronics.jpg](photos/Electronics.jpg) [Electronics + PSU.jpg](photos/Electronics%20%2B%20PSU.jpg) | The three boards together, and with the PSU |
+| [Mother (top).jpg](photos/Mother%20%28top%29.jpg) [Mother (bottom).jpg](photos/Mother%20%28bottom%29.jpg) | Motherboard — CPU, RAM/IO, USART, EPROM |
+| [Daughter 1 (top).jpg](photos/Daughter%201%20%28top%29.jpg) [Daughter 1 (bottom).jpg](photos/Daughter%201%20%28bottom%29.jpg) | Daughter 1 — RS-422 interface, DC converter |
+| [Daughter 1 Terminal block connections.jpg](photos/Daughter%201%20Terminal%20block%20connections.jpg) | Where the four DB37 conductors land |
+| [Daughter 2 (top).jpg](photos/Daughter%202%20%28top%29.jpg) [Daughter 2 (bottom).jpg](photos/Daughter%202%20%28bottom%29.jpg) | Daughter 2 — flip-dot drive |
+| [DB37_back.jpg](photos/DB37_back.jpg) | The DB37 connector, wire side |
 | [ROM_chip.jpg](photos/ROM_chip.jpg) | U4, the M27256 EPROM |
 | [sticker.jpg](photos/sticker.jpg) | Chassis label — model, serial, "MAESTRA" |
 | [switches1.jpg](photos/switches1.jpg) [switches2.jpg](photos/switches2.jpg) [switches3.jpg](photos/switches3.jpg) | The three DIP switch banks |
@@ -32,11 +35,5 @@ for a claim, link it from the document making the claim.
 
 ## What is still unphotographed
 
-- [ ] Both PCBs from the **solder side** — needed to trace the chip selects and
-      the DB37 wiring.
-- [ ] The **DB37 pin numbering** alongside the 4 populated wires.
-- [ ] The **DIP switch positions as found**, per bank, close enough to read.
-      This is the one piece of state that is destroyed by experimenting and
-      cannot be recovered from the ROM. See
-      [../docs/dip-switches.md](../docs/dip-switches.md).
-- [ ] The **panel ribbon connector**, with a conductor count.
+- [ ] The **DB37 pin numbering** alongside the four populated wires.
+- [ ] The motherboard's `RP RN TP TN` terminal block and what it connects to.

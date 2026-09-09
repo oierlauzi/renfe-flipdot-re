@@ -2,7 +2,7 @@
 
 Reference designators as silkscreened. Unknown parts are listed with their
 package so they can be identified later; see
-[../docs/open-questions.md](../docs/open-questions.md).
+[../TODO.md](../TODO.md).
 
 ## Index
 
@@ -26,16 +26,16 @@ package so they can be identified later; see
 D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 [../docs/io-map.md](../docs/io-map.md).
 
-## Clock chain **[C] except the last link**
+## Clock chain
 
 ```
 6.144 MHz crystal  ->  8085 X1/X2 (pins 1-2)
                        8085 divides by 2
                    ->  CLK OUT (pin 37) = 3.072 MHz
-                   ->  81C55 TIMER IN (pin 3)          [to be confirmed]
+                   ->  81C55 TIMER IN (pin 3)          (not traced)
                        divide by the switch-selected 20...640
                    ->  81C55 TIMER OUT (pin 6)
-                   ->  8251A TxC and RxC (pins 9, 25)  [to be confirmed]
+                   ->  8251A TxC and RxC (pins 9, 25)  (not traced)
                        divide by 16 (x16 mode)
                    ->  300 - 9600 baud
 ```
@@ -52,7 +52,7 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Clock:** a **6.144 MHz crystal** sits beside the CPU (observed 2026-08). The
   8085 halves it internally, so the machine runs at **3.072 MHz** and CLK OUT
   (pin 37) is 3.072 MHz. That fixes the entire baud ladder at 300-9600 — see
-  [../docs/dip-switches.md](../docs/dip-switches.md#confirmed-by-the-crystal-c).
+  [../docs/dip-switches.md](../docs/dip-switches.md#port-b-bits-75--line-rate).
   One instruction cycle is 325.5 ns.
 
 ## U2 — Static RAM with I/O Ports and Timer
@@ -102,27 +102,24 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 ## U7 — High Speed Optocoupler
 - **Manufacturer:** Hewlett-Packard
 - **Part number:** 6N139
-- **PCB:** Mother — **but this now needs re-checking**
+- **PCB:** Mother, though the attribution needs re-checking
 - **Datasheet:** [https://www.vishay.com/docs/83605/6n139.pdf]
-- **Notes:** Recorded early on as the motherboard's serial RX isolation. Two later
-  findings make the board attribution doubtful:
-
-  1. Daughter 1 has **three 6N139s of its own**, which is the complete isolation
-     barrier for three signals. A fourth would be redundant.
-  2. The board architecture puts media conversion — and therefore isolation — on
-     daughter 1, not the motherboard
-     ([pcbs.md](pcbs.md#architecture-one-function-per-board-l)).
-
-  Either `U7` is on daughter 1 and the board was misrecorded, or the motherboard
-  really does carry a fourth optocoupler doing something else. **Check which board
-  the `U7` silkscreen is actually on.**
+- **Notes:** Daughter 1 carries three 6N139s of its own, which is a complete
+  isolation barrier for the three signals crossing it, and the board architecture
+  puts media conversion — and therefore isolation — on daughter 1
+  ([pcbs.md](pcbs.md#pcbs)). A fourth optocoupler on the logic board would be
+  redundant. Either `U7` is on daughter 1 and the board was misrecorded, or it does
+  something else; the silkscreen is worth checking against the board.
 
 ## U8 — ?
-- **Manufacturer:** 
+- **Manufacturer:**
 - **Part number:**
 - **PCB:** Mother
 - **Datasheet:** []
-- **Notes:**
+- **Notes:** The last unidentified part on the motherboard. With U9 and U10
+  identified as glue logic, U8 is the only remaining candidate for anything that
+  could drive the `RP RN TP TN` terminal block
+  ([connectors.md](connectors.md#the-motherboard-terminal-block)).
 
 ## U9 — 3-to-8 Line Decoder
 - **Manufacturer:** Texas Instruments
@@ -133,7 +130,7 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
   have been looking for. Three select inputs and three enables produce eight
   active-low outputs, and the observed I/O map fits a decode of **A6:A4 with A7 as
   an enable** exactly: eight 16-port blocks at `0x80`, `0x90` … `0xF0`.
-  → [../docs/io-map.md](../docs/io-map.md#how-the-i-o-map-is-decoded-l)
+  → [../docs/io-map.md](../docs/io-map.md#how-the-map-is-decoded)
 
 ## U10 — Octal Transparent Latch
 - **Manufacturer:** Texas Instruments
@@ -147,13 +144,6 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
   straight off the CPU. Textbook 8085 glue, and required by the design rather than
   merely consistent with it.
 
-> **Retracted: the RS-422 guess.** Both were until now recorded as candidates for
-> `AM26LS31`/`AM26LS32` differential driver and receiver parts, on the strength of
-> the DIP16 package and the motherboard's `RP RN TP TN` terminal block. **Both are
-> glue logic.** The guess was marked **[?]** and cost nothing, but it means the
-> motherboard has **no identified differential transceiver** — see
-> [connectors.md](connectors.md#motherboard-terminal-block--rp-rn-tp-tn-c-observed-unconnected).
-
 ## U11 — Hex Schmitt Trigger
 - **Manufacturer:** Motorola
 - **Part number:** MC14584BCP
@@ -161,10 +151,10 @@ D1 = daughter 1, D2 = daughter 2. See [pcbs.md](pcbs.md) and
 - **Datasheet:** [https://www.onsemi.com/download/data-sheet/pdf/mc14584b-d.pdf]
 - **Notes:** 
 
-## The five DIP8s on daughter 1 — identified **[C]**
+## The five DIP8s on daughter 1
 
-Read by the owner, 2026-09. They carry **no reference designators** on the
-silkscreen, so they are described by body colour and position.
+They carry no reference designators on the silkscreen, so they are described by
+body colour.
 
 ### Three yellow DIP8s — HP 6N139 optocouplers
 - **Manufacturer:** Hewlett-Packard / Agilent
@@ -187,11 +177,7 @@ silkscreen, so they are described by body colour and position.
   half-duplex transceiver, and **two are what you fit for 4-wire full duplex**,
   using the driver of one and the receiver of the other. Four conductors are
   populated on the DB37, which fits.
-  → [connectors.md](connectors.md#the-physical-layer-opto-isolated-rs-422rs-485-c)
-
-  Earlier revisions of this file recorded these five packages as unidentified and
-  built an argument on their absence: *"an RS-422 interface would use a
-  differential transceiver; none is present"*. Two were, unread, the whole time.
+  → [connectors.md](connectors.md#the-physical-layer)
 
 ## U17 — 7 NPN Darlington Pairs
 - **Manufacturer:** Texas Instruments
@@ -224,17 +210,13 @@ silkscreen, so they are described by body colour and position.
 - **Part number:** M81C55-5
 - **PCB:** Daughter 2
 - **Datasheet:** [https://docs.rs-online.com/1f1a/0900766b800264a3.pdf]
-- **Notes:** **The same part as U2** (owner read the top marking, 2026-09),
-  serving an entirely different role: its I/O section at `0xE0-0xE5` is the
+- **Notes:** The same part as U2, serving a different role: its I/O section at `0xE0-0xE5` is the
   flip-dot interface. Port A carries glyph data, port B the encoded character
   address, and port C the shift clock, serial data and the two attribute lines.
 
   Its 256 bytes of RAM appear to be unused — the firmware's only RAM is U2's at
   `0xA000`, and nothing addresses a second block.
 
-  **Port C is in ALT2**, all six pins outputs, which is what the flip-dot drive
-  requires. An earlier revision of this file argued at length that the command
-  words selected **ALT4** and that this contradicted the 81C55 reading. That was
-  a decode error here, not a fault in the hardware: ALT4 is command bits 3:2 =
-  `10`, and both words carry `11`. See
-  [../docs/io-map.md](../docs/io-map.md#port-c-is-in-alt2--all-six-pins-are-outputs-c).
+  Port C is in **ALT2**, all six pins outputs, which is what the flip-dot drive
+  requires. See
+  [../docs/io-map.md](../docs/io-map.md#port-c-is-in-alt2-all-six-pins-outputs).

@@ -1,64 +1,52 @@
 # I/O port map
 
-The 8085 addresses peripherals through its separate 8-bit I/O space
-(`IN`/`OUT` instructions). Peripheral *registers* are therefore **not** in the
-memory map — see [memory-map.md](memory-map.md) for the memory side.
-
-Confidence key: **[C]** confirmed from firmware + datasheet, **[L]** likely,
-**[?]** guess awaiting evidence.
+The 8085 addresses peripherals through its separate 8-bit I/O space (`IN` and
+`OUT`). Peripheral registers are therefore not in the memory map — see
+[memory-map.md](memory-map.md) for the memory side.
 
 ## Summary
 
-| Ports | Device | Role | Conf. |
-| --- | --- | --- | --- |
-| `0x80-0x81` | U3 M82C51A-2 USART | External serial link (DB37) | **[C]** |
-| `0xA0-0xA5` | U2 M81C55-5 I/O section | DIP switches + baud-rate timer | **[C]** |
-| `0xC0-0xCF` | clock board | HH:MM digits, plus a time-setting keypad on `0xCD` | **[C]** |
-| `0xDE` | *unidentified input* | Active-low hardware status; sampled every RST7.5 tick | **[L]** |
-| `0xE0-0xE5` | **U20 OKI M81C55-5** | Flip-dot interface; port C in ALT2, all outputs | **[C]** |
-| `0xE7` | latch on the expansion board | Memory bank + capability register | **[C]** |
-| `0xE8-0xEF` | 8155-class device | Second display group. Initialised, but never painted on this unit | **[C]** |
+| Ports | Device | Role |
+| --- | --- | --- |
+| `0x80-0x81` | U3 M82C51A-2 USART | External serial link to the DB37 |
+| `0xA0-0xA5` | U2 M81C55-5 I/O section | DIP switches and the baud-rate timer |
+| `0xC0-0xCF` | Clock board | `HH:MM` digits, plus a time-setting keypad on `0xCD` |
+| `0xDE` | Status input | Active-low hardware status, sampled every RST7.5 tick |
+| `0xE0-0xE5` | U20 OKI M81C55-5 | Flip-dot interface |
+| `0xE7` | Latch on the expansion board | Memory bank and capability register |
+| `0xE8-0xEF` | Second 81C55-class device | Second display group; initialised but never painted on this unit |
 
-## How the I/O map is decoded **[L]**
+## How the map is decoded
 
-`U9` is a **CD74HC138E**, a 3-to-8 line decoder — the chip-select generator this
-document previously referred to as "the unidentified decoder". Its eight
-active-low outputs account for the whole I/O map if it decodes **A6:A4**, with
-**A7 as an enable**:
+U9 is a **CD74HC138E**, a 3-to-8 line decoder. Its eight active-low outputs
+account for the whole I/O map if it decodes **A6:A4** with **A7 as an enable**:
 
 | Output | Block | Device |
 | --- | --- | --- |
-| `Y0` | `0x80-0x8F` | U3 M82C51A-2 USART |
-| `Y1` | `0x90-0x9F` | *unused* |
+| `Y0` | `0x80-0x8F` | U3 USART |
+| `Y1` | `0x90-0x9F` | unused |
 | `Y2` | `0xA0-0xAF` | U2 M81C55-5 |
-| `Y3` | `0xB0-0xBF` | *unused* |
+| `Y3` | `0xB0-0xBF` | unused |
 | `Y4` | `0xC0-0xCF` | clock board |
-| `Y5` | `0xD0-0xDF` | `hw_status_in` (`0xDE`) |
-| `Y6` | `0xE0-0xEF` | display group + `0xE7` + the second group |
-| `Y7` | `0xF0-0xFF` | *unused* |
+| `Y5` | `0xD0-0xDF` | status input at `0xDE` |
+| `Y6` | `0xE0-0xEF` | display group, `0xE7`, and the second group |
+| `Y7` | `0xF0-0xFF` | unused |
 
-Two things make this more than a plausible arrangement:
+Every one of the 31 ports the firmware touches lands in exactly one block, no
+block holds two unrelated devices, and the firmware never touches a port below
+`0x80` anywhere in the ROM — which is what tying `A7` to an enable would force.
+Decoding `A7:A5` instead would put `0xC0-0xCF` and `0xD0-0xDF` on the same
+output, and the clock board and the status input need separate selects.
 
-* **Every one of the 31 ports the firmware touches lands in exactly one block**,
-  and no block holds two unrelated devices.
-* **The firmware never touches a port below `0x80`** — checked across the whole
-  ROM. That is exactly what tying `A7` to an enable would force, and it would be a
-  strange coincidence otherwise.
+The decoder's pins have not been traced. Its other two enables presumably carry
+`IO/M` and a read/write strobe, probably via the MC14584B Schmitt triggers at U5.
+The sub-division inside `Y6` happens downstream: `0xE0-0xE5` (U20), `0xE7` (a
+separate latch) and `0xE8-0xED` (the second group) share one select, so something
+on the expansion or daughter 2 decodes `A3:A0`.
 
-**The obvious alternative is ruled out.** Decoding `A7:A5` as the three select
-inputs would put `0xC0-0xCF` and `0xD0-0xDF` on the *same* output, and the clock
-board and `hw_status_in` demonstrably need separate selects.
+## 0x80-0x81 — M82C51A-2 USART
 
-It stays **[L]** because the pins have not been traced: the `138`'s other two
-enables presumably carry `IO/M` and a read/write strobe, very likely via the
-`MC14584B` Schmitt triggers (`U5`), but that is inference. What the decoder does
-*not* explain is the sub-division inside `Y6` — `0xE0-0xE5` (U20), `0xE7` (a
-separate latch) and `0xE8-0xED` (the second group) all share one select, so
-something downstream decodes `A3:A0`.
-
-## 0x80-0x81 — M82C51A-2 USART **[C]**
-
-Standard 8251A register pair.
+A standard 8251A register pair.
 
 | Port | Access | Function |
 | --- | --- | --- |
@@ -83,58 +71,44 @@ Initialisation at `0x0443` is the canonical 8251A wake-up sequence:
 0x0457  OUT 0x81       ; COMMAND word
 ```
 
-Decoded mode word `0x7E` = `0111 1110`:
+Mode word `0x7E` = `0111 1110` decodes as 8 data bits, even parity, 1 stop, x16
+baud factor. The command words used are `0x37` (`TxEN|DTR|RxEN|ErrReset|RTS`) and
+`0x17`, the same with RTS deasserted.
 
-| Bits | Value | Meaning |
-| --- | --- | --- |
-| 1:0 | `10` | baud rate factor 1/16 |
-| 3:2 | `11` | 8 data bits |
-| 4 | `1` | parity enable |
-| 5 | `1` | even parity |
-| 7:6 | `01` | 1 stop bit |
+That literal path runs only when DIP switch port C bit 5 is clear. Otherwise a
+second path at `0x0533` builds the mode word from the switches — see
+[dip-switches.md](dip-switches.md).
 
-→ **8E1 async, x16 clock**.
+## 0xA0-0xA5 — M81C55-5 I/O section
 
-Command words seen: `0x37` (`TxEN|DTR|RxEN|ErrReset|RTS`) and `0x17`
-(same but RTS deasserted). A second init path at `0x0533` writes the mode word
-from register `B` instead of a literal, i.e. **the frame format is
-switch-selectable at power-on** — see [dip-switches.md](dip-switches.md).
-
-## 0xA0-0xA5 — M81C55-5 I/O section **[C]**
-
-The 81C55's RAM appears in memory space at `0xA000`; its I/O section is
-selected by the same address decode in I/O space, giving the standard six
-registers:
+The 81C55's RAM appears in memory space at `0xA000`; its I/O section occupies six
+registers in I/O space:
 
 | Port | Access | Function | Observed use |
 | --- | --- | --- | --- |
-| `0xA0` | W | Command/status register | `0x00` then `0xC0` (all ports input, timer run) |
-| `0xA1` | R | Port A | read-only in firmware → **input, DIP switch bank** |
-| `0xA2` | R | Port B | read-only → **input, DIP switch bank**; bits 7:5 select baud rate |
-| `0xA3` | R | Port C (6 bit) | read-only → **input**; bit 5 picks the line config at `0x0430` **and the receive handler in the RST5.5 ISR** |
-| `0xA4` | W | Timer count LSB | `0x14` |
-| `0xA5` | W | Timer count MSB | `0x40` |
+| `0xA0` | W | Command/status register | `0x00` then `0xC0`: all ports input, timer running |
+| `0xA1` | R | Port A | DIP switch bank: address, protocol select, render options |
+| `0xA2` | R | Port B | DIP switch bank: baud rate and character format |
+| `0xA3` | R | Port C (6 bit) | DIP switches; bit 5 selects the protocol family |
+| `0xA4` | W | Timer count LSB | from the baud table |
+| `0xA5` | W | Timer count MSB | from the baud table |
 
-Timer preload `0x4014`: mode bits `01` = continuous square wave, count =
-`0x014` = 20. The 81C55 timer output clocks the 8251A, so this divider plus the
-x16 baud factor sets the line rate: `baud = TIMER_IN / (count x 16)`.
+The 81C55 timer output clocks the 8251A, so the preload sets the line rate:
+`baud = TIMER_IN / (count x 16)`. The crystal is 6.144 MHz, the 8085 halves it,
+so TIMER IN is 3.072 MHz and the ladder of dividers 20/40/80/160/320/640 yields
+exactly 9600, 4800, 2400, 1200, 600 and 300 baud with zero error. See
+[dip-switches.md](dip-switches.md#port-b-bits-75--line-rate).
 
-The crystal is **6.144 MHz**, so the 8085's CLK OUT is 3.072 MHz and the ladder
-of dividers (20/40/80/160/320/640) yields exactly **9600, 4800, 2400, 1200, 600
-and 300 baud** — all six standard, with zero error. **[C]**
-See [dip-switches.md](dip-switches.md#confirmed-by-the-crystal-c).
+The firmware never writes ports A, B or C, so all 22 bits are inputs. Three banks
+of DIP switches are visible in
+[switches1](../hardware/photos/switches1.jpg),
+[switches2](../hardware/photos/switches2.jpg) and
+[switches3](../hardware/photos/switches3.jpg).
 
-Because the firmware never writes A/B/C, all 22 port bits are inputs. Three
-banks of DIP switches are visible in
-[switches1](../hardware/photos/switches1.jpg) /
-[switches2](../hardware/photos/switches2.jpg) /
-[switches3](../hardware/photos/switches3.jpg), which matches.
+## 0xE0-0xEF — display interface
 
-## 0xE0-0xEF — display interface **[C]**
-
-Two register groups initialised by `init_display_ifaces` (`0x03F2`) in a way that matches the
-81C55 register layout exactly (offset 0 = command, 1 = PA, 2 = PB, 3 = PC,
-4 = timer LSB, 5 = timer MSB):
+`init_display_ifaces` (`0x03F2`) sets up two register groups, both in the 81C55
+layout — offset 0 command, 1 PA, 2 PB, 3 PC, 4 timer LSB, 5 timer MSB:
 
 ```
 ; group 1 — base 0xE0
@@ -156,14 +130,13 @@ Two register groups initialised by `init_display_ifaces` (`0x03F2`) in a way tha
 0x042C  A=0xE0 -> 0xE7
 ```
 
-Ports A/B/C of group 1 carry the flip-dot drive; group 2 is never painted on
+Ports A, B and C of group 1 carry the flip-dot drive; group 2 is never painted on
 this unit. See [flipdot-interface.md](flipdot-interface.md).
 
-### Port C is in ALT2 — all six pins are outputs **[C]**
+### Port C is in ALT2, all six pins outputs
 
-U20 is an **OKI M81C55-5** (owner, 2026-09), the same part as U2. Decoding its
-command words against
-[the OKI datasheet](https://docs.rs-online.com/1f1a/0900766b800264a3.pdf) p.133:
+U20 is an OKI M81C55-5, the same part as U2. Its command words decode against the
+[OKI datasheet](https://docs.rs-online.com/1f1a/0900766b800264a3.pdf), page 133:
 
 ```
  7    6    5    4    3    2    1    0
@@ -174,48 +147,29 @@ TM2  TM1  IEB  IEA  PC2  PC1   PB   PA        bits 3:2 = 00 ALT1, 11 ALT2,
 
 | Site | Value | Binary | PA | PB | bits 3:2 | PC mode | Timer |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `0x03F9` → `0xE0` | `0xCF` | `1100 1111` | out | out | `11` | **ALT2** | start |
-| `0x06EC` → `0xE0` | `0x0D` | `0000 1101` | out | **in** | `11` | **ALT2** | NOP |
-| `0x041D` → `0xE8` | `0xCF` | `1100 1111` | out | out | `11` | **ALT2** | start |
-| `0x0400` → `0xA0` (U2) | `0xC0` | `1100 0000` | in | in | `00` | **ALT1** | start |
+| `0x03F9` → `0xE0` | `0xCF` | `1100 1111` | out | out | `11` | ALT2 | start |
+| `0x06EC` → `0xE0` | `0x0D` | `0000 1101` | out | **in** | `11` | ALT2 | NOP |
+| `0x041D` → `0xE8` | `0xCF` | `1100 1111` | out | out | `11` | ALT2 | start |
+| `0x0400` → `0xA0` (U2) | `0xC0` | `1100 0000` | in | in | `00` | ALT1 | start |
 
-The datasheet's Port Control Assignment Table gives ALT2 as **`PC0`-`PC5` output
-port**, every pin. So `PC4` (shift clock) and `PC5` (serial data) are ordinary
-software-driven outputs, exactly as the flip-dot driver requires, and `PC0`/`PC1`
-are the attribute lines. U2's `0xC0` selects ALT1 — all inputs — which is equally
-consistent with its port C carrying DIP switches.
+The datasheet's Port Control Assignment Table gives ALT2 as `PC0`-`PC5` output
+port, every pin. So `PC4` (shift clock) and `PC5` (serial data) are ordinary
+software-driven outputs, and `PC0`/`PC1` are the attribute lines. U2's `0xC0`
+selects ALT1, all inputs, consistent with its port C carrying DIP switches.
 
-> **Retracted 2026-09-05: there was never an ALT4 problem.** This section
-> previously claimed both command words selected ALT4, which would have committed
-> port C to handshake duty and made the flip-dot decode impossible — recorded as
-> the project's only outright contradiction, **[!]**, and the reason "read U20's
-> top marking" was the highest-value hardware task left.
->
-> **The contradiction was a decoding error of ours, not a fault in the evidence.**
-> ALT4 is bits 3:2 = `10`; `0xCF` and `0x0D` both carry `11`, which is ALT2. The
-> hardware was consistent all along.
->
-> Two things had made the wrong reading look safe: it was never checked against
-> the datasheet's own table, and it happened to survive contact with U2, whose
-> `0xC0` also decodes correctly under the mistaken table because `00` means ALT1
-> either way.
+Why `0x06EC` configures PB as an input is not known.
 
-`0x06EC` configuring **PB as an input** is still unexplained, and is now the only
-loose end in this group.
+## 0xE7 — expansion memory bank register
 
-## 0xE7 — expansion memory bank register **[C]**
+`0xE7` falls outside the six 81C55 registers and is a separate latch on the
+expansion board, serving two purposes:
 
-`0xE7` falls outside the six 81C55 registers and is a **separate latch on the
-expansion board**, serving two purposes:
+* **Read** — a capability register. `0xFF` means the expansion board is absent.
+  When present, individual bits carry configuration; `0x112E` tests bit 4.
+* **Write** — selects the memory page visible through the `0xE000-0xFFFF` window.
+  `0x042C` writes `0xE0`, the base page.
 
-* **Read** — a capability/status register. `0xFF` means *the expansion board is
-  absent*. When present, individual bits carry configuration: `0x112E` tests
-  bit 4.
-* **Write** — selects the memory page visible through the `0xE000-0xFFFF`
-  window. `0x042C` writes `0xE0`, the base page.
-
-All banked access goes through three accessor functions, which between them
-account for 46 call sites:
+All banked access goes through three accessors, 46 call sites between them:
 
 | Address | Operation | Callers |
 | --- | --- | --- |
@@ -223,13 +177,13 @@ account for 46 call sites:
 | `0x1B95` | write `(HL) = A` | 21 |
 | `0x1BC4` | compare `A` with `(HL)` | 4 |
 
-All three have the same shape:
+All three share one shape:
 
 ```
         IN   0xE7
         CPI  0xFF
         JZ   plain_access      ; board absent -> access (HL) directly
-        LDA  0xA05A            ; re-entrancy flag (set inside the ISRs)
+        LDA  0xA05A            ; re-entrancy flag, set inside the ISRs
         CPI  0x01
         JZ   save_restore      ; ...then also save/restore the previous page
         MOV  A,H
@@ -243,19 +197,24 @@ plain_access:
 ```
 
 `ORI 0xE0` preserves the low 5 bits of `H`, so the CPU's `A12-A8` still carry
-part of the offset while the latch supplies the higher bits. **[L]**
+part of the offset while the latch supplies the higher bits. `HL` is therefore a
+flat 16-bit address into the expansion, which the accessor splits: `H`'s top bits
+become a bank number, and `H`'s low 5 bits with `L` address a byte inside the
+8 KiB window.
 
-So `HL` is best read as a **flat 16-bit address into the expansion**, which the
-accessor splits: `H`'s top bits go to the latch as a bank number, `H`'s low 5
-bits and `L` address a byte inside the 8 KiB window. Every address the firmware
-actually uses has `H = 0xE0`, i.e. bank 7, offset 0 — the base page the
-initialisation at `0x042C` selects. Nothing in this build ever changes banks, so
-the paging is latent capability rather than something a host has to think about.
+Every address this build uses has `H = 0xE0`, the base page selected at `0x042C`.
+Nothing ever changes banks, so the paging is latent capability rather than
+something a host has to think about.
 
-### What is in the window **[C] from emulation**
+There is no handshake: all eleven `IN 0xE7` sites are immediate conditional
+branches, with no loop, retry, wait, timeout or error path. Absence is handled by
+design — at `0x0675` the firmware reads DIP switch port A bit 6 in place of a
+value the expansion board would otherwise have supplied.
+
+### What is in the window
 
 Recovered by running the firmware with `--xram board` and watching the writes.
-Every boundary here is written by identifiable code, not inferred from a dump:
+Every boundary is written by identifiable code:
 
 | Range | Size | Contents | Written by |
 | --- | --- | --- | --- |
@@ -264,14 +223,22 @@ Every boundary here is written by identifiable code, not inferred from a dump:
 | `0xE041`, `0xE042` | 2 | terminator, `0x03` twice | `0x12E0`, `0x12E4` |
 | `0xE043-0xE082` | 64 | **shadow copy** — what the panel currently shows | `0x136A` per character |
 | `0xE083` | 1 | terminator for the shadow | — |
-| `0xE084-0xE0C3` | 64 | **second message buffer** — see below | `0x0FFA`, `0x102F`, `EOT` |
+| `0xE084-0xE0C3` | 64 | second message buffer | `0x0FFA`, `0x102F`, `EOT` |
 | `0xE0C4`, `0xE0C5` | 2 | terminators for the second buffer | — |
-| `0xE0C6-0xE105` | 64 | **second shadow copy** | — |
+| `0xE0C6-0xE105` | 64 | second shadow copy | — |
 
-### The second buffer pair is a disabled feature **[C]**
+The message buffer and its shadow are the mechanism behind the differential
+repaint: `0x124E` walks the two in step and calls the panel driver only where they
+differ. Both render passes end on whichever byte equals `0xA007`, not on a count.
 
-`0xE084` is a **second buffer and shadow with exactly the same `0x42` stride** as
-the first pair, and the firmware substitutes one for the other wholesale:
+The buffer is 64 columns and the panel address counter spans 64 positions
+([flipdot-interface.md](flipdot-interface.md)) — one buffer column per panel
+address.
+
+### The second buffer pair is disabled at build time
+
+`0xE084` is a second buffer and shadow with the same `0x42` stride as the first
+pair, and the firmware substitutes one pair for the other wholesale:
 
 ```
 0x1498  LXI  H,0xE001      ; buffer 1
@@ -284,11 +251,10 @@ the first pair, and the firmware substitutes one for the other wholesale:
 ```
 
 The same substitution appears at `0x1542` and `0x1703`, and `FF`/`CAN` clear from
-`0xE084` instead of `0xE001` under the same condition. So `0xA057` selects which of
-two displays the whole render path operates on.
+`0xE084` under the same condition. So `0xA057` selects which of two displays the
+render path operates on.
 
-**But `0xA057` can never be set in this build.** Its only writer is `0x07F2`,
-guarded by:
+`0xA057` can never be set in this build. Its only writer is `0x07F2`, guarded by:
 
 ```
 0x07E9  MVI  A,0x01
@@ -297,105 +263,63 @@ guarded by:
 ```
 
 `MVI A,0x01` followed by `CPI 0x01` is unconditionally equal, so the jump always
-skips the setter. Confirmed by emulation across panel types and with the serial
-link disabled: `0xA057` stays `0x00` and `0x07F2` never executes. This has the
-shape of a **feature patched out at build time** by replacing a real test with a
-constant — the ROM is a generic multi-display build, and this unit does not get the
-second display.
+skips the setter. This is a build-time option expressed as a runtime test against
+a constant, a pattern used throughout the ROM
+([../src/README.md](../src/README.md)). The image is a generic multi-display
+build and this unit does not get the second display.
 
-Consequence: `EOT`'s block-write still lands in `0xE084` (it does not consult
-`0xA057`), but **nothing ever renders it**. Writing there is harmless and
-invisible.
+`EOT`'s block-write still lands in `0xE084` because it does not consult `0xA057`,
+so writing there is harmless and invisible.
 
-The 64-byte message buffer and its 64-byte shadow are the mechanism behind the
-differential repaint: `0x124E` walks the two in step and calls the panel driver
-only where they differ. The terminator matters — both render passes end on
-whichever byte equals `0xA007`, not on a count.
-
-That the buffer is **64 columns** and the panel address counter also spans
-**64 positions** ([flipdot-interface.md](flipdot-interface.md)) is one fact, not
-two: one buffer column per panel address.
-
-Two consequences worth being explicit about:
-
-1. **There is no handshake.** Every one of the eleven `IN 0xE7` sites is an
-   immediate conditional branch. No site loops, retries, waits or times out, and
-   there is no error path. **[C]**
-2. **Absence is handled by design, not by accident.** At `0x0675` the firmware
-   goes further: with the board absent it reads **DIP switch port A bit 6**
-   instead, substituting a switch for a value the expansion board would
-   otherwise have supplied. **[C]**
-
-## 0xC0-0xCF — a clock, with keys **[C]**
-
-**This window is a clock board**, not an LED matrix interface, and none of
-`0xC0`-`0xC5` is touched by the init path at all.
+## 0xC0-0xCF — clock board and keypad
 
 | Port | Direction | Contents |
 | --- | --- | --- |
-| `0xC5` | R/W | hours **tens** digit, validated `0-2` |
-| `0xC4` | R/W | hours **units** digit, validated `0-9` |
-| `0xC3` | R/W | minutes **tens** digit, validated `0-5` |
-| `0xC2` | R/W | minutes **units** digit, validated `0-9` |
+| `0xC5` | R/W | hours **tens** digit, validated 0-2 |
+| `0xC4` | R/W | hours **units** digit, validated 0-9 |
+| `0xC3` | R/W | minutes **tens** digit, validated 0-5 |
+| `0xC2` | R/W | minutes **units** digit, validated 0-9 |
 | `0xC1`, `0xC0` | W | only ever written `0`, and only by `clock_reset` |
-| `0xCD` | W | command: `5` = latch, `0` = release, `0x0C` = ? |
-| `0xCD` | R | bits 3 and 1 busy; bits 7:4 and 2 are key inputs |
+| `0xCD` | W | command: `5` latches, `0` releases, `0x0C` unknown |
+| `0xCD` | R | bits 3 and 1 are busy; bits 7:4 and 2 are key inputs |
 | `0xCE` | W | control, only ever `0x0A` |
 | `0xCF` | W | control, written `1` then `5` then `4` during a reset |
 
 `clock_read_time` (`0x2A8D`) commands the board, waits for the busy bits to
-clear, reads the four digits, ORs `0x30` into each and stores them as **four
-ASCII characters**. Its caller passes `HL = 0xE001` — `msg_buffer` — so the time
-lands in the first four display positions, and the routine then writes `0x23`
-over the matching four shadow bytes to force a repaint. **The panel shows the
-time as `HHMM` in characters 0-3.**
+clear, reads the four digits, ORs `0x30` into each and stores them as four ASCII
+characters. Its caller passes `HL = 0xE001`, the message buffer, and the routine
+then writes `0x23` over the matching four shadow bytes to force a repaint. **The
+panel shows the time as `HHMM` in characters 0-3.**
 
-Four independent things make the reading certain: the digit ranges are exactly
-`0-2 / 0-9 / 0-5 / 0-9`; `clock_inc_minute` carries at `'9'+1` and wraps the tens
-at `'6'`; `clock_inc_hour` carries the same way and forces `00` when the hours
-reach `24`; and the two are validated a *second* time, independently, on the way
-back out in `clock_write_time`.
+Four things fix the reading: the digit ranges are exactly 0-2 / 0-9 / 0-5 / 0-9;
+`clock_inc_minute` carries at `'9'+1` and wraps the tens at `'6'`;
+`clock_inc_hour` carries the same way and forces `00` when the hours reach 24;
+and both are validated a second time, independently, on the way back out in
+`clock_write_time`.
 
-**Leading-zero blanking, and a self-consistency check on the above.**
-`clock_read_time` replaces an hours-tens digit of `'0'` with `' '` — except for
-panel families 3 and `0x0A`, which get `'?'`. `clock_inc_hour` then tests the
-incremented tens digit against `0x21` and `0x40`, which are precisely `' '+1` and
-`'?'+1`, and maps both to `'1'`. Two routines 350 bytes apart agree on a detail
-that only makes sense if the digit really is a blanked hours tens.
+Leading zeros are blanked. `clock_read_time` replaces an hours-tens digit of `'0'`
+with `' '`, except for panel families 3 and `0x0A`, which get `'?'`.
+`clock_inc_hour` tests the incremented tens digit against `0x21` and `0x40` —
+precisely `' '+1` and `'?'+1` — and maps both back to `'1'`.
 
-**`0xCD` also carries keys.** The RST7.5 handler reads it every tick, masks
+`0xCD` also carries the keypad. The RST7.5 handler reads it every tick, masks
 `0xF4`, and when the value changes starts a 201-tick debounce; on expiry it posts
-`1` in `clock_cmd_mailbox`. `clock_service` picks that up and dispatches on the
-debounced byte: `0xD0` adds a minute, `0xE0` adds an hour, `0xC0` resets, `0x70`
-and `0xB0` toggle latched modes. **This is a time-setting keypad**, and it is why
-RST7.5 reading `0xCD` never looked like a display access.
+`1` in `clock_cmd_mailbox`. `clock_service` dispatches on the debounced byte:
+`0xD0` adds a minute, `0xE0` adds an hour, `0xC0` resets, and `0x70` and `0xB0`
+toggle latched modes.
 
-Still open: what `0xC1`/`0xC0` hold — seconds is the obvious guess, but the
-firmware only ever zeroes them, so the code cannot say. Likewise `0xCE`/`0xCF`
-are written fixed constants and never read.
+What `0xC0` and `0xC1` hold is not known; seconds would fit, but the firmware only
+ever zeroes them. `0xCE` and `0xCF` are written fixed constants and never read.
 
-## Open questions
+Whether the clock board is fitted to this unit is also unknown. `clock_service`
+returns immediately when `IN 0xCD` reads `0xFF`, so an open bus disables the
+feature silently.
 
-- [ ] Measure the 81C55 TIMER IN frequency (or the 8085 CLK OUT) to pin the
-      whole baud ladder down. One measurement, six answers.
-- [ ] Is the clock board on this unit at all? `clock_service` returns
-      immediately when `IN 0xCD` reads `0xFF`, so an open bus disables the whole
-      feature — and the ribbon would have to reach a keypad and four more digits.
-- [ ] What do `0xC0` and `0xC1` hold? Seconds fits, but the firmware only ever
-      writes zero to them, so the ROM cannot answer it.
-- [x] **U9 = CD74HC138E** (the I/O decoder), **U10 = CD74HC373E** (the address
-      latch), **U20 = M81C55-5**. Only `U8` is left unidentified on the
-      motherboard.
-- [ ] Confirm the `U9` decode by tracing its pins: `A`/`B`/`C` to CPU `A4`/`A5`/`A6`,
-      and what feeds its three enables. The block layout is inferred from the
-      firmware's port usage, not read off the board.
-- [ ] **Find what `IN 0xDE` reads — bit by bit.** Its role is now known even if
-      its meaning is not: `0x19FC`, called from the RST7.5 tick at `0x02C0`,
-      samples the port, complements it (so it is **active low**) and ORs it into
-      the sticky accumulator `0xA024`. The `BS` command reports that accumulator
-      and clears it, or with ROM `0x008B` non-zero reports the port directly.
-      So this is the unit's **hardware status/fault input**, readable over the
-      serial link. Temperature, door, lamp or supply monitoring would all fit a
-      station sign. Probing the pins of whatever drives it, and grounding them one
-      at a time while watching `BS`, would map the bits directly.
-      → [serial-protocol.md](serial-protocol.md#bs-returns-one-status-byte-and-reading-clears-it-c)
+## 0xDE — hardware status input
+
+`0x19FC`, called from the RST7.5 tick at `0x02C0`, samples the port, complements
+it — so the line is active low — and ORs it into the sticky accumulator `0xA024`.
+The `BS` command reports that accumulator and clears it, or reports the port
+directly when ROM `0x008B` is non-zero. It is the unit's hardware status or fault
+input, readable over the serial link; what each bit means is not known.
+See [serial-protocol.md](serial-protocol.md#bs-status-byte).

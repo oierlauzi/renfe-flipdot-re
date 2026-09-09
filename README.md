@@ -6,9 +6,9 @@ Reverse engineering of a **PAGE Ibérica PI-T100-M** flip-dot platform display,
 as used in RENFE Cercanías stations, for preservation and play.
 
 **Goal:** drive arbitrary text onto the panel from a modern host, over the
-existing serial link, with **no hardware and/or softwae modification**.
+existing serial link, with **no hardware or software modification**.
 
-In addition, [an online replica of the display](TODO) has been added to view
+In addition, [an online replica of the display](web-replica/) has been added to view
 custom messages. 
 
 I document this project in **English**: it's the language I'm used to
@@ -71,29 +71,12 @@ and [tools/extract_font.py](tools/extract_font.py) (`--png`) to regenerate it.
 
 ![256-glyph flip-dot font map, 5x7 dots each, arranged 16 per row](docs/font-map.png)
 
-## Status
+## Status: working
 
-| Area | State |
-| --- | --- |
-| ROM dump | done — **two independent reads, identical SHA-256**, provenance recorded |
-| Memory map | done — [docs/memory-map.md](docs/memory-map.md) |
-| I/O port map | done — all ports enumerated, most attributed — [docs/io-map.md](docs/io-map.md) |
-| Character font | done — [docs/font.md](docs/font.md) |
-| Serial link layer | done — **9600 8E1** default; full 300-9600 ladder mapped |
-| DIP switches | port B fully attributed; port C bit 5 known; port A mostly open |
-| Receive architecture | done — RST5.5 ISR, two handlers — [docs/serial-protocol.md](docs/serial-protocol.md) |
-| Serial framing | both handlers mapped; per-command semantics open |
-| DB37 pinout | not measured |
-| Flip-dot drive | **serial shift register decoded** — clock, data, 16 selects, 74 bits/char — [docs/flipdot-interface.md](docs/flipdot-interface.md) |
-
-The working queue is [docs/open-questions.md](docs/open-questions.md).
-
-## Status: the goal is met **[C]**
-
-**2026-09-06 — arbitrary text is on a real panel, over the original link, with no
-hardware modification.** A DSD TECH SH-U11 USB-RS-422 adapter, wired
-green/yellow to the display's receive pair and blue/red to its transmit pair,
-running `tools/bringup.py`:
+Arbitrary text goes onto a real panel, over the original link, with no hardware
+modification. A DSD TECH SH-U11 USB-RS-422 adapter wired green/yellow to the
+display's receive pair and blue/red to its transmit pair, running
+[tools/bringup.py](tools/bringup.py):
 
 ```
 [quiet]   silent. Correct -- the unit replies, it never announces.
@@ -104,59 +87,64 @@ running `tools/bringup.py`:
           read back: 'HOLA MUNDO' -- MATCHES
 ```
 
-The unit runs at **1200 baud, 7 data bits, even parity, 1 stop, address 1**.
+Then, for everyday use, [tools/say.py](tools/say.py):
 
-## Key findings so far
+```sh
+tools/say.py CHAMARTIN            # one line onto the panel
+tools/say.py                      # or type lines interactively
+tools/say.py --fill               # every dot on
+```
 
-* The external link is **opto-isolated RS-485 / RS-422** — two TI SN75176BP
-  transceivers and three 6N139 optocouplers on the interface board — carrying
-  **9600 baud, 8 data bits, even parity, 1 stop bit** by default. Both the frame
-  format and the baud rate are DIP-switch selectable.
-* The **font is fully decoded** and the code page identified as **IBM CP437**:
-  256 glyphs of 5x7 at ROM `0x1C0D`, indexed directly by character code, one byte
-  per column, bit 0 = top row. So `Ñ` is `0xA5` and `text.encode("cp437")` works.
-  Two exceptions: `0x24` and `0x25` are accented capitals, not `$` and `%`.
-* **The whole baud ladder is mapped**: dividers 20/40/80/160/320/640, an exact
-  1:2:4:8:16:32 sequence giving 9600 down to 300. Port B also selects word length
-  (bit 4) and parity (bits 3:2), so port B is fully attributed.
-* **RST5.5 is the serial receive interrupt**, gated by DIP switch port C bit 5,
-  dispatching to one of *two* receive protocols selected by port A bit 6:
-  `0x08B7` simple delimited text, or `0x0ACB` a **28-command protocol** built on
-  ASCII control codes with `STX`/`ETX` framing.
-* **The unit replies `ACK` (0x06) or `NAK` (0x15) on ETX**, followed by its
-  address and, on failure, a printable **error code** — so a rejection says why.
-  Once the link is wired up this makes the rest of the protocol discoverable by
-  experiment.
-* Messages are **64 bytes at `0xE001`**; overflow is detected and NAKed rather
-  than silently truncated. `CAN` clears the display, `DLE` resets the unit, and
-  `BEL` + one byte selects one of 8 display effects.
-* **DIP switch port A bits 4:0 are the display address**, and **port C bit 5
-  picks the protocol family** — set for the ASCII command protocol below, clear
-  for an unrelated binary protocol (`rx_handler_c`) at a hardwired 9600 8E1.
-* **The command protocol is fully mapped and validated in emulation.** A unit is
-  selected with `GS <addr>` (`0x7F` broadcasts), then accepts a small
-  cursor-addressable terminal command set, and answers queries with real data:
+| Area | State |
+| --- | --- |
+| ROM dump | Two independent reads, identical SHA-256, provenance recorded |
+| Disassembly | Reassembles byte-for-byte identical to the ROM |
+| Memory and I/O maps | Complete |
+| Character font | All three glyph tables decoded |
+| Physical layer | Opto-isolated 4-wire RS-422; wiring and polarity traced |
+| Command protocol | Fully mapped and exercised on the unit |
+| Flip-dot drive | Decoded: encoded address, shift clock, data, 74 bits per character |
+| Remaining | DB37 pin numbers, the switch-to-port mapping, handler C's frame layout — see [TODO.md](TODO.md) |
+
+## Key findings
+
+* The external link is **opto-isolated 4-wire RS-422** — two TI SN75176BP
+  transceivers and three 6N139 optocouplers on the interface board. This unit runs
+  **1200 baud, 7 data bits, even parity, 1 stop, at display address 1**; baud rate
+  and character format are both DIP-switch selectable across a 300-9600 ladder.
+* **Three receive protocols, not one.** DIP switch port C bit 5 selects between the
+  ASCII command set and an unrelated binary protocol at a hardwired 9600 8E1; port
+  A bit 6 then picks between a simple delimited-text handler and the full command
+  set.
+* **The command set is a small terminal.** A unit is selected with `GS <addr>`
+  (`0x7F` broadcasts), then accepts cursor positioning, erase, block-write and
+  query commands, and answers with real data:
 
 ```
 GS '5' SUB           -> AK0052.139U1 + the unit's configuration block
-GS '5' TAB           -> '00'                     (cursor row, column)
-GS '5' STX HOLA ETX  -> ACK '5'                  (acknowledged, with address)
-GS '9' SUB           -> nothing                  (wrong address, stays silent)
+GS '5' TAB           -> cursor row and column
+GS '5' STX HOLA ETX  -> ACK '5'      (acknowledged, with address)
+GS '9' SUB           -> nothing      (wrong address, stays silent)
 ```
-* `0x4A`/`0x4E` at `0x03A0` are an **ISR/main-loop mailbox**, not framing bytes.
-* **The panel is driven serially, not as a matrix.** Each character is an
-  independent module on a shared 26-conductor bus, addressed by an **encoded
-  position** (`0x00-0x3F`, matching the 64-byte buffer) rather than a dedicated
-  select line. Port C bit 4 is the shift clock and bit 5 the data, 74 bits per
-  character. Validated by reconstructing the glyphs from the emulated bit stream.
-* The firmware is **designed to run standalone**. Expansion-board memory is
-  reached through a paged window at `0xE000` selected by I/O port `0xE7`, and all
-  46 banked accesses funnel through three accessors that check for the board and
-  fall back to local RAM. No site waits, retries or errors out; one even
-  substitutes a DIP switch for a value the board would have supplied.
-* The "MAESTRA" (master) label plus a switch-selectable configuration suggests
-  the *serial* protocol carries a display address — a separate question from the
-  expansion board, and still open.
+
+* **`ACK` means stored, not displayed.** A selected unit never repaints, so `RS`
+  is what commits an update. Overflow is detected and `NAK`ed with a printable
+  error code rather than silently truncated.
+* **The panel is driven serially, not as a matrix.** Characters mount in pairs on
+  carrier boards hanging off a shared 26-conductor bus, addressed by an encoded
+  6-bit position rather than a dedicated select line, with a shift clock and a data
+  line carrying 74 bits per character. Each carrier's six address switches match
+  the firmware's 6-bit field exactly.
+* **The font is CP437**: 256 glyphs of 5x7 at ROM `0x1C0D`, indexed directly by
+  character code, one byte per column, bit 0 = top row. `text.encode("cp437")`
+  works, with two exceptions — `0x24` and `0x25` are `ñ` and `Ñ`, not `$` and `%`,
+  duplicated there so they survive a 7-bit link.
+* **The display computes nothing.** No arithmetic on message content, no timer,
+  no countdown. The upstream controller sends the whole line and re-sends it as
+  the ETA changes.
+* The firmware is a **generic multi-panel build**: 13 panel drivers behind 32
+  switch settings, a configuration block reported over the wire, and several
+  build-time options frozen into the image as always-taken tests.
 
 ## Layout
 
@@ -168,6 +156,7 @@ ghidra/      symbols.csv (source of truth for names) + scripts + frozen exports
 src/         Annotated 8085 assembly, aiming at a byte-exact rebuild
 tools/       Standalone scripts (font extraction, ROM inspection)
 notes.md     Dated lab notebook - every experiment, including the failures
+web-replica/ Browser replica of the display
 ```
 
 ## Quickstart
@@ -177,7 +166,9 @@ make                # list targets
 make check          # verify the ROM dump and the symbol table
 make font           # render all 256 glyphs
 make font-map       # regenerate docs/font-map.png
-make verify         # reassemble src/ and prove it matches the ROM (once src/ exists)
+make verify         # reassemble src/ and prove it matches the ROM
+make disasm         # regenerate src/firmware.asm from the ROM and symbols.csv
+make bringup-selftest   # exercise tools/bringup.py against the emulator
 ```
 
 To browse the firmware without installing Ghidra, grep the frozen exports in
@@ -187,10 +178,9 @@ address in the docs depends on them.
 
 ## Conventions
 
-* Every factual claim in `docs/` carries a confidence mark: **[C]** confirmed,
-  **[L]** likely, **[?]** guess. See [docs/README.md](docs/README.md).
-* Firmware locations are cited by **address**, not by Ghidra's autogenerated
-  names, so the documentation survives a re-import.
+* Firmware locations are cited by **address** as well as by name, so the
+  documentation survives a re-import. Names come from
+  [ghidra/symbols.csv](ghidra/symbols.csv).
 * Memory addresses and I/O ports are different spaces on the 8085 and are always
   labelled as such.
 

@@ -1,7 +1,6 @@
 # Annotated source
 
-**The matching disassembly exists and passes.** [firmware.asm](firmware.asm)
-reassembles to a file **byte-identical** to
+[firmware.asm](firmware.asm) reassembles to a file **byte-identical** to
 [../original/firmware.bin](../original/firmware.bin) over its whole used extent,
 `0000h-3047h` (12 360 bytes):
 
@@ -24,13 +23,6 @@ every claim falsifiable, because a wrong `equ`, a misread operand or a
 mis-sized table shows up as a checksum mismatch instead of quietly living on in
 a document. It also makes the ROM *modifiable* later, if the project ever goes
 that way.
-
-It is, however, **optional for the stated goal**. Controlling the display from
-outside only needs
-[../docs/serial-protocol.md](../docs/serial-protocol.md) to be right. Treat the
-reassembly as a long-running background task, not a prerequisite: do it for the
-regions that matter (the RX path, the render loop) and leave the rest as
-`db` blocks.
 
 ## Current contents
 
@@ -61,8 +53,7 @@ reassembles to the same bytes.
 
 ### How the other 379 labels are named
 
-They used to be `L1F3A` and friends, which told you nothing. Each is now
-`<routine>_<role><n>`:
+Each is `<routine>_<role><n>`:
 
 * **routine** — the nearest preceding entry point, meaning a name from
   `symbols.csv` or an address something `CALL`s. So `cmd_eot_br3` is inside
@@ -105,33 +96,11 @@ mnemonics — avoid, it forces a translation pass on every line).
 
 ## Hand-writing regions instead
 
-The generated listing is the baseline, not a ceiling. If a region is worth
-transcribing properly — with real comments and structure — replace it and keep
-`make verify` green.
+The generated listing is the baseline, not a ceiling. A region worth transcribing
+properly, with real comments and structure, can replace the generated one as long
+as `make verify` stays green. Two rules keep a matching build honest:
 
-```asm
-        cpu     8085
-        page    0
-        include "hardware.inc"
-
-        org     ROM_BASE
-
-; ---------------------------------------------------------------------------
-reset:                                  ; 0x0000
-        di
-        jmp     fatal_or_init
-        db      0FFh, 0FFh, 0FFh, 0FFh  ; pad to the RST1 slot
-...
-
-; Regions not yet transcribed stay as verbatim bytes so the image still
-; matches. Shrink these as understanding grows.
-        org     0300h
-        binclude "../original/firmware.bin", 0300h, 004Bh
-```
-
-Two rules that keep a matching build honest:
-
-1. Never "fix" what the original does, however odd. A matching build documents
-   the ROM, it does not improve it.
-2. Erased space (`0x3048-0x7FFF`) is `0FFh` fill, not zeros — emit it
+1. Never "fix" what the original does, however odd. A matching build documents the
+   ROM; it does not improve it.
+2. Erased space, `0x3048-0x7FFF`, is `0FFh` fill rather than zeros. Emit it
    explicitly or the checksum will not match.

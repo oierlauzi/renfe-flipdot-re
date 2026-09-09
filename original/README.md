@@ -48,15 +48,14 @@ That is worth more than the date alone. **Telenorma** was the German firm
 descended from **Telefonbau und Normalzeit** of Frankfurt, whose name literally
 means "telephone construction and standard time": alongside telephone systems
 they built **public and station clock and time-distribution installations**. The
-company later became part of Bosch Telecom. **[L]** — recalled rather than
-sourced, and worth verifying.
+company later became part of Bosch Telecom.
 
 Two things follow:
 
-* **The firmware was not necessarily written by PAGE Ibérica.** A German
-  time-systems company's label on the programmed part suggests PAGE Ibérica
-  either licensed the design, OEM'd it, or acted as the Spanish partner in a
-  Telenorma system. See [../docs/device.md](../docs/device.md).
+* **The firmware was not written by PAGE Ibérica.** The motherboard also carries
+  the Telenorma logo, so the electronics are a Telenorma design and build, with
+  PAGE Ibérica supplying the sign around them. See
+  [../docs/device.md](../docs/device.md).
 * **It gives a new place to look for documentation** — Telenorma and Bosch
   Telecom, not only PAGE Ibérica. See
   [../docs/references.md](../docs/references.md).

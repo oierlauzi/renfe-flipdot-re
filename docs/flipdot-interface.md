@@ -1,124 +1,86 @@
 # Flip-dot drive interface
 
-How a character in the message buffer becomes moving dots. The path is closed end
-to end and validated in emulation: glyphs sent to the virtual panel come back
-legible.
+How a character in the message buffer becomes moving dots.
 
-Confidence key: **[C]** confirmed, **[L]** likely, **[?]** guess.
-
-## What is settled
+## Summary
 
 | | |
 | --- | --- |
-| **Topology** | 16 independent character modules on a shared 26-conductor bus, not daisy-chained **[C]** |
-| **Module carrier** | modules mount in pairs on a flip-dot carrier board (8 boards, 16 modules), each with 6 address-setting switches **[C]** |
-| **Addressing** | encoded binary position `0x00-0x3F` on port B, active low, `0x80` = idle **[C]** |
-| **Data path** | serial shift register: port C bit 4 clock, bit 5 data (active low) **[C]** |
-| **Frame** | 74 bits per character: 37 idle, 1 marker, 35 glyph, 1 trailing **[C]** |
-| **Update model** | differential — only changed characters are redrawn **[C]** |
-| **Attributes** | port C bits 1:0, four states, set by `BEL` **[C]** |
-| **Driver** | `panel_11_draw` (`0x29D7`), selected by port C bits 4:0 = 3 **[C]** |
-| **Electrical** | ULN2003A sinks only; how the high side is driven is unknown **[?]** |
-| **U20** | OKI M81C55-5; port C in ALT2, all six pins outputs **[C]** |
-
-**Reading order.** [The panel is a serial shift register](#the-panel-is-a-serial-shift-register-c-from-the-rom)
-is the core; everything before it is context and everything after is either a
-consequence or an open question.
+| **Topology** | 16 character modules on a shared 26-conductor bus, not daisy-chained |
+| **Module carrier** | modules mount in pairs on a flip-dot carrier board — 8 boards, 16 modules — each with 6 address-setting switches |
+| **Addressing** | encoded binary position `0x00-0x3F` on port B, active low, `0x80` = idle |
+| **Data path** | serial shift register: port C bit 4 clock, bit 5 data, active low |
+| **Frame** | 74 bits per character: 37 idle, 1 marker, 35 glyph, 1 trailing |
+| **Update model** | differential — only changed characters are redrawn |
+| **Attributes** | port C bits 1:0, four states, set by `BEL` |
+| **Driver** | `panel_11_draw` (`0x29D7`), selected by port C bits 4:0 = 3 |
+| **Electrical** | ULN2003A sinks only; how the high side is driven is not established |
 
 ## Signal chain
 
 ```
-81C55-class device @ I/O 0xE0        ULN2003A x3 (U17, U18, U19)
+U20 M81C55-5 @ I/O 0xE0              ULN2003A x3 (U17, U18, U19)
   port A (0xE1) ─┐                   7 Darlington sinks each
   port B (0xE2) ─┼─ daughter 2 ──▶   = 21 sinks, with     ──▶ ribbon ──▶ panel
   port C (0xE3) ─┘                   free-wheel diodes                  coils
                                                                     (16 x 5 x 7)
 ```
 
-Three ULN2003A packages — U17, U18 and U19 — give **21 Darlington sinks**,
-against 8 + 8 + 6 = **22 output bits** from the three ports.
+Two facts about the ULN2003A constrain the topology:
 
-> That near-match was once read as evidence the ports drive the Darlington inputs
-> almost one-for-one. **That reading is dead.** The panel is fed *serially* — two
-> port C bits carry a 74-bit-per-character bit stream, and port B carries an
-> encoded address. The bit count is a coincidence. Kept here only because the
-> one-for-one idea is the obvious first guess and this says why it is wrong.
+* **It contains free-wheel clamp diodes**, common cathode on pin 9. Those exist
+  for inductive loads, which confirms the panel is driven as coils.
+* **It can only sink.** It pulls a line towards ground and cannot source current,
+  but a flip-dot needs current through its coil in both directions to set and to
+  reset. Something must supply the high side. The candidates are high-side drive
+  on the panel itself with the ribbon carrying only low-side selects; two windings
+  per dot, a set coil and a reset coil each returning to ground through its own
+  sink from a common +24 V; or a split supply with the coil common at a mid-rail.
+  The second fits what is on the board best, since it needs only sinks, but the
+  ribbon has not been traced.
 
-Two facts about the part constrain the topology more than the count does:
+Twenty-one lines cannot address 560 dots directly under any scheme, so the panel
+carries its own decoding.
 
-* **The ULN2003A contains free-wheel clamp diodes** (common cathode on pin 9).
-  Those exist for inductive loads. Their presence is good confirmation the panel
-  is driven as **coils**, not as anything resistive.
-* **The ULN2003A can only sink.** It pulls a line towards ground; it cannot
-  source current. A flip-dot needs current through its coil in *both* directions
-  to set and to reset, so sinks alone cannot do the job. Something must supply
-  the high side. The candidates:
-  1. **High-side drive on the panel itself**, with the ribbon carrying only the
-     low-side selects.
-  2. **Two windings per dot** — a set coil and a reset coil, each returning to
-     ground through its own sink from a common +24 V. This needs only sinks, and
-     would explain why there are no source drivers on the board at all.
-  3. A split supply, with the coil common tied to a mid-rail.
+## Initialisation
 
-Option 2 is the tidiest fit for what is actually on the board, but it is **[?]**
-until the ribbon is traced. 21 lines cannot address 560 dots directly under any
-scheme, so the panel must carry its own decoding or shift registers.
+`init_display_ifaces` (`0x03F2`) sets up both display port groups and does nothing
+panel-specific:
 
-## Initialisation **[C]**
-
-`init_display_ifaces` (`0x03F2`) sets both display port groups up, and does
-nothing panel-specific:
-
-* Timer preload `0x4600` → mode `01` (continuous square wave), count `0x600` =
-  1536. A second, much slower timebase than the UART one — plausibly the
-  dot-pulse or refresh clock. **[L]**
-* Command `0xCF` → port A output, port B output, **port C in ALT2 — all six
-  pins outputs**, timer running. See
-  [io-map.md](io-map.md#port-c-is-in-alt2--all-six-pins-are-outputs-c).
+* Timer preload `0x4600`: mode `01`, continuous square wave, count `0x600` =
+  1536. This is a much slower timebase than the UART's, possibly the dot-pulse or
+  refresh clock.
+* Command `0xCF`: port A output, port B output, port C in ALT2 with all six pins
+  outputs, timer running. See
+  [io-map.md](io-map.md#port-c-is-in-alt2-all-six-pins-outputs).
 * Ports A and B are pulsed `0x80` then `0x00` with three `NOP`s in between — a
-  deliberate short pulse, i.e. a **reset/home pulse to the panel**. **[L]**
+  deliberate short pulse, probably a reset or home pulse to the panel.
 
-`CMA` before every data `OUT` says the drive is **active low**, as Darlington
-*sinks* require. **[C]**
+`CMA` precedes every data `OUT`, so the drive is active low, as Darlington sinks
+require.
 
-> **Removed 2026-08-08.** This section used to present `0x210D` as "the hot path",
-> and drew two conclusions from it: that `0xE2` carrying a 4-bit value meant port
-> B addressed 16 characters, and that `0xA021` was a panel-width configuration
-> holding 16 or 32.
->
-> Both are wrong, and the first mistake caused the second. **`0x210D` is
-> `panel_0a_draw` — the driver for panel family `0x0A`, not for this unit**, which
-> selects family `0x11` and `panel_11_draw` at `0x29D7`. Port B carries a
-> **6-bit** encoded position over `0x00-0x3F`, not a 4-bit one; family `0x0A`
-> happens to mask it to four bits because *that* panel is 16 characters wide.
-> `0xA021` is the phase index of `render_pass_direct`, which runs its loop twice —
-> phase 0 over `msg_buffer`, phase 1 over `0xE03D` — and has nothing to do with
-> width.
+## Power-on behaviour
 
-## Power-on behaviour: the panel is zeroed **[C] observed**
+On power-up a brief buzzing sound sweeps across the display. On this unit there is
+no visual change, because its dots were already all showing black.
 
-**Observation (owner, 2026-08):** on power-up a brief buzzing sound *sweeps
-across the display*. No visual change on this unit, because its dots were already
-all showing black.
+That settles several things:
 
-That single observation settles several things:
-
-* **The rest state is black**, and power-on drives every dot to it.
-* **The sweep is sequential**, not simultaneous — the sound moves across the
-  panel. Coils are energised in groups small enough to be heard travelling, which
-  is what the current budget of three ULN2003A packages would force anyway.
+* The rest state is black, and power-on drives every dot to it.
+* The sweep is sequential rather than simultaneous — the sound moves across the
+  panel — so coils are energised in groups small enough to be heard travelling,
+  which the current budget of three ULN2003A packages would force anyway.
 * **The firmware does not know the panel state at power-on and does not try to.**
   Flip-dots are bistable, so after a power cut the physical dots are wherever they
-  were left, while the frame buffer in RAM is cleared to zero. Forcing every dot
-  unconditionally is the only way to make the two agree. A controller therefore
-  **cannot rely on the panel retaining content across a power cycle**.
-* It is audible proof the drive electronics and at least some coils work — a
-  useful bring-up signal before any serial work succeeds.
+  were left while the frame buffer is cleared. Forcing every dot unconditionally
+  is the only way to make the two agree, so a controller cannot rely on the panel
+  retaining content across a power cycle.
+* It is audible proof that the drive electronics and at least some coils work,
+  which is a useful bring-up signal before any serial work succeeds.
 
-### It is not reproduced in emulation **[C]**
-
-Running the real ROM in [pit100_sim.py](../tools/pit100_sim.py) produces only
-**eight** display-port writes during boot, whatever the switch settings:
+The sweep is not reproduced in emulation. Running the ROM in
+[pit100_sim.py](../tools/pit100_sim.py) produces only eight display-port writes
+during boot, whatever the switch settings:
 
 ```
 PC=0x03FB  0xE0 <- 0xCF     command: PA/PB out, PC ALT2 (all out), timer start
@@ -132,177 +94,101 @@ PC=0x068F  0xE2 <- 0x00
 PC=0x0691  0xE3 <- 0x00
 ```
 
-No sweep, over four million instructions and with the periodic interrupt driven
-at several rates. So the full-panel drive is **gated on something the model does
-not provide** — most likely a hardware handshake the render path waits on, since
-the `0xC0` device and the panel's own status lines are stubbed. The `0x80`-then-
-`0x00` pulse at `0x03FF` remains the best candidate for the *trigger*: it may
-strobe a sequencer on daughter 2 that does the sweep in hardware, which would
+No sweep appears over four million instructions at several interrupt rates, so the
+full-panel drive is gated on something the model does not provide. The
+`0x80`-then-`0x00` pulse at `0x03FF` is the best candidate for a trigger: it may
+strobe a sequencer on daughter 2 that performs the sweep in hardware, which would
 explain both the audible scan and the absence of per-dot writes from the CPU.
 
-**Concrete follow-up: time the buzz.** Duration divided by 560 dots gives the
-per-dot drive time directly, which is the open question below. A one-second sweep
-would mean roughly 1.8 ms per dot.
+Timing the buzz would give the per-dot drive time directly: duration divided by
+560 dots. A one-second sweep would mean roughly 1.8 ms per dot.
 
-## The panel's physical topology **[C] observed**
+## The panel's physical topology
 
-From inspecting the panel (owner, 2026-08):
+From inspecting the panel:
 
-* **Each character is an independent module** — sixteen of them. A single large
-  matrix was never an option.
-* **Modules mount in pairs on a shared flip-dot carrier board.** Eight carrier
-  boards make up this unit's 16-character line. Each carrier holds the ribbon
-  bus connector and the pair's address-setting switches — see
-  [below](#the-flip-dot-carrier-board-c-observed).
-* The carriers hang off a **common bus**, the ribbon. They are **not
-  daisy-chained**: it passes across them without being interrupted and
-  re-emitted per board.
-* The ribbon **exits the unit** after the last carrier, and was spliced to
-  remove the display. It almost certainly continued to the **second LED
-  panel**.
+* Each character is an independent module — sixteen of them. A single large matrix
+  was never an option.
+* **Modules mount in pairs on a shared flip-dot carrier board.** Eight carriers
+  make up this unit's 16-character line. Each carrier holds the ribbon bus
+  connector and the pair's address-setting switches.
+* The carriers hang off a common bus, the ribbon. They are not daisy-chained: it
+  passes across them without being interrupted and re-emitted per board.
+* The ribbon exits the unit after the last carrier, and was spliced to remove the
+  display.
 
-### The module address is encoded across 64 positions, not one-hot **[C]**
+### The flip-dot carrier board
 
-Port B does not carry sixteen dedicated select lines, one per module. It takes
-**far more than sixteen distinct values** — a repaint of the whole buffer walks
-all 64 — which no 8-bit one-hot scheme can produce. (The exact count depends on
-how many characters changed, so it is not a property worth quoting: a full `FF`
-fill produces 62 values, 61 positions plus the idle code.)
+[The carrier board](../hardware/photos/Flip-dot%20carrier.jpg) has **6
+address-setting switches**, DIP-style in layout but each implemented as a wire
+hooked across two pins, the same style as every other switch in this project. Six
+matches the firmware's 6-bit module-address field (`0x00-0x3F`) exactly, and it
+falls inside the six or seven conductors estimated for the encoded address from
+the ROM alone.
 
-Undoing the `CMA` shows what port B actually carries:
-
-```
-post-CMA, as written : 80 C2 80 C1 80 C0 80 FF 80 FE 80 FD 80 FC 80 FB ...
-pre-CMA, the value   : 7F 3D 7F 3E 7F 3F 7F 00 7F 01 7F 02 7F 03 7F 04 ...
-with 0x7F removed    : 3D 3E 3F 00 01 02 03 04 05 06 07 08 09 0A 0B 0C ...
-```
-
-A plain **incrementing counter over `0x00-0x3F`**, of which only 6 values happen
-to be one-hot. The `0x7F` between each is now identified: it
-is a literal `MVI A,0x80 / OUT 0xE2` at `0x2A5B` that **deselects** at the end of
-every character. See
-[how an individual character is addressed](#how-an-individual-character-is-addressed-c-from-the-rom).
-
-**So port B is an encoded module address, spanning 64 positions.** Three things
-fall into place:
-
-* **64 positions matches the 64-byte message buffer** exactly
-  ([serial-protocol.md](serial-protocol.md)). One address per buffer column.
-* **The conductor budget now works.** Roughly 6-7 address bits, plus clock, data
-  and control, is about 10 signals — leaving most of the 26 conductors for supply
-  *and* for a downstream display, which the one-hot reading could not accommodate.
-* **The LED panel fits.** It has *more* characters than the flip-dot line and
-  scrolls, so it needs a share of the same bus. A 64-position encoded address
-  serves both displays from one ribbon; 16 dedicated selects could not.
-
-### The flip-dot carrier board **[C] observed**
-
-Resolved by disassembling one character module (owner, 2026-09):
-[modules do not mount individually — each pair shares a **flip-dot carrier
-board**](../hardware/photos/Flip-dot%20carrier.jpg), which also carries the
-ribbon bus connector. This unit's 16-character line is built from **8 carrier
-boards**.
-
-The carrier has **6 address-setting switches** — DIP-style layout, each
-implemented as a wire hooked across two pins, the same style used for every
-other switch in this project (see [dip-switches.md](dip-switches.md)). Six is
-not a coincidental count: it matches the firmware's 6-bit module-address field
-(`0x00-0x3F`, established above) exactly, and it lands inside the "~6-7
-conductors" already estimated for the encoded address below — a measured
-switch count now agreeing with an estimate reached from the ROM alone.
-
-**How the two modules on one carrier get distinct addresses from a single
-6-switch setting is not established.** The owner's working guess: the switches
-set a base value, and the two module sockets are wired to a fixed offset (say
-`+0`/`+1`), so one carrier answers to a *pair* of adjacent addresses and the 6
-bits still span the full 64-position range the firmware addresses, rather than
-64 independent per-module codes. Recorded as a guess because it is one —
-nothing has been traced to confirm it, and the split could turn out to be
-something else entirely. **[?]**
+How the two modules on one carrier get distinct addresses from a single 6-switch
+setting is not established. The switches probably set a base value with the two
+module sockets wired to a fixed offset, so one carrier answers to a pair of
+adjacent addresses and the 6 bits still span the full 64-position range — but
+nothing has been traced to confirm it.
 
 The carrier's silkscreen reads `37624.0 DV2 A.1` / `S7D5-2` and carries the
-**Telenorma logo** — read off the photo, so check against the board before
-quoting it elsewhere. It extends Telenorma's design past the boards inside the
-enclosure and onto the panel itself, alongside the motherboard logo already
-recorded in
-[device.md](device.md#dating-and-the-telenorma-connection-c-for-the-label).
+Telenorma logo, extending Telenorma's design past the boards inside the enclosure
+and onto the panel itself.
 
 Legible on the carrier, but not traced to a function: **CD4015BE** (dual 4-bit
-static shift register) x6, **CD4503BE** (hex non-inverting buffer, 3-state)
-x1, **CD4068BE** (8-input NAND gate) x1, **HEF4077BP** (quad EXCLUSIVE-NOR
-gate) x2. An XNOR-then-AND combination is the textbook shape of an address
-comparator, and shift registers are what turning a serial bit stream into
-parallel drive needs — a plausible reading of the parts list, not a confirmed
-one. **[?]**
+static shift register) x6, **CD4503BE** (hex non-inverting 3-state buffer) x1,
+**CD4068BE** (8-input NAND) x1, **HEF4077BP** (quad XNOR) x2. An XNOR-then-AND
+combination is the textbook shape of an address comparator, and shift registers
+are what turning a serial bit stream into parallel drive needs, so the parts list
+reads as address comparison plus serial-to-parallel conversion.
 
-**The character module itself is a diode matrix, not a local shift
-register.** [The back of a module](../hardware/photos/Flip-dot%20daughter%20%28back%29.jpg)
-shows 35 diodes silkscreened `D11`-`D75` wired against row/column nets
-labelled `X1Y1`-`X7Y5` — a plain 5-column x 7-row matrix, matching the glyph
-cell size exactly. That places the serial-to-parallel conversion on the
-carrier board: the module itself has no logic of its own to decode a bit
-stream. **[L]**
+**The character module itself is a diode matrix, not a local shift register.**
+[The back of a module](../hardware/photos/Flip-dot%20daughter%20%28back%29.jpg)
+shows 35 diodes silkscreened `D11`-`D75` wired against row and column nets
+labelled `X1Y1`-`X7Y5` — a plain 5-column by 7-row matrix, matching the glyph cell
+exactly. The serial-to-parallel conversion is therefore on the carrier board; the
+module has no logic of its own.
 
-### What that forces
+### The ribbon has 26 conductors
 
-The firmware inverts (`CMA`) before writing the address port, and Darlington
-sinks pull their outputs low, so whatever the modules compare against, the bus
-carries it **active low**. **[L]**
+Counted at the splice. Twenty-six is a standard IDC width, 13 x 2, so the header
+is very likely 26-way IDC.
 
-Consistent with observation: the type-`0x11` driver writes only `0xE2` (49
-distinct values) while the type-`0x10` and `0x12` drivers write both `0xE1` and
-`0xE2` — plausibly a wider address for a longer panel, using one or both ports.
+| Conductors | Function |
+| --- | --- |
+| 6 | encoded module address on port B, matching the carrier's 6 address switches |
+| 1 | shift clock, port C bit 4 |
+| 1 | serial data, port C bit 5 |
+| 1-2 | strobe and control: port B bit 7, port C bits 1:0 |
+| remainder | 24 V and returns, and whatever the LED panel needs |
 
-### The ribbon has 26 conductors **[C]**
+To trace which conductor is which, look for the group carrying a binary count, the
+two that toggle per bit, and the supply.
 
-Counted at the splice (owner, 2026-08). 26 is a standard IDC width (13 x 2), so
-the header is very likely 26-way IDC.
+### Driving the panel directly
 
-Revised allocation, given that the address is encoded rather than one-hot:
+The interface is an encoded address plus a clock and a data line, so the panel can
+be driven directly, bypassing the original electronics — no serial link and no
+DB37. An ESP32 can produce six or seven address bits, a clock and a data line
+without difficulty, and the bit format is fully decoded below. It needs no
+modification to the display, only a different cable onto the existing ribbon
+header.
 
-| Conductors | Function | Conf. |
-| --- | --- | --- |
-| 6 | **encoded module address** (port B) — matches the carrier board's 6 address switches | **[L]** |
-| 1 | shift clock — port C bit 4 | **[C]** |
-| 1 | serial data — port C bit 5 | **[C]** |
-| 1-2 | strobe / control — port B bit 7, port C bits 1:0 | **[L]** |
-| remainder | 24 V and returns, and whatever the LED panel needs | **[L]** |
-
-Tracing which conductor is which: look for the **group that carries a binary
-count**, the **two that toggle per bit** (clock and data), and the supply.
-
-### This opens a plan B for the whole project
-
-The interface is an encoded address plus a clock and a data line, so **the panel
-can be driven directly**, bypassing the original electronics entirely — no serial
-link, no current loop, no unresolved physical layer. An ESP32 can produce 6-7
-address bits, a clock and a data line without difficulty, and the bit format is
-fully decoded above.
-
-That is not the project's stated goal, which is to drive the display *through* its
-own firmware over the DB37. But it is a genuine fallback if the electrical layer
-proves awkward, and it needs no modification to the display — only a different
-cable onto the existing ribbon header. Worth knowing it exists. See
+That is not how this project drives the sign — the point was to go through the
+original firmware — but it is a genuine alternative. See
 [controller.md](controller.md).
 
-## The panel is a serial shift register **[C] from the ROM**
-
-**Scope of that [C]:** the register writes, their order and their polarity are
-read directly from the ROM. That those writes appear on ribbon pins as a clock and
-a data line rests on assumption **A7** — U20 being an 8155 with `0xE3` as its
-port C — which is now [confirmed](#a7-is-resolved-u20-is-an-m81c55-5-in-alt2-c).
-
-The panel is fed **serially**, which dissolves the "21 lines cannot address 560
-dots" problem entirely.
+## The panel is a serial shift register
 
 | Port | Bit | Function |
 | --- | --- | --- |
-| `0xE3` (port C) | 4 (`0x10`) | **shift clock** — data is clocked on the rising edge |
-| `0xE3` (port C) | 5 (`0x20`) | **serial data**, **active low**: low = dot ON |
-| `0xE3` (port C) | 1:0 | **display attribute lines** — see below **[C]** |
-| `0xE2` (port B) | 7:0 | **character position**, inverted, bit 7 forced set |
+| `0xE3` (port C) | 4 (`0x10`) | shift clock; data is clocked on the rising edge |
+| `0xE3` (port C) | 5 (`0x20`) | serial data, active low: low = dot on |
+| `0xE3` (port C) | 1:0 | display attribute lines |
+| `0xE2` (port B) | 7:0 | character position, inverted, bit 7 forced set |
 
-The driver for panel type `0x11` sits at `0x29F6-0x2A5D`. Annotated:
+The driver for panel family `0x11` sits at `0x29F6-0x2A5D`:
 
 ```
 0x29F6  LDA 0xA00A          ; character position
@@ -330,8 +216,8 @@ The driver for panel type `0x11` sits at `0x29F6-0x2A5D`. Annotated:
 ```
 
 `RLC` five times followed by `RRC` per row emits the glyph byte's bits in the
-order **0, 1, 2 … 6** — top row first, exactly matching the font's bit-0-is-top
-layout ([font.md](font.md)).
+order 0, 1, 2 … 6 — top row first, matching the font's bit-0-is-top layout
+([font.md](font.md)).
 
 ### The frame: 74 bits per character
 
@@ -339,167 +225,130 @@ layout ([font.md](font.md)).
 [ 37 bits DATA high ][ 1 bit DATA LOW = marker ][ 35 glyph bits ][ 1 bit high ]
 ```
 
-The 35 glyph bits are 5 columns of 7 rows, top row first, **DATA low = dot on**.
+The 35 glyph bits are 5 columns of 7 rows, top row first, with DATA low meaning
+the dot is on.
 
-**Anchor on the marker, not on the idle run.** A blank glyph is 35 high bits and
-is therefore indistinguishable from idle padding; only the single low marker bit
-reliably locates a frame.
+Anchor a decoder on the marker, not on the idle run: a blank glyph is 35 high bits
+and is indistinguishable from idle padding, so only the single low marker bit
+locates a frame reliably.
 
-### How an individual character is addressed **[C] from the ROM**
+### How an individual character is addressed
 
-The per-character transaction is bracketed by two writes to port B, which is what
-makes the addressing unambiguous:
+The per-character transaction is bracketed by two writes to port B:
 
 | Step | Code | Bus |
 | --- | --- | --- |
-| 1 | `0x29F6`: `LDA 0xA00A / CMA / ORI 0x80 / OUT 0xE2` | **select** character `pos` |
+| 1 | `0x29F6`: `LDA 0xA00A / CMA / ORI 0x80 / OUT 0xE2` | select character `pos` |
 | 2 | `0x2A00-0x2A12` | 37 idle bits, clocked |
 | 3 | `0x2A16-0x2A23` | 1 marker bit, DATA low |
 | 4 | `0x2A25-0x2A48` | 35 glyph bits |
 | 5 | `0x2A4B-0x2A59` | 1 trailing bit, DATA high |
-| 6 | `0x2A5B`: `MVI A,0x80 / OUT 0xE2` | **deselect** — a literal `0x80` |
+| 6 | `0x2A5B`: `MVI A,0x80 / OUT 0xE2` | deselect, a literal `0x80` |
 
 `0xA00A` is a plain 0-based character counter, reset at `0x1260`/`0x1407` and
-incremented once per character by the render loop. So the address on the bus is
+incremented once per character by the render loop, so the address on the bus is
 
 ```
 port B = ~position | 0x80
 ```
 
-i.e. **encoded binary, active low, with bit 7 forced high**. Observed for a
-six-character message, with the deselect between each:
+— encoded binary, active low, with bit 7 forced high. Observed for a six-character
+message, with the deselect between each:
 
 ```
-written : FF 80  FE 80  FD 80  FC 80  FB 80  FA 80
+written  : FF 80  FE 80  FD 80  FC 80  FB 80  FA 80
 position :  0      1      2      3      4      5
 ```
 
-`0x80` is `~0x7F`, i.e. "address 127" — outside the 64 valid positions, so it acts
-as a **bus-idle / no-module-selected state** rather than addressing anything. That
-is what the earlier capture recorded as a mysterious alternating `0x7F`.
+`0x80` is `~0x7F`, i.e. address 127, outside the 64 valid positions, so it is a
+bus-idle state rather than an address.
 
-### The address width is panel-type specific **[C]**
+Port B is therefore an **encoded** module address spanning 64 positions, not
+sixteen dedicated select lines. A full repaint walks all 64 values; undoing the
+`CMA` shows a plain incrementing counter over `0x00-0x3F` with the idle code
+between each:
 
-Different drivers address differently, which is worth knowing before trusting any
-one of them:
+```
+post-CMA, as written : 80 C2 80 C1 80 C0 80 FF 80 FE 80 FD 80 FC 80 FB ...
+pre-CMA, the value   : 7F 3D 7F 3E 7F 3F 7F 00 7F 01 7F 02 7F 03 7F 04 ...
+with 0x7F removed    : 3D 3E 3F 00 01 02 03 04 05 06 07 08 09 0A 0B 0C ...
+```
 
-| Type | Address | Glyph data |
+Sixty-four addresses matches the 64-byte message buffer exactly — one address per
+buffer column — and the conductor budget works out: six or seven address bits plus
+clock, data and control is about ten signals, leaving most of the 26 conductors
+for supply and for a downstream display.
+
+### The address width is panel-family specific
+
+| Family | Address | Glyph data |
 | --- | --- | --- |
-| `0x11` (`0x29D7`) | port B, 6 bits used of 8, `~pos \| 0x80` | **serial**, shifted on port C |
-| `0x0A` (`0x210D`) | port B bits 3:0, `~pos & 0x0F`, then a strobe OR-ed in from `C` (`0x10` or `0x20`) | **parallel byte** on port A (`0x2113`) |
+| `0x11` (`0x29D7`) | port B, 6 bits of 8, `~pos \| 0x80` | serial, shifted on port C |
+| `0x0A` (`0x210D`) | port B bits 3:0, `~pos & 0x0F`, plus a strobe OR-ed in from C | parallel byte on port A (`0x2113`) |
 
-So type `0x0A` is a 16-character parallel panel and type `0x11` a serially-fed one
-with a 64-position address space. Both derive the position from the same `0xA00A`
-counter.
+So family `0x0A` is a 16-character parallel panel and family `0x11` a serially fed
+one with a 64-position address space. Both derive the position from the same
+`0xA00A` counter.
 
-### The LED panel is probably characters 16-63 of the same buffer **[L]**
+## What the rest of the character bus reaches
 
-Start with what the ROM settles. **There is no split at character 16 anywhere in
-it.** `render_pass_paged` walks `msg_buffer` (`0xE001`) against `shadow_buffer`
-(`0xE043`) in lockstep, bumping `char_pos` by one per position, and stops on the
-`03h` sentinel that `render_task` itself writes at `msg_buffer+40h`. One flat
-64-entry walk, one shadow, one position counter, one port group. `cursor_col`
-runs `0-63`, `DC2` wraps at 64, and `cfg_buffer_len` (ROM `0x007B`) is `40h`.
-**[C]**
+The firmware addresses **positions 0 through 63** on one bus, contiguously, one
+74-bit frame each. There is no split at character 16 anywhere in the ROM:
+`render_pass_paged` walks the message buffer against the shadow in lockstep,
+bumping `char_pos` by one per position, and stops on the `0x03` sentinel that
+`render_task` writes at `msg_buffer+0x40`. One flat 64-entry walk, one shadow, one
+position counter, one port group.
 
-Confirmed in emulation: a full repaint addresses **positions 0 through 63,
-contiguously, one 74-bit frame each, all on `disp0_port_a/b/c`**. (A capture will
-usually show slightly fewer frames — 61 in the `FF` run — because the pass is
-differential and a few shadow bytes already matched. Every position is still
-walked and counted.) **[C]**
+The flip-dot line is 16 characters, so 48 of those addresses reach something else.
+What that is has not been traced. Three readings fit what is known:
 
-The flip-dot line is 16 characters, so 48 of those addresses go somewhere else.
-Three facts make the LED panel the candidate:
+| Reading | Positions 16-63 are | Would predict |
+| --- | --- | --- |
+| The LED row sits on the character bus | the LED row | a 64-character message draws a response past position 15 |
+| The ribbon reaches the far side's flip-dot row of a double-sided sign | unused | the far side answers 0-15, in parallel with the near side |
+| The LED assembly reads the message buffer itself | unanswered | nothing on the ribbon responds past 15 |
 
-1. **The ROM's other second-display mechanism is dead in this build.** It is a
-   whole second port group at `0xE8-0xED` with its own buffer and shadow
-   (`msg_buffer2`/`shadow_buffer2` at `0xE084`/`0xE0C6`), driven by
-   `render_pass_disp1`/`disp1_paint`. `render_pass_paged` only reaches it when
-   `panel_family` is 0, and this unit's switches select `0x11`. Nothing ever
-   paints `0xE8-0xED` here. **[C]**
-2. **This unit had an LED panel** (owner; it could not be salvaged). Given (1), it
-   cannot have been driven by the second port group. **[C] observed**
-3. **The flip-dot character bus leaves the enclosure** (owner), so the chain
-   continues past the 16 dot modules. **[C] observed**
+On the second: the two faces of a back-to-back sign show the same content, so the
+far side would be the same bus continued, answering the same 0-15. That costs no
+addresses and involves the firmware not at all, which is why it fits everything
+observed and equally why it explains nothing about 16-63.
 
-**So the LED panel most likely answered to positions 16-63 of this same
-64-character buffer.** The gap in the argument is the one thing nobody has traced:
-**that the ribbon leaving the enclosure is the ribbon that reached the LED panel.**
-Until someone follows it, (3) says only that the bus goes somewhere.
+Against the first, 48 characters is thin for a display meant to carry intermediate
+stations and service notices. That objection is softer than it looks, though: this
+firmware cannot scroll — its effects are `BEL` attributes, not motion — so whatever
+scrolls the station list is upstream or on the LED assembly, and a host can
+rewrite the line repeatedly instead. At 9600 baud a 64-character message is
+roughly 70 ms, and the differential update charges a frame only for positions that
+changed, so 48 characters would be a window rather than a message-length limit.
 
-If it holds, it is good news for the project's goal: a host writing a
-64-character message addresses the whole sign, and `VT` cursor positioning reaches
-every character of it.
+One test separates all three: instrument the ribbon, send a 64-character message,
+and watch which addresses draw a response.
 
-One more detail fits. At `0x1290`, when the position counter completes a block of
-64, the firmware inserts `C-1` extra address slots before continuing — a gap
-between blocks. **`C` is frozen at 1, so the gap is zero.** That knob only makes
-sense for a chain assembled from more than one 64-character block. **[C]**
+A related detail fits a chain longer than one panel. At `0x1290`, when the position
+counter completes a block of 64, the firmware inserts `C-1` extra address slots
+before continuing — a gap between blocks. `C` is frozen at 1, so the gap is zero,
+but the knob only makes sense for a chain assembled from more than one block.
 
-### But we are guessing: three readings of positions 16-63 **[?]**
+### One row of 64
 
-Everything above this heading is what the firmware does. Everything below is
-speculation about hardware nobody has traced, and it should be read that way.
+The station-wide variant of this sign stacks two to four rows, and the ROM looks at
+first as if it supports that: `cmd_vt_position` computes `msg_buffer + 0x40 * row`.
+But `check_buffer_bounds` clamps the write pointer at `msg_buffer + 0x40` =
+`0xE041`, sets `cursor_row` to 1 and latches error `0x30`, so row 1 is an overflow
+rather than a place to put text.
 
-This specimen probably came from a **double-sided** assembly
-([device.md](device.md#variants-of-this-generation-c-observed-in-service-by-the-owner)),
-and no second unit was recovered. The owner's objection to the 16-63 reading is
-worth keeping in front: **48 characters seems thin for a display meant to carry
-intermediate stations and service notices** on a suburban railway.
+This build is therefore a single row of at most 64 positions, and the row
+arithmetic is generic code carried for wider members of the family.
 
-| # | Guess | 16-63 would be | Would predict |
-| --- | --- | --- | --- |
-| 1 | The LED row sits on the character bus | the LED row | a 64-character message draws a response past position 15 |
-| 2 | The ribbon reaches the **far side's flip-dot row** | unused | the far side answers 0-15, in parallel with the near side |
-| 3 | The LED assembly **is** the `0xE7` expansion and reads the buffer itself | unanswered | nothing on the ribbon responds past 15 |
+## Display attributes on port C bits 1:0
 
-On (2): the two faces of a back-to-back sign show the same content, so the far
-side would simply be the same bus continued, answering the same 0-15. That costs
-no addresses and involves the firmware not at all — which is why it sits
-comfortably with everything observed, and equally why it explains nothing about
-16-63.
+The attribute is driven out to the panel as two hardware lines, which is why the
+shift loop preserves the low bits of port C on every write: they hold state between
+glyph frames.
 
-On (3): the buffer at `0xE001` lives in the window `0xE7` pages, so it is on the
-expansion board, and the LED assembly is the standing candidate for that expansion
-(see below). An LED assembly holding that RAM could read the same 64 characters
-and render them with its own controller, leaving the flip-dot chain never needing
-more than 0-15.
-
-The "48 is too few" objection may also be softer than it looks. This firmware
-**cannot scroll** — its effects are `BEL` attributes, not motion — so whatever
-scrolls the station list is upstream or on the LED assembly. A host can rewrite
-the line repeatedly instead; at 9600 baud a 64-character message is roughly 70 ms,
-and the differential update charges a frame only for positions that changed. Under
-that reading 48 characters would be a *window*, not a message-length limit. **[?]**
-
-**One test separates all three:** power the unit with the ribbon instrumented,
-send a 64-character message, and watch which addresses draw a response. Nothing
-past 15 responding rules out (1) outright.
-
-### One row of 64, and the row machinery is switched off **[C]**
-
-Worth stating because the station-wide variant stacks 2-4 rows and this ROM looks
-at first as if it supports that. `cmd_vt_position` really does compute
-`msg_buffer + 40h * row`, so the arithmetic for multiple 64-wide rows is present.
-But `check_buffer_bounds` clamps the write pointer at `msg_buffer + 40h` =
-`0xE041`, sets `cursor_row` to 1 and latches error `30h` — **row 1 is an overflow,
-not a place to put text.**
-
-So this build is a **single row of at most 64 positions**, and the row arithmetic
-is generic code carried for other members of the family. Likewise `cfg_buffer_len`
-(ROM `0x007B`, `40h`) has **no direct reference in the firmware**: it is reported
-to the host in the `SUB` identify block, while the code itself uses a literal
-`0040h` at `0x12DC` and `CPI 40h` at `0x0C26`.
-
-### Port C bits 1:0 are the display attribute lines **[C]**
-
-They are the **display attribute, driven out to the panel as two hardware
-lines**, and the reason the shift loop carefully preserves them is that they hold
-state between glyph frames.
-
-The path is short. `BEL <param>` stores `param & 0x07` into `0xA014`
-(`0x10D0`). Whenever that value *changes*, `0x09F3` dispatches on the panel family
-(port C switch bits 4:0) and, for this panel's family, reaches `0x0A82`:
+`BEL <param>` stores `param & 0x07` into `0xA014` (`0x10D0`). Whenever that value
+changes, `0x09F3` dispatches on the panel family and, for this family, reaches
+`0x0A82`:
 
 ```
 0x0A82  LDA  0xA015        ; the attribute
@@ -519,78 +368,136 @@ Swept in emulation, `BEL 0` through `BEL 7`:
 | 2, 6 | `0x02`, `0x06` | `10` |
 | 3, 7 | `0x03`, `0x07` | `11` |
 
-So of the "8 display attributes", **only the low 2 bits reach this panel** — four
-states on two lines. Bit 2 does something different (below).
+So of the eight display attributes only the low two bits reach this panel: four
+states on two lines. Bit 2 does something different, below.
 
-**What those two lines do is genuinely open.** Two constraints narrow it:
+**What those two lines physically do is not known.** Two things are excluded:
+they are not brightness, because the dots are mechanical and bistable; and they
+are not the fluorescent tube, which is not coupled to the electronics in any way —
+it has its own mains feed and ballast, so the firmware cannot switch it.
 
-* **Not brightness on the flip-dots.** The dots are mechanical and bistable;
-  there is nothing to dim.
-* **Not the fluorescent tube.** The tube is **not coupled to the electronics in
-  any way** (owner, 2026-08) — it has its own mains feed and its own ballast, so
-  the firmware cannot switch it.
+What remains, in rough order of plausibility: they target the LED matrix rather
+than the flip-dots, which is the part of the sign that can be dimmed or blinked
+and the part that scrolls; or they are a hardware blink enable on the flip-dot
+modules, with the durations at `0xA016`/`0xA018` setting how long the effect lasts
+rather than its rate; or they are a per-panel mode select with no visual meaning of
+its own. Tracing port C bits 1:0 through the ribbon, or sending `BEL 0` through
+`BEL 3` to a powered unit and watching, would settle it.
 
-What remains, in rough order of plausibility:
+Other panel families route the same two bits elsewhere, which corroborates that
+they are attribute lines rather than anything family-specific:
 
-1. **They target the LED matrix, not the flip-dots.** The same ribbon continues to
-   it, LEDs *can* be dimmed or blinked, and it is the part of the sign that
-   scrolls. Handler A's timed variants fit an attention effect on scrolling text.
-2. **A hardware blink or flash enable** on the flip-dot modules, with the panel
-   doing the toggling rather than the CPU. The durations at `0xA016`/`0xA018`
-   would then set how long the effect lasts, not its rate.
-3. A per-panel enable or mode select with no visual meaning of its own.
-
-Tracing port C bits 1:0 through the ribbon, or simply sending `BEL 0`-`BEL 3` to a
-powered unit and watching, settles it. **[?]**
-
-Other panel families route the same two bits elsewhere, which is good
-corroboration that they are attribute lines rather than anything panel-specific:
-
-| Family (port C bits 4:0) | Routine | Destination |
+| Family | Routine | Destination |
 | --- | --- | --- |
 | 2, 3, `0x0D`, `0x12`-`0x15`, `0x17` | `0x0A82` | port C bits 1:0 |
 | `0x19` | `0x0A90` | port B bits 1:0 |
 | `0x18` | `0x0A9E` | attribute bit 0 → port C bit 5, bit 1 → port B bit 7 |
 
-### Bit 2 makes the effect permanent; bits 0 and 1 are timed **[C]**
+### Bit 2 makes the effect permanent
 
-`0x199F`, called after every character, ages the attribute — but **only under
-receive handler A**; handler B jumps straight past it.
+`0x199F`, called after every character, ages the attribute — but only under
+receive handler A; handler B jumps straight past it.
 
-* Attribute **bit 0** is paired with duration `0xA018`, **bit 1** with `0xA016`.
-  Both durations count down on the RST7.5 tick (`0x02EF`). When one reaches zero
-  the matching attribute bit is cleared, ending the effect.
-* **Bit 2 suppresses that ageing for bit 0**: the test is
-  `(attr & 0x05) == 0x01`, so with bit 2 set the auto-clear never runs and the
-  effect persists.
-* **Bit 7** short-circuits the whole thing — attribute off.
-* `0xA013` is set to 1 whenever `attr & 0x03` is non-zero, i.e. "an effect is
-  currently running", and is what gates the countdown at `0x02EF`.
+* Attribute bit 0 is paired with duration `0xA018`, bit 1 with `0xA016`. Both
+  count down on the RST7.5 tick (`0x02EF`), and when one reaches zero the matching
+  attribute bit is cleared, ending the effect.
+* Bit 2 suppresses that ageing for bit 0: the test is `(attr & 0x05) == 0x01`, so
+  with bit 2 set the auto-clear never runs and the effect persists.
+* Bit 7 short-circuits the whole thing, turning the attribute off.
+* `0xA013` is set whenever `attr & 0x03` is non-zero — "an effect is running" —
+  and gates the countdown at `0x02EF`.
 
-That decodes handler A's in-band control characters exactly:
+That decodes handler A's in-band control characters:
 
 | Character | Sets | Meaning |
 | --- | --- | --- |
-| `0x7C` `\|` | `attr = (attr & 0x7F) \| 0x05` | effect 0, **permanent** (bit 2) |
-| `0x7D` `}` | `attr \|= 0x02` plus `0xA016` = 80 or 2000 | effect 1, **timed** |
+| `0x7C` `\|` | `attr = (attr & 0x7F) \| 0x05` | effect 0, permanent via bit 2 |
+| `0x7D` `}` | `attr \|= 0x02`, plus `0xA016` = 80 or 2000 | effect 1, timed |
 | `0x7F` DEL | `attr = (attr & 0xFA) \| 0x80` | effects off |
 
-Two independent findings agreeing: the timing logic explains why `0x7C` sets
-*two* bits rather than one, which had no explanation before.
+which is also why `0x7C` sets two bits rather than one.
 
-### An aside: the glyph lookup is a linear search
+## What the render path needs before it runs
+
+Five conditions, all of which must hold before a single dot moves:
+
+1. **A panel family.** Port C bits 4:0 pick a branch at `0x055A`; each loads a
+   family into `0xA009`, and `0x136A` dispatches on it to a driver. The default
+   branch sets `0xA009 = 0`, for which no driver exists, so a unit with
+   unrecognised switches drives nothing. Thirteen of the 32 values select a real
+   driver.
+2. **The RST7.5 tick.** The idle loop at `0x1675` spins while `0xA01B & 1` is set,
+   and only the RST7.5 handler clears it at `0x0336`.
+3. **Changed content.** `0x136A` is reached by `CNZ`, a conditional call after
+   comparing the new byte against the shadow (`0x1447`), so only characters that
+   differ are redrawn.
+4. **Somewhere for the buffer to live** — the `0xE000` window.
+5. **The unit must not be selected.** The repaint task spins at `0x130B` while the
+   selected flag is set; see
+   [serial-protocol.md](serial-protocol.md#the-repaint-interlock-rs-is-not-optional).
+
+### Two render passes
+
+There are two nearly identical passes over the buffer, and a switch setting chooses
+between them:
+
+| Pass | Access | Selected when |
+| --- | --- | --- |
+| `0x124E` | via `xram_read`/`xram_compare`, paged | `0xA008 = 0` |
+| `0x13F7` → `0x1445` | direct `MOV A,M`, unpaged | `0xA008 = 1` |
+
+`0xA008` is loaded at `0x0547` from DIP switch port B bit 0, and the choice only
+takes effect under receive handler A — under handler B, `0x1243` diverts to the
+paged pass regardless. Both passes walk the buffer and its shadow in step, call the
+driver only where the two differ, and terminate on the byte matching `0xA007`
+rather than on a count.
+
+### What forces a full repaint
+
+`0x13C6`, called at the top of every pass, clears the 64-byte shadow to zero, so
+every character then differs and the next pass repaints everything. It does that
+when the panel family is `0x08` — pulsing `0x36` to port C first — or when port C
+bit 5 is clear, or when `0xA023` is `0xFF`. It explicitly does not for family
+`0x12`, which returns immediately.
+
+`0xA023` is set to `0xFF` at `0x07D4` for families 2, 8, 9, `0x0B`, `0x0C`, `0x0D`
+and `0x0E`, and left at zero for every other family including `0x11`. So the
+firmware divides its supported displays into two classes: **continuously
+refreshed**, where the whole panel is rewritten every pass, and **differentially
+updated**, where only changed characters are touched.
+
+A flip-dot panel must be differential, since its dots are bistable and rewriting
+unchanged ones is pure coil heating. A continuously refreshed family is what an LED
+or lamp matrix needs. Family `0x11` falling in the differential class is therefore
+consistent with it being the flip-dot driver, reached independently of the drive
+activity that first identified it.
+
+## The message buffer is backed on this unit
+
+The buffer at `0xE001` lives in the window that `0xE7` pages, which is on the
+expansion board, and the accessors fall back to accessing `(HL)` directly when
+`0xE7` reads `0xFF`. In emulation that fallback leaves the buffer unbacked and no
+text renders, which is why `pit100_sim.py` needs `--xram board`.
+
+On the real unit, text sent over the serial link **does** render. So the `0xE000`
+window is backed here: either the expansion latch reports present, or `0xE001` is
+aliased onto real memory by incomplete address decoding. Which of the two has not
+been determined, and needs a probe of `0xE7`.
+
+## An aside: the glyph lookup is a linear search
 
 `0x29DD-0x29F3` walks the font table five bytes at a time comparing the index
-against the character code, up to 255 iterations, even though the table is
-directly indexable as `0x1C0D + code * 5` ([font.md](font.md)). If the code is not
-found it restarts the search for character `0`. Functionally irrelevant, but it
-sets the per-character cost and is a reminder that this firmware is not
-performance-tuned — useful when reasoning about how fast a host can push updates.
+against the character code, up to 255 iterations, even though the table is directly
+indexable as `0x1C0D + code * 5` ([font.md](font.md)). If the code is not found it
+restarts the search for character 0. Functionally irrelevant, but it sets the
+per-character cost, which is worth knowing when reasoning about how fast a host can
+push updates.
 
-### Validated end to end
+## Validated end to end
 
-`tools/panel_view.py` recovers the bit stream from the emulated port writes and
-reconstructs the glyphs. Sending `FF` (fill with `0x23`) produces:
+[panel_view.py](../tools/panel_view.py) recovers the bit stream from the emulated
+port writes and reconstructs the glyphs. Sending `FF`, which fills the buffer with
+`0x23`, produces:
 
 ```
 #####  #####  #####
@@ -603,163 +510,11 @@ reconstructs the glyphs. Sending `FF` (fill with `0x23`) produces:
 ```
 
 Frame length, marker position, bit order and polarity all had to be right
-simultaneously for that to come out, which is the strongest single confirmation
-in the project so far.
+simultaneously for that to come out. Text renders correctly too:
 
 ```sh
-PYTHONPATH=tools python3 tools/panel_view.py --fill
+PYTHONPATH=tools python3 tools/panel_view.py --text "HOLA MUNDO"
 ```
-
-## What the render path needs before it runs at all **[C]**
-
-Four conditions, all of which had to be satisfied before a single dot moved. This
-is why earlier attempts saw only eight port writes at boot.
-
-1. **A panel type.** Port C bits 4:0 pick a branch at `0x055A`; each branch loads
-   a type into **`0xA009`**, and `0x136A` dispatches on it to a panel-specific
-   driver. The **default branch sets `0xA009 = 0`, for which no driver exists** —
-   so a unit with unrecognised switches drives nothing. 13 of the 32 values select
-   a real driver.
-2. **The RST7.5 tick.** The idle loop at `0x1675` spins while `0xA01B & 1` is set,
-   and that flag is cleared in the RST7.5 handler at `0x0336`. No tick, no repaint,
-   forever.
-3. **Changed content.** `0x136A` is reached by **`CNZ`** — a *conditional* call
-   after comparing the new byte against the shadow copy (`0x1447`:
-   `MOV A,(HL) / XCHG / CMP (HL) / CNZ 0x136A`). **Only characters that differ are
-   redrawn.** An all-zero buffer against an all-zero shadow flips nothing.
-4. **Somewhere for the buffer to live** — see the `0xE000` window question in
-   [io-map.md](io-map.md).
-
-5. **The unit must not be selected.** The repaint task spins at `0x130B` while
-   the *selected* flag is set — see
-   [serial-protocol.md](serial-protocol.md#the-repaint-interlock-rs-is-not-optional-c).
-   This is the one that defeated the tooling longest, because it fails silently
-   and the unit still answers `ACK`.
-
-### Two render passes, chosen by port B bit 0 **[C]**
-
-There are two nearly identical passes over the buffer, and which one runs is a
-switch setting:
-
-| Pass | Access | Selected when |
-| --- | --- | --- |
-| `0x124E` | via `xram_read`/`xram_compare`, i.e. **paged** | `0xA008 = 0` |
-| `0x13F7` → `0x1445` | direct `MOV A,M`, **unpaged** | `0xA008 = 1` |
-
-`0xA008` is loaded at `0x0547` from **DIP switch port B bit 0**, and the choice
-only takes effect for receive handler A — under handler B, `0x1243` diverts to
-the paged pass regardless. Both passes walk the buffer and its shadow in step,
-call the panel driver through `0x136A` only where the two differ, and **terminate
-on the byte matching `0xA007`** rather than on a count.
-
-### What forces a full repaint **[C]**
-
-`0x13C6`, called at the top of every pass, clears the 64-byte shadow to zero.
-Every character then differs from it, so the next pass repaints everything. It
-does that when:
-
-* the panel type is `0x08` — and it also pulses `0x36` to port C first; or
-* **port C bit 5 is clear**, i.e. the unit is running the handler C protocol; or
-* `0xA023 = 0xFF`.
-
-It explicitly does **not** for panel type `0x12`, which returns immediately.
-
-`0xA023` is set to `0xFF` at `0x07D4` for panel types **2, 8, 9, 0x0B, 0x0C, 0x0D
-and 0x0E**, and left at zero for every other type — including `0x11`, this
-panel's. So the firmware divides its supported displays into two classes:
-
-* **continuously refreshed** — the whole panel is rewritten every pass;
-* **differentially updated** — only changed characters are touched.
-
-**This independently supports assumption A1.** A flip-dot panel *must* be
-differential: its dots are bistable, so rewriting unchanged ones is pure coil
-heating for no visual effect, and the ULN2003A free-wheel diodes confirm coils.
-A continuously refreshed type is what an LED or lamp matrix needs. Type `0x11`
-being in the differential class is therefore consistent with it being the
-flip-dot driver, arrived at from a completely different direction than the
-"most drive activity" heuristic that originally picked it.
-
-This also explains the puzzle in point 3 above: a purely differential update
-would not sweep at power-on, and the shadow clear is what forces the full
-repaint that does.
-
-## Assumptions this rests on, and how to falsify each
-
-Everything above is derived from the ROM plus emulation. These are the inputs that
-were **chosen rather than measured**, in rough order of how much would need
-revisiting if one is wrong.
-
-| # | Assumption | Why it was chosen | How to check on the hardware | If wrong |
-| --- | --- | --- | --- | --- |
-| A1 | Panel type is `0x11`, from port C bits 4:0 = `0x03` | It produced the most drive activity of the 13 candidates, and it falls in the *differentially updated* class, which is the only sane way to drive bistable dots (see above) | Read port C bits 4:0 from the switches and hardwired links, then look up the branch at `0x055A` | The frame layout may differ per driver. The *method* here applies to whichever driver is real; re-run `panel_view.py --type N` |
-| A2 | RST7.5 fires periodically | The idle loop demands it; the rate used (every 2000 instructions) is arbitrary | Scope 8085 pin 7 for a periodic edge and measure its rate | Only the repaint *rate* changes, not the frame format |
-| A3 | Port C bit 4 is the clock and bit 5 the data | The code toggles bit 4 twice per bit while bit 5 carries the varying value | Scope both against the ribbon | Would invert the whole decode; the `FF` validation makes this very unlikely |
-| A4 | Data is active low (low = dot on) | `CMA` precedes every DATA write, and `FF` then renders as a solid block | Send `FF` on the real panel and see whether it goes all-on or all-off | Every rendered glyph inverts |
-| A5 | The frame is 37 + 1 + 35 + 1 bits | Read directly from the loop counters `0x25` and `0x05`/`0x07` | Count clock edges per character on a logic analyser | The 37 leading bits are the least certain part; they may address a longer register chain |
-| A6 | An expansion board is present (`0xE7` != `0xFF`) for some captures | Without it the buffer at `0xE000` is unbacked | The unit has no LED matrix, so `0xE7` should read `0xFF` | The buffer question in [io-map.md](io-map.md) needs settling first — and see the prediction below |
-
-### A7 is resolved: U20 is an M81C55-5 in ALT2 **[C]**
-
-**Assumption A7 — that U20 is an 8155 and `0xE3` is its port C — is now
-confirmed, and the contradiction that hung off it was our own arithmetic.**
-
-The owner read the top marking (2026-09): **OKI M81C55-5**, the same part as U2.
-And decoding the command words against the datasheet's own Port Control Assignment
-Table shows both select **ALT2**, in which `PC0`-`PC5` are all output pins — so
-`PC4` as shift clock and `PC5` as serial data are exactly what the part provides.
-Full decode in
-[io-map.md](io-map.md#port-c-is-in-alt2--all-six-pins-are-outputs-c).
-
-> **Retracted.** This section previously argued at length that both command words
-> selected **ALT4**, which would have made `PC4` handshake-driven and `PC5` an
-> input, and therefore that the flip-dot decode and the 8155 reading could not
-> both be true. It offered three escape routes: that U20 was some other DIP40,
-> that `0xE3` was a discrete latch, or that OKI's ALT semantics differed from
-> Intel's.
->
-> **None was needed.** ALT4 is bits 3:2 = `10`; `0xCF` and `0x0D` both carry `11`,
-> which is ALT2. The mistake was never checked against the datasheet table, and it
-> survived a long time because it also caused "read U20's top marking" to be
-> promoted to the most valuable hardware task in the project — which is how a bad
-> decode can look like a productive open question.
-
-With A7 confirmed, the last step of the chain closes too: the register writes
-**do** reach ribbon pins as a clock and a data line, because `0xE3` is a genuine
-81C55 port C configured as outputs. The emulator's model of `0xE3` as a readable
-latch matches the part — an 8155 output port reads back its own latch, which is
-what the driver's read-modify-write on the attribute bits depends on.
-
-### A falsifiable prediction about the missing LED panel
-
-The ribbon continuing onward to the LED panel makes the `0xE000` question much
-sharper. The chain of reasoning:
-
-1. `0xE7` is a register **on the expansion**, and reads `0xFF` when it is absent.
-2. The **message buffer lives at `0xE001-0xE040`**, inside the paged window that
-   `0xE7` selects.
-3. The LED panel assembly is the obvious candidate for that expansion.
-
-This is a claim about where the *memory* is, and sits alongside — not against —
-the addressing argument above: the LED panel assembly would carry the buffer RAM
-**and** answer to character positions 16-63 on the same bus.
-
-If all three hold, then **this unit is missing the RAM its message buffer lives
-in** — which is precisely why the emulator needs `--xram board` before any text
-renders, and why `STX AB ETX` paints the fill character instead of letters.
-
-**The prediction, testable at first power-up:** with the LED panel absent the unit
-should still perform its power-on sweep and still answer serial queries such as
-`SUB` — neither needs the buffer — but should be **unable to display sent text**.
-
-If it *does* display text with the panel gone, this reasoning is wrong and the
-`0xE000` memory is somewhere on the boards that are present. Either outcome is
-informative, and it costs nothing beyond powering the unit up and sending one
-message.
-
-### Message text renders correctly **[C]**
-
-Neither of the two things that gate this is in the frame format itself.
-`panel_view.py --text "HOLA MUNDO"` produces:
 
 ```
    #...#  .###.  #....  .###.  #...#  #...#  #...#  ####.  .###.
@@ -771,68 +526,14 @@ Neither of the two things that gate this is in the frame format itself.
    #...#  .###.  #####  #...#  #...#  .###.  #...#  ####.  .###.
 ```
 
-The space between the words produces no frame at all, which is the differential
-update working correctly: it was already a space, so nothing needed flipping.
-
-**Cause 1 — the repaint interlock.** A *selected* unit does not repaint. See
-[serial-protocol.md](serial-protocol.md#the-repaint-interlock-rs-is-not-optional-c);
-the render task spins at `0x130B` until `selected` clears, so text written and
-ACKed during a selection stays invisible until `RS`. The tooling was never
-sending `RS`. This is a protocol requirement, not a hardware one.
-
-**Cause 2 — port B bit 0.** With it set, the pad character becomes the solid
-block `0x23` and the alternator at `0x1348` repaints every column with blocks —
-which is exactly the "fill character" that was being observed. The block was not
-a stand-in for a glyph the firmware could not find; it was the pad character
-doing its job. `panel_view.py` now defaults port B to `0xFE` and exposes
-`--port-b`.
-
-Assumption A6 is unaffected and still needs the hardware: this was run with
-`--xram board`, so whether *this* unit has the memory remains open.
-
-## A newly attributed switch bit: port B bit 0 does two things
-
-**It selects the fill/substitute character.** At `0x0822` and `0x1351` the
-firmware reads port B, tests bit 0, and when set stores `0x23` into `0xA041`.
-`0x23` is the solid-block glyph, so **bit 0 set makes the pad character a solid
-block instead of a space**. **[L]**
-
-**It also selects the render pass.** At `0x0547` the same bit sets `0xA008`,
-which chooses between the paged pass at `0x124E` and the unpaged one at `0x13F7`
-(see above). One switch bit therefore couples the pad character to the buffer
-access method — odd, but both readings are direct from the ROM. **[C]**
-
-That closes one of the two remaining unattributed port B bits — see
-[dip-switches.md](dip-switches.md).
-
-## Open questions
-
-- [ ] Trace the 26 ribbon conductors and match them to the port bits: the group
-      carrying the binary address count, the clock, the data line, and supply.
-- [x] ~~Why does message text not reach the rendered glyphs?~~ **Solved** — the
-      repaint interlock plus port B bit 0. See above.
-- [ ] Determine the pulse width used to flip a dot, and whether the firmware
-      relies on the 81C55 timer or on software delay loops. **Timing the
-      power-on sweep gives this almost for free** — see above.
-- [ ] Does daughter 2 contain a hardware sequencer that performs the power-on
-      sweep autonomously? The CPU issues only a short pulse at `0x03FF`, yet the
-      panel scans audibly.
-- [x] ~~Does it repaint the whole panel or only changed dots?~~ **Both, and which
-      one is determined by the panel type** — `0xA023` splits the supported
-      displays into continuously refreshed and differentially updated classes.
-      This panel's type `0x11` is differential. See above.
-- [x] ~~Where is the frame buffer, and in what layout?~~ Not in the `0xA000` RAM
-      at all: it is the 64-byte buffer at `0xE001` with a 64-byte shadow at
-      `0xE043`. → [io-map.md](io-map.md#what-is-in-the-window-c-from-emulation)
-- [x] ~~What is the third 64-byte region at `0xE084`?~~ **Answered: it is a second
-      buffer/shadow pair** (`0xE084` + `0xE0C6`, same `0x42` stride), selected by
-      `0xA057` — which is **never set**, because its only writer sits behind an
-      always-taken jump. A feature patched out at build time.
-      → [io-map.md](io-map.md#the-second-buffer-pair-is-a-disabled-feature-c)
+The space between the words produces no frame, because the position already held a
+space and the update is differential. A space is an ordinary glyph — `font_5x7`
+entry `0x20` is five zero bytes — and writing one over a non-blank character does
+emit a frame and does clear those dots.
 
 ## Safety note
 
-Flip-dot coils are designed for **short pulses**. Leaving one energised
-continuously will overheat and can destroy it. Any experiment that drives the
-panel directly — bypassing this firmware — must guarantee a bounded pulse width
-in hardware or in a watchdog, not merely in software that could hang.
+Flip-dot coils are designed for short pulses. Leaving one energised continuously
+will overheat and can destroy it. Any experiment that drives the panel directly,
+bypassing this firmware, must guarantee a bounded pulse width in hardware or in a
+watchdog, not merely in software that could hang.

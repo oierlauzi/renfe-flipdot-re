@@ -28,11 +28,11 @@ search for the **Intel 8085AH**, **8155/8156**, and **8251A** datasheets. The
       `300-40.0219.9078` / `324-40.0219.9078` (daughter 1), `41.0222.0026`,
       `11.0238.4030`, `37623.6`. Verify the digits against the board first — they
       were read from photographs. →
-      [../hardware/pcbs.md](../hardware/pcbs.md#telenorma-part-numbers-c--but-verify-the-digits-against-the-board)
+      [../hardware/pcbs.md](../hardware/pcbs.md#telenorma-part-numbers)
 - [ ] **Telenorma / Telefonbau und Normalzeit / Bosch Telecom** display and clock
       system documentation. Both the EPROM label *and* the motherboard logo are
       Telenorma, so the hardware and firmware both originate there — see
-      [device.md](device.md#dating-and-the-telenorma-connection-c-for-the-label).
+      [device.md](device.md#telenorma-and-page-ibérica).
       Search terms worth trying:
       - Telenorma *Anzeigetafel* / *Fahrgastinformation* (passenger information)
       - Telefonbau und Normalzeit *Nebenuhr* / *Hauptuhr* (slave / master clock)
@@ -97,7 +97,7 @@ HTTP `negotiate` step can be skipped entirely when the WebSockets transport is
 forced, and that path is open to a static cross-origin page where `fetch()` is
 not.
 
-### The ADIF hub [C]
+### The ADIF hub
 
 Captured 2026-08-10 by driving a real browser at the page and reading the socket.
 The WAF blocks headless Chrome and every scripted HTTP client (Akamai, per the

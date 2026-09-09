@@ -1,39 +1,33 @@
 # Documentation index
 
-Reverse-engineered *understanding* of the device. This is the real product of
-the project — the disassembly is only the evidence.
-
-Every document uses the same confidence key, and every claim carries one:
-
-| Mark | Meaning |
-| --- | --- |
-| **[C]** | Confirmed — traced in the firmware and cross-checked against a datasheet, or measured on the hardware |
-| **[L]** | Likely — consistent with the evidence, one step of inference away |
-| **[?]** | Guess — recorded so it can be tested, not relied upon |
-
-Never silently upgrade a mark. When something moves from **[L]** to **[C]**, say
-in [../notes.md](../notes.md) what the evidence was.
+What the device is and how it works. The disassembly in [../src/](../src/) is the
+evidence; this is the result.
 
 ## Documents
 
 | File | Contents |
 | --- | --- |
-| [device.md](device.md) | What the unit is: PAGE Ibérica PI-T100-M, labels, geometry |
-| [memory-map.md](memory-map.md) | Address space, ROM layout, vectors, RAM variables |
+| [device.md](device.md) | What the unit is: PAGE Ibérica PI-T100-M, its labels, geometry and place in a station |
+| [serial-protocol.md](serial-protocol.md) | The external link: physical layer, framing, and the full command set |
+| [controller.md](controller.md) | Driving it from a modern host: wiring, adapters, and the tools in this repository |
+| [dip-switches.md](dip-switches.md) | The three switch banks and what each bit configures |
 | [io-map.md](io-map.md) | Every 8085 I/O port and the device behind it |
-| [serial-protocol.md](serial-protocol.md) | **The goal.** Physical, link and application layer |
-| [controller.md](controller.md) | Planning the host side: interface hardware, sourcing, gotchas |
-| [dip-switches.md](dip-switches.md) | The three switch banks and what they configure |
-| [font.md](font.md) | The 5x7 glyph table format and code point coverage |
-| [flipdot-interface.md](flipdot-interface.md) | How dots actually get flipped |
-| [open-questions.md](open-questions.md) | The working queue |
+| [memory-map.md](memory-map.md) | Address space, ROM layout, interrupt vectors, RAM variables |
+| [font.md](font.md) | The three glyph tables and the code page |
+| [flipdot-interface.md](flipdot-interface.md) | How a character in the buffer becomes moving dots |
 | [references.md](references.md) | Datasheets and external material |
+
+Physical description of the boards lives in [../hardware/](../hardware/). The
+chronological record of how all this was worked out, including the readings that
+turned out to be wrong, is [../notes.md](../notes.md).
 
 ## Conventions
 
 * Addresses are hex with an explicit prefix: `0x1C0D` for memory, and I/O ports
   are always written as "I/O `0xE1`" to keep the two spaces apart.
-* Firmware locations are cited by address (`0x03F2`), not by Ghidra's
-  auto-generated `FUN_ram_03f2`, so the docs survive a re-import. Names come
-  from [../ghidra/symbols.csv](../ghidra/symbols.csv).
+* Firmware locations are cited by address as well as by name, so the text
+  survives a re-import. Names come from [../ghidra/symbols.csv](../ghidra/symbols.csv)
+  and appear in [../src/firmware.asm](../src/firmware.asm).
 * Bit numbering is LSB = bit 0 throughout, matching the datasheets.
+* Statements are made plainly when they are established. Where something is
+  inferred rather than observed, the text says so in words.

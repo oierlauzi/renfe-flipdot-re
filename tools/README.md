@@ -1,19 +1,109 @@
 # Tools
 
-Standalone scripts. No dependencies beyond the Python standard library — this
-project should still work in ten years.
+Standalone scripts. Only `pyserial` is needed, and only for the ones that open a
+serial port; everything else is the Python standard library.
 
 Run them from the repository root; they default to `original/firmware.bin`.
 
 | Script | Purpose |
 | --- | --- |
-| [rom_info.py](rom_info.py) | Integrity check, used/erased extent, region cross-check, printable strings |
-| [disasm.py](disasm.py) | 8085 disassembler with symbol annotation; also finds cross-references |
-| [extract_font.py](extract_font.py) | Render or export the 5x7 glyph table |
+| [say.py](say.py) | **Put text on the panel.** The everyday front end |
+| [bringup.py](bringup.py) | Staged first power-up: adapter, quiet line, line settings, address, demo |
+| [pit100.py](pit100.py) | Host-side driver: the whole command protocol |
+| [pit100_sim.py](pit100_sim.py) | Runs the real firmware against emulated peripherals |
 | [emu8085.py](emu8085.py) | Intel 8085 CPU core; machine-agnostic, memory and I/O via callbacks |
-| [pit100_sim.py](pit100_sim.py) | Runs the real firmware against stub peripherals |
-| [pit100.py](pit100.py) | **Host-side driver**: the command protocol, ready for a serial port |
 | [panel_view.py](panel_view.py) | Decodes the flip-dot serial stream and renders the panel |
+| [disasm.py](disasm.py) | 8085 disassembler with symbol annotation, cross-references, and the matching listing |
+| [extract_font.py](extract_font.py) | Render or export the glyph tables |
+| [rom_info.py](rom_info.py) | Integrity check, used and erased extent, region cross-check, strings |
+
+## say.py — text on the panel
+
+```sh
+tools/say.py CHAMARTIN            # one line and exit
+tools/say.py                      # type lines; each appears on the panel
+echo ATOCHA | tools/say.py        # or from a pipe
+tools/say.py --fill               # every dot on
+tools/say.py --clear              # every dot off
+tools/say.py --cycle 3            # fill and clear repeatedly, to find stuck dots
+tools/say.py --identify           # version and config, as a health check
+```
+
+Defaults are this unit's configuration — `/dev/ttyUSB0`, 1200 7E1, address 1 —
+overridable with `--port/--baud/--bits/--parity/--address`, or `--sim` to drive
+the emulator instead.
+
+It deselects before it starts and after every line. The first matters because a
+unit left mid-command consumes the next byte as a parameter, putting the text
+that follows at a stale write pointer; the second because the repaint is held off
+while a unit is selected. It also folds the accents CP437 lacks on uppercase
+vowels, maps `ñ`/`Ñ` onto the `0x24`/`0x25` duplicates a 7-bit link needs, and
+refuses text longer than the 64-byte buffer.
+
+## bringup.py — first power-up
+
+```sh
+python3 tools/bringup.py --port /dev/ttyUSB0          # every stage, in order
+python3 tools/bringup.py --port /dev/ttyUSB0 --stage line
+make bringup-selftest                                 # against the emulator
+```
+
+Each stage prints what a failure means rather than just failing. The `line` stage
+sweeps baud and character format sending a broadcast `SUB`, looking for the known
+answer `AK0052.139U1`, which is what makes a unit with unknown switch settings
+tractable. See [../docs/controller.md](../docs/controller.md#the-tools).
+
+## pit100.py — the driver
+
+Implements the protocol from
+[../docs/serial-protocol.md](../docs/serial-protocol.md) against either a serial
+port or the emulator, so it can be developed and proven with no hardware:
+
+```sh
+PYTHONPATH=tools python3 tools/pit100.py --sim --address 5 --identify --text HOLA
+```
+
+```
+version : AK0052.139U1
+config  : 00 00 01 00 00 2f 30 00 01 00 ff 40 01 00 40 ...
+message : 'HOLA' -> ACK
+```
+
+Three things it handles that a naive implementation gets wrong:
+
+* **Drains replies to an idle gap** rather than reading a fixed count. Reply
+  lengths vary — the `SUB` preamble, the conditional address byte and the
+  conditional error detail all move — so counting leaves the remainder buffered
+  and every later read falls one reply behind.
+* **Guards the font.** Refuses `$` and `%`, which are `ñ` and `Ñ` on this panel,
+  and refuses uppercase `Á Í Ó Ú` which CP437 lacks, with `fold=True` to drop
+  those accents instead.
+* **Guards the buffer.** Rejects messages over 64 bytes rather than letting the
+  unit `NAK`.
+
+## pit100_sim.py
+
+Executes `original/firmware.bin` with emulated 8251A and 81C55 devices, so
+protocol hypotheses can be tested in a second with no risk to the panel.
+
+```sh
+# boot and report where the firmware settles
+PYTHONPATH=tools python3 tools/pit100_sim.py --boot
+
+# identify: address 5 on port A, command protocol on bit 6
+PYTHONPATH=tools python3 tools/pit100_sim.py --port-a 0x45 --port-c 0xFF \
+    --xram board --send '1D 35 1A'
+```
+
+Two switch settings matter. **Port C bit 5 must be set** for the ASCII command
+protocol; clear routes reception to handler C, which speaks something else
+entirely and will not answer these commands. And handler B requires the unit to be
+**addressed first**: prefix with `GS <0x30|address>`, or `1D 7F` to broadcast.
+
+`--xram` picks what answers at `0xE000`: `none`, a fitted expansion `board`, or
+`alias`, the 81C55 reachable there through incomplete address decoding. The real
+unit renders text, so its window is backed — which of the latter two it is has not
+been determined. The model reports any write that lands in unbacked memory.
 
 ## panel_view.py — a virtual flip-dot panel
 
@@ -22,19 +112,6 @@ and reconstructs the 5x7 glyphs:
 
 ```sh
 PYTHONPATH=tools python3 tools/panel_view.py --fill
-```
-
-```
-#####  #####  #####
-#####  #####  #####      the ROM's glyph for 0x23 - a solid block
-#####  #####  #####
-...
-```
-
-Frame length, marker position, bit order and polarity all had to be right at once
-for that to come out. `--text` works too:
-
-```sh
 PYTHONPATH=tools python3 tools/panel_view.py --text "HOLA MUNDO"
 ```
 
@@ -48,116 +125,43 @@ PYTHONPATH=tools python3 tools/panel_view.py --text "HOLA MUNDO"
 #...#  .###.  #####  #...#  #...#  .###.  #...#  ####.  .###.
 ```
 
-Nine glyphs for ten characters: the space produces no frame because it was
-already a space, which is the differential update doing its job.
+Nine glyphs for ten characters: the space produces no frame because the position
+already held a space, which is the differential update doing its job.
 
-Two settings matter and both bit earlier attempts. `--port-b` must have bit 0
-clear or the pad character is a solid block, and the command stream must end in
-`RS` or a selected unit never repaints at all — see
-[../docs/serial-protocol.md](../docs/serial-protocol.md#the-repaint-interlock-rs-is-not-optional-c).
-The remaining assumptions are listed in
-[../docs/flipdot-interface.md](../docs/flipdot-interface.md#assumptions-this-rests-on-and-how-to-falsify-each).
+Two settings matter. `--port-b` must have bit 0 clear or the pad character is a
+solid block, and the command stream must end in `RS` or a selected unit never
+repaints — see
+[../docs/serial-protocol.md](../docs/serial-protocol.md#the-repaint-interlock-rs-is-not-optional).
 
 ## disasm.py — reading the ROM
 
-Three modes, all annotating with the names in [../ghidra/symbols.csv](../ghidra/symbols.csv):
+Four modes, all annotating with the names in
+[../ghidra/symbols.csv](../ghidra/symbols.csv):
 
 ```sh
 python3 tools/disasm.py 0x1440-0x1470     # disassemble a range
 python3 tools/disasm.py --xref 0xA00A     # who touches this address or port
 python3 tools/disasm.py --calls 0x136A    # who calls this routine
+python3 tools/disasm.py --asm             # the full matching listing
 ```
+
+`make disasm` writes the last of those to [../src/firmware.asm](../src/firmware.asm),
+which reassembles byte-identically to the ROM.
 
 The xref scan disassembles linearly from `0x0000`, so it can lose sync inside the
 font table and other data. It cross-checks against a raw byte search and says so
 when the two disagree, rather than quietly under-reporting.
 
-## pit100.py — the driver
-
-The deliverable the project is aiming at, minus the physical layer. It implements
-the protocol from [../docs/serial-protocol.md](../docs/serial-protocol.md) and is
-tested against the emulator, so it can be developed and proven with no hardware:
-
-```sh
-PYTHONPATH=tools python3 tools/pit100.py --sim --address 5 --identify --text HOLA
-```
-
-```
-version : AK0052.139U1
-config  : 00 00 01 00 00 2f 30 00 01 00 ff 40 01 00 40 ...
-message : 'HOLA' -> ACK
-```
-
-Swap `SimTransport` for `SerialTransport` and the same code drives the real unit.
-
-It handles three things a naive implementation gets wrong:
-
-* **Filters the status frame.** The display transmits `CAN CAN RS NAK <addr>`
-  unprompted, forever, so replies arrive interleaved with it.
-* **Guards the font.** Refuses `$` and `%` (ROM `0x24`/`0x25` hold accented
-  capitals), and refuses uppercase `Á Í Ó Ú` which CP437 lacks — with `fold=True`
-  to drop those accents instead.
-* **Guards the buffer.** Rejects messages over 64 bytes rather than letting the
-  unit NAK with error `0x30`.
-
-## pit100_sim.py
-
-Executes `original/firmware.bin` with emulated 8251A and 81C55 devices, so
-protocol hypotheses can be tested in a second with no hardware and no risk to
-the panel.
-
-```sh
-# boot and report where the firmware settles
-PYTHONPATH=tools python3 tools/pit100_sim.py --boot
-
-# identify: address 5 on port A, command protocol (bit 6), serial enabled
-PYTHONPATH=tools python3 tools/pit100_sim.py --port-a 0x45 --port-c 0xFF \
-    --xram board --send '1D 35 1A'
-```
-
-**Port C bit 5 must be set or the unit is deaf.** The RST5.5 handler returns
-immediately when it is clear, so no command produces any reply — see
-[../docs/dip-switches.md](../docs/dip-switches.md). Keep `--port-c 0xFF` unless
-you are deliberately testing standalone mode.
-
-Handler B also requires the unit to be **addressed first**: prefix commands with
-`GS <0x30|address>`, or `1D 7F` to broadcast.
-
-The `--xram` flag picks what answers at `0xE000`: `none`, a fitted expansion
-`board`, or `alias` (the 81C55 reachable there through incomplete address
-decoding). That is an open hardware question, so the model offers all three
-rather than guessing — and reports any write that lands in unbacked memory.
-
-It has already reproduced the documented 8251A init (mode `0x7E`, command
-`0x37`) from a cold boot, which is the main evidence that the model is faithful.
+## extract_font.py and rom_info.py
 
 ```sh
 make check                          # rom_info.py + symbol table validation
 make font                           # every glyph
 python3 tools/extract_font.py --ascii --range 0x41-0x5A
 python3 tools/extract_font.py --json > font.json
+python3 tools/extract_font.py --font 4x7        # or 3x5
 ```
 
-Both scripts **re-derive their assumptions from the ROM and fail loudly** if the
-image or the documented layout has changed. That is deliberate: they double as
-regression tests on the claims in [../docs/](../docs/). If `rom_info.py` reports
-a region whose contents no longer match, either the dump changed or a document
-is wrong.
-
-## Wanted
-
-Ideas in rough order of value to the project goal:
-
-* **`send_frame.py`** — build and transmit a candidate protocol frame over a
-  USB-serial adapter, once [../docs/serial-protocol.md](../docs/serial-protocol.md)
-  has a framing hypothesis. Should log every attempt in a form that can be
-  pasted into the protocol scratchpad table.
-* **An 8085 emulator harness** — run `firmware.bin` with stub 8251/81C55
-  devices, feed candidate frames into the emulated UART, and watch the writes to
-  I/O `0xE1`/`0xE2`/`0xE3`. This is the highest-value tool in the list: it makes
-  protocol discovery a fast software loop instead of a slow hardware one, and it
-  cannot damage the panel. A few hundred lines is enough — the 8085 has 246
-  opcodes and the firmware uses a fraction of them.
-* **`render.py`** — turn a string into the 80x7 bitmap the panel would show,
-  using the extracted font. Useful for predicting what a frame *should* produce
-  before sending it.
+Both re-derive their assumptions from the ROM and fail loudly if the image or the
+documented layout has changed, so they double as regression tests on the claims in
+[../docs/](../docs/).

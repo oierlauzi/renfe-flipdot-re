@@ -1,6 +1,6 @@
-# Glyph table
+# Glyph tables
 
-**Status: confirmed.** Regenerate the rendering below with:
+Regenerate the rendering below with:
 
 ```sh
 python3 tools/extract_font.py                       # every glyph, as blocks
@@ -56,7 +56,7 @@ Worked examples:
                                                  ####.
 ```
 
-## Code page: IBM CP437, with two substitutions **[C]**
+## Code page: IBM CP437, with two substitutions
 
 ![Glyph map](font-map.png)
 
@@ -90,7 +90,7 @@ an inverted `¿`, `0xAD` an inverted `¡`, and `0x82` an `é`.
 
 In Python, `text.encode("cp437")` produces the right bytes directly.
 
-### The two substitutions: `ñ` and `Ñ`, reachable over a 7-bit link **[C]**
+### The two substitutions: `ñ` and `Ñ`, reachable over a 7-bit link
 
 `0x24` and `0x25` are **not** `$` and `%`. They are **`ñ` and `Ñ`**, deliberate
 duplicates of CP437's `0xA4` and `0xA5`, placed so that **stripping bit 7 lands on
@@ -139,12 +139,12 @@ A 7-bit link physically cannot carry `0xA5`. The duplicates are not a curiosity,
 they are what makes the display usable in Spanish over a link that is not 8-bit
 clean.
 
-Both findings are about the *product*, not about this unit's switch settings: a
-family whose character format is itself a switch had to be usable over 7-bit
-links somewhere. Whether **this** unit was set for 7 data bits is still open —
-of the two switch readings that survive, one gives 7 data bits with even parity
-and the other 8 data bits with no parity
-([dip-switches.md](dip-switches.md#as-found-c-for-the-readings-l-for-the-mapping)).
+**This unit runs a 7-bit link**, so the duplicates are exactly what it needs:
+1200 baud, 7 data bits, even parity, 1 stop
+([dip-switches.md](dip-switches.md#this-units-configuration)). The design is not
+specific to this installation, though — the character format is itself a switch,
+so the ROM carries the duplicates for whichever units in the family are set that
+way.
 
 ### CP437's gap: uppercase accented vowels
 
@@ -177,20 +177,20 @@ Two firmware references worth following if the table is ever indexed
 differently: `LXI HL,0x1C0D` (3 sites) and `LXI HL,0x1C5D` (3 sites, = table
 base + 16 entries).
 
-## The ROM holds **three** glyph tables **[C]**
+## The ROM holds three glyph tables
 
 Worth knowing before any statement about "the font": there are three, for different
 panel types, and they share nothing.
 
 | Table | Address | Geometry | Codes | Indexing |
 | --- | --- | --- | --- | --- |
-| [5x7](#code-page-ibm-cp437-with-two-substitutions-c) | `0x1C0D-0x210C` | 5 cols x 7 rows | all 256 | direct: `base + code*5` |
-| [4x7](#the-third-table-at-0x23cf--4-x-7-c) | `0x23CF-0x24BA` | 4 cols x 7 rows | `0x20-0x5A` | linear search, 4-byte stride |
-| [3x5](#the-second-character-set-at-0x2692--3-x-5-decoded-c) | `0x2692-0x2914` | 3 cols x 5 rows | `0x20-0x5A`-ish | pointer table, packed bits |
+| [5x7](#code-page-ibm-cp437-with-two-substitutions) | `0x1C0D-0x210C` | 5 cols x 7 rows | all 256 | direct: `base + code*5` |
+| [4x7](#the-third-table-at-0x23cf--4-x-7) | `0x23CF-0x24BA` | 4 cols x 7 rows | `0x20-0x5A` | linear search, 4-byte stride |
+| [3x5](#the-second-character-set-at-0x2692--3-x-5) | `0x2692-0x2914` | 3 cols x 5 rows | `0x20-0x5A`-ish | pointer table, packed bits |
 
 Only the 5x7 table is used by **this** unit (panel type `0x11`).
 
-### Is there a fourth? Probably not **[L]**
+### Is there a fourth?
 
 Three independent searches, all negative:
 
@@ -209,7 +209,7 @@ it — but search 1 and 3 cover that case, since a packed table needs either a b
 address in an `LXI` or a pointer table. A fourth font would have to be reached by
 some other means entirely.
 
-## The third table at `0x23CF` — 4 x 7 **[C]**
+## The third table at `0x23CF` — 4 x 7
 
 ![4x7 glyph map](font-map-4x7.png)
 
@@ -250,7 +250,7 @@ reversal.
 Character coverage: digits, `A-Z`, and a handful of punctuation — `#` at `0x23` is
 the same solid block the 5x7 table uses for fill. No lowercase, no accents.
 
-## The second character set at `0x2692` — 3 x 5, decoded **[C]**
+## The second character set at `0x2692` — 3 x 5
 
 The 5x7 table is not the only one. A **128-entry pointer table at `0x2692-0x2791`**,
 indexed by a 7-bit character code, points into **`0x2792-0x2914`**: 43 entries of
@@ -283,10 +283,10 @@ blank clocks** after it.
           ###
 ```
 
-### It is **not** a 6x7 layout **[C]**
+### It is a 3 x 5 cell, not 6 x 7
 
-Worth recording because variants of this display are reported to use 6x7 cells with
-a blank column between characters. **This ROM's alternate set does not match that.**
+Variants of this display are reported to use 6x7 cells with a blank column between
+characters. This ROM's alternate set is not one of them.
 
 Every 6x7 arrangement was tried — both bit orders, all window offsets within the 30
 bits, column- and row-major, each group alone and the two combined side by side or
@@ -313,7 +313,7 @@ lowercase, no accents — **not even `Ñ`**, which the 5x7 table goes out of its
 provide twice. Whatever this panel is, it was not expected to show Spanish place
 names with tildes.
 
-### What is still open **[?]**
+### What is still open
 
 * **The low 5 bits of each 10-bit column field.** They hold something close to a
   second copy of the glyph, offset by a row. A pre-shifted copy for a display whose
