@@ -6,9 +6,14 @@ sends them down the original RS-422 link. No modification to the display.
 
 The display computes nothing — no clock, no countdown, no arithmetic on message
 content — so everything interesting happens here. See
-[../docs/controller.md](../docs/controller.md) for why an ESP32 in particular,
-and [../docs/serial-protocol.md](../docs/serial-protocol.md) for the protocol
-this implements.
+[../docs/serial-protocol.md](../docs/serial-protocol.md) for the protocol this
+implements, and [../docs/controller.md](../docs/controller.md) for driving the
+same link from a PC instead, which is still the better way to bring an unknown
+unit up.
+
+The ESP32 earns its place on one detail: the link is 7 data bits with even
+parity, and it has three hardware UARTs that all support parity. That is exactly
+what rules out a Raspberry Pi's mini-UART and an Arduino's `SoftwareSerial`.
 
 ## Hardware
 
@@ -31,6 +36,25 @@ If the link comes up silent, swap one pair before suspecting a fault: reversed
 polarity is the commonest RS-422 wiring error, presents as exact silence, and
 cannot damage anything. If you see garbage between valid replies, bias the
 receive pair — roughly 680 Ω from `A` to 3.3 V and `B` to ground.
+
+Keep UART0 for the USB console, and give the board a supply that tolerates WiFi
+transmit bursts.
+
+### If you build your own isolation
+
+An isolated transceiver module is easier, but the original board's approach works
+from an ESP32 too. It drives a 6N139 through 560 Ω from 5 V, about 6.5 mA. The
+same resistor from 3.3 V gives only 3.5 mA, so scale it:
+
+| Resistor | from 3.3 V | from 5 V |
+| --- | --- | --- |
+| 180 Ω | 10.8 mA | 20.3 mA |
+| **220 Ω** | **8.9 mA** | 16.6 mA |
+| **330 Ω** | **5.9 mA** | 11.1 mA |
+| 560 Ω | 3.5 mA | 6.5 mA, the original |
+
+220–330 Ω reproduces the original drive current and stays well inside the roughly
+12 mA per-pin continuous figure for an ESP32 GPIO.
 
 ## Building
 

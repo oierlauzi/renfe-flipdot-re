@@ -9,7 +9,7 @@ evidence; this is the result.
 | --- | --- |
 | [device.md](device.md) | What the unit is: PAGE Ibérica PI-T100-M, its labels, geometry and place in a station |
 | [serial-protocol.md](serial-protocol.md) | The external link: physical layer, framing, and the full command set |
-| [controller.md](controller.md) | Driving it from a modern host: wiring, adapters, and the tools in this repository |
+| [controller.md](controller.md) | Driving it from a PC: wiring, USB-RS-422 adapters, and the tools in this repository |
 | [dip-switches.md](dip-switches.md) | The three switch banks and what each bit configures |
 | [io-map.md](io-map.md) | Every 8085 I/O port and the device behind it |
 | [memory-map.md](memory-map.md) | Address space, ROM layout, interrupt vectors, RAM variables |
@@ -18,8 +18,10 @@ evidence; this is the result.
 | [references.md](references.md) | Datasheets and external material |
 
 Physical description of the boards lives in [../hardware/](../hardware/). The
-chronological record of how all this was worked out, including the readings that
-turned out to be wrong, is [../notes.md](../notes.md).
+ESP32 firmware that replaces the sign's original upstream controller is
+[../controller/](../controller/), documented in its own README. The chronological
+record of how all this was worked out, including the readings that turned out to
+be wrong, is [../notes.md](../notes.md).
 
 ## Conventions
 

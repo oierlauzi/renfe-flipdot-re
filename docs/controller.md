@@ -10,8 +10,8 @@ address 1**. Above the wire it is an ordinary asynchronous UART.
    ones are half duplex with automatic direction control and cannot drive this
    link. Candidates are compared [below](#adapters).
 2. **`pyserial`**, and the tools in [../tools/](../tools/).
-3. For a permanent build, an **ESP32** and a **MAX3490** — see
-   [the ESP32 notes](#a-permanent-controller).
+3. For a permanent build, an **ESP32** and a **MAX3490** — that is
+   [../controller/](../controller/), and it needs none of the above.
 
 ## Wiring
 
@@ -152,56 +152,16 @@ implements the whole command set.
 
 ## A permanent controller
 
-| Host | UARTs with parity | Networking | Logic level | Verdict |
-| --- | --- | --- | --- | --- |
-| **ESP32** | 3 hardware UARTs, `SERIAL_8E1` | WiFi and BT built in | 3.3 V | Best fit; replaces the original controller outright |
-| Raspberry Pi | PL011 only; the mini-UART has no parity | WiFi on most models | 3.3 V | Workable, heavier than the job needs |
-| Arduino AVR | hardware UART only; `SoftwareSerial` has no parity | none without a shield | 5 V | Workable; an Uno costs you the USB console |
-| PC and USB dongle | any | — | — | Best for bring-up and experimentation |
+Built, and it lives in [../controller/](../controller/): an ESP32 with a MAX3490,
+powered from the existing 24 V rail, doing the whole upstream job — WiFi, NTP, a
+plain-HTML configuration page, and the line formatting this display will never do
+for itself. Its README carries the wiring, the 3.3 V transceiver argument and the
+opto drive currents.
 
-The ESP32 maps onto the problem closely. The display computes nothing, so an
-ESP32 can be the whole upstream controller: accept data over WiFi, get the time
-from NTP, compute the ETA, format the line and send it. Parity is free — a
-`uart_config_t` with `UART_DATA_7_BITS` and `UART_PARITY_EVEN` — which is the
-thing that trips up both obvious alternatives. And it fits inside the enclosure,
-powered from the existing 24 V rail through a small buck converter, so the
-finished object stays a self-contained sign.
-
-**This exists: [../controller/](../controller/).** An ESP-IDF project that drives
-the panel over the original link, configured from a plain-HTML web UI, with modes
-for a message, a Spanish date-and-time clock, a countdown, a count-up and a
-playlist. Its encoder is checked against [../tools/pit100.py](../tools/pit100.py)
-on the host with `make controller-check`, so the CP437 table and the accent fold
-do not have to be trusted twice.
-
-Two design points there are worth repeating here, because they are properties of
-the display rather than of the firmware. A single task owns the UART, so the
-repaint rate is bounded in one place no matter what asks for a frame; and a frame
-identical to what is already displayed is never sent, because the panel is a
-mechanical resource and silence is the cheapest thing to send it.
-
-**The 3.3 V catch.** Everything on the display side is 5 V-era CMOS. Use a genuine
-3.3 V transceiver — **MAX3490**, full duplex — not the 5 V MAX490 most cheap
-breakout modules carry: a 5 V module usually accepts 3.3 V as a logic high, but
-its receiver output swings to 5 V straight into a 3.3 V pin.
-
-If you build your own isolation rather than buying an isolated module, the
-original board uses 560 Ω from 5 V into a 6N139, about 6.5 mA. From 3.3 V the same
-resistor gives 3.5 mA, so scale it:
-
-| Resistor | from 3.3 V | from 5 V |
-| --- | --- | --- |
-| 180 Ω | 10.8 mA | 20.3 mA |
-| **220 Ω** | **8.9 mA** | 16.6 mA |
-| **330 Ω** | **5.9 mA** | 11.1 mA |
-| 560 Ω | 3.5 mA | 6.5 mA, the original |
-
-220-330 Ω from an ESP32 GPIO reproduces the original drive current and stays well
-inside the roughly 12 mA per-pin continuous figure.
-
-Other ESP32 specifics: avoid the strapping pins (GPIO0, 2, 12, 15) for the UART;
-keep UART0 for the USB console and use UART1 or UART2 for the display; and give it
-a supply that tolerates WiFi transmit bursts.
+That is the permanent installation. Everything above is the bench: a USB adapter
+and the tools in [../tools/](../tools/) remain the right way to bring an unknown
+unit up, because the line settings have to be discovered before anything can be
+built around them.
 
 ## Parity, and the hosts it rules out
 
@@ -214,7 +174,6 @@ That rules out some obvious-looking hardware:
   dongle.
 * **Arduino AVR**: `SoftwareSerial` does not support parity. Use a hardware UART
   with `SERIAL_7E1`; on an Uno that means giving up the USB console.
-* **ESP32**: no problem, three hardware UARTs all supporting parity.
 
 `pyserial` handles all of it on the host side:
 `serial.Serial(port, baud, parity=serial.PARITY_EVEN, bytesize=serial.SEVENBITS)`.
