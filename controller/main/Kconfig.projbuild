@@ -30,6 +30,29 @@ menu "Flip-dot controller"
         int "Baud rate"
         default 1200
 
+    config FLIPDOT_RESET_GPIO
+        int "GPIO for the configuration-reset button, or -1 for none"
+        range -1 39
+        default 23
+        help
+            A push-button between this pin and ground. The pin is configured as
+            an input with its internal pull-up, so no external parts are needed.
+
+            GPIO23 is free on both WROOM and WROVER modules and is not a
+            strapping pin. Avoid GPIO0, 2, 12 and 15 (strapping), 6-11 (flash),
+            16/17 (the display UART by default), and 34-39, which are input-only
+            and have no internal pull-up at all -- a floating pin there reads as
+            a button held down.
+
+    config FLIPDOT_RESET_HOLD_MS
+        int "How long the reset button must be held, milliseconds"
+        range 1000 30000
+        default 5000
+        help
+            Long enough that it cannot be hit by accident. Erasing the
+            configuration is the only way back in after a wrong passphrase, so
+            it should be deliberate but not awkward.
+
     config FLIPDOT_SETTLE_MS
         int "Settle time after a repaint, milliseconds"
         default 3000

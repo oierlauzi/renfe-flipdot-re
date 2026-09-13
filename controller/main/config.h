@@ -47,6 +47,12 @@ char        cfg_get_char(cfg_key_t k);
 /* Set and persist. Values are clamped where the key has limits. */
 esp_err_t cfg_set(cfg_key_t k, const char *value);
 
+/* Erase every stored key, so the next boot comes up on the defaults -- which
+ * means no WiFi credentials, and therefore the fallback access point. What the
+ * reset button does. The RAM cache is reloaded with the defaults too, so a
+ * caller that does not reboot immediately still sees sane values. */
+esp_err_t cfg_factory_reset(void);
+
 /* Look a key up by its NVS name, for form handling. Returns CFG_COUNT if the
  * name is not one of ours -- so an unexpected form field is ignored, not
  * written. */

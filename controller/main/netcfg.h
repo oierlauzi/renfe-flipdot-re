@@ -1,8 +1,13 @@
-/* WiFi, with a way back in when the credentials are wrong.
+/* WiFi.
  *
- * Station mode from the stored credentials; after three failed attempts it
- * falls back to its own access point serving the same web UI, so a mistyped
- * passphrase never means digging the board out and reflashing it.
+ * Station mode from the stored credentials, retrying for ever. The board serves
+ * its own open access point only when no credentials are stored at all, which is
+ * first boot and after a configuration reset.
+ *
+ * It never falls back there on its own. A failure count cannot tell a mistyped
+ * passphrase from a router rebooting, and treating the second as the first takes
+ * the sign off the network until someone power-cycles it. The way back in when
+ * the credentials really are wrong is the reset button -- see button.h.
  */
 #pragma once
 

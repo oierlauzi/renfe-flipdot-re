@@ -17,15 +17,11 @@
 
 static const char *TAG = "netcfg";
 
-#define MAX_ATTEMPTS 3
-
 static bool ap_mode;
 static bool got_ip;
 static int  attempts;
 static char ip_str[16] = "-";
 static char ssid_str[33] = "-";
-
-static esp_err_t start_ap(void);
 
 /* Propagate the first failure. Every step here is a precondition for the next,
  * so there is nothing useful to do but stop and report which one broke. */
@@ -59,19 +55,23 @@ static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
         snprintf(ip_str, sizeof ip_str, "-");
         if (ap_mode)
             return;
-        if (++attempts <= MAX_ATTEMPTS) {
-            ESP_LOGW(TAG, "association failed, attempt %d/%d", attempts, MAX_ATTEMPTS);
-            esp_wifi_connect();
-        } else {
-            ESP_LOGW(TAG, "giving up on '%s'; starting the fallback AP",
-                     cfg_get(CFG_WIFI_SSID));
-            /* Nowhere to propagate to from an event handler, and nothing to
-             * retry: if even the AP will not start, the board needs a reboot. */
-            esp_err_t e = start_ap();
-            if (e != ESP_OK)
-                ESP_LOGE(TAG, "the fallback AP failed too: %s",
-                         esp_err_to_name(e));
-        }
+
+        /* Retry for ever, and never give up on the network by itself.
+         *
+         * There used to be a limit here, after which the board started its own
+         * access point. It could not tell a mistyped passphrase from a router
+         * rebooting, so an outage of a minute took the sign off the network
+         * until someone power-cycled it -- and because the internal RTC keeps
+         * running, the panel went on showing a plausible time while it happened.
+         * The way back in is the reset button now; see button.c.
+         *
+         * No backoff and no delay: this runs on the event task, and each failed
+         * attempt already costs seconds of scan and authentication timeout, so
+         * the retry rate is bounded by the radio rather than by us. */
+        if (++attempts == 1 || attempts % 20 == 0)
+            ESP_LOGW(TAG, "disconnected from '%s'; retrying (attempt %d)",
+                     cfg_get(CFG_WIFI_SSID), attempts);
+        esp_wifi_connect();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *e = (ip_event_got_ip_t *)data;
         snprintf(ip_str, sizeof ip_str, IPSTR, IP2STR(&e->ip_info.ip));
@@ -181,7 +181,7 @@ const char *netcfg_status(void)
         snprintf(buf, sizeof buf, "joined '%s' at %s, %d dBm",
                  ssid_str, ip_str, netcfg_rssi());
     else
-        snprintf(buf, sizeof buf, "joining '%s', attempt %d/%d",
-                 ssid_str, attempts + 1, MAX_ATTEMPTS);
+        snprintf(buf, sizeof buf, "not joined to '%s'; retrying (attempt %d)",
+                 ssid_str, attempts + 1);
     return buf;
 }

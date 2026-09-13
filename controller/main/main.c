@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "button.h"
 #include "config.h"
 #include "modes.h"
 #include "netcfg.h"
@@ -32,6 +33,10 @@ void app_main(void)
     ESP_ERROR_CHECK(cfg_init());
     ESP_ERROR_CHECK(timesrc_init());
     ESP_ERROR_CHECK(panel_init());
+
+    /* Before the network, so the way back in exists even if WiFi never comes
+     * up -- which, with no automatic fallback any more, is the whole point. */
+    ESP_ERROR_CHECK(button_init());
 
     ESP_ERROR_CHECK(netcfg_init());
     ESP_ERROR_CHECK(webui_init());

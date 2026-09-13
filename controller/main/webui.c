@@ -290,8 +290,26 @@ static esp_err_t get_root(httpd_req_t *r)
     mode_row_text(r, cfg_name(CFG_WIFI_HOST), "Hostname",
                   cfg_get(CFG_WIFI_HOST), 24, "reachable as &lt;name&gt;.local");
     send(r, "</table><p><button type=\"submit\">Save</button> "
-            "<small>a changed network needs a reboot to take effect</small>"
-            "</fieldset></form>");
+            "<small>a changed network needs a reboot to take effect</small>");
+
+    /* There is no automatic escape any more: the board retries for ever rather
+     * than deciding for itself that the network is wrong. So the page has to say
+     * what the way back in is, on the page where the mistake gets made. */
+#if CONFIG_FLIPDOT_RESET_GPIO >= 0
+    sendf(r, "<p><small><strong>Get this wrong and you will lose this page.</strong> "
+             "The board keeps retrying and never starts its own access point on "
+             "its own, so the way back is the reset button on GPIO%d: hold it for "
+             "%d seconds to erase all configuration and reboot onto "
+             "<code>FLIPDOT-XXXX</code>.</small>",
+          CONFIG_FLIPDOT_RESET_GPIO, CONFIG_FLIPDOT_RESET_HOLD_MS / 1000);
+#else
+    send(r, "<p><small class=\"bad\"><strong>Get this wrong and you will lose "
+            "this page.</strong> No reset button is configured and the board "
+            "never starts its own access point on its own, so recovering means "
+            "reflashing. Check the passphrase.</small>");
+#endif
+
+    send(r, "</fieldset></form>");
 
     send(r, "<p><small>PAGE Ib&eacute;rica PI-T100-M &middot; "
             "16 characters &middot; CP437 &middot; "

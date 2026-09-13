@@ -126,6 +126,19 @@ esp_err_t cfg_set(cfg_key_t k, const char *value)
     return err;
 }
 
+esp_err_t cfg_factory_reset(void)
+{
+    esp_err_t err = nvs_erase_all(nvs);
+    if (err == ESP_OK)
+        err = nvs_commit(nvs);
+
+    for (int k = 0; k < CFG_COUNT; k++)
+        snprintf(cache[k], VALUE_MAX, "%s", TABLE[k].def);
+
+    ESP_LOGW(TAG, "configuration erased (%s)", esp_err_to_name(err));
+    return err;
+}
+
 cfg_key_t cfg_key_by_name(const char *name)
 {
     for (int k = 0; k < CFG_COUNT; k++)

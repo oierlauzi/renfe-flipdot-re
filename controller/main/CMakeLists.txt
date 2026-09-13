@@ -4,6 +4,7 @@ idf_component_register(
         "cp437.c"
         "pit100.c"
         "panel.c"
+        "button.c"
         "config.c"
         "timesrc.c"
         "netcfg.c"

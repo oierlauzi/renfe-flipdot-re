@@ -40,6 +40,22 @@ receive pair — roughly 680 Ω from `A` to 3.3 V and `B` to ground.
 Keep UART0 for the USB console, and give the board a supply that tolerates WiFi
 transmit bursts.
 
+### The reset button
+
+A momentary push-button between **GPIO23** and **ground**. Nothing else: the pin
+is configured as an input with the ESP32's internal pull-up, so the button just
+shorts it low. Both the pin and the hold time are `menuconfig` options, and
+setting the GPIO to `-1` disables the feature.
+
+**Hold it for 5 seconds** and the board erases all stored configuration, shows
+`CONFIG BORRADA` on the panel, and reboots onto its own access point. Releasing
+early does nothing. Half way through, the console says it has started counting.
+
+Avoid GPIO34–39 for this. They are input-only and have **no internal pull-up at
+all**, so the pin floats and reads as a button held down — the board would erase
+itself on every boot. The firmware warns about this at startup if you configure
+one anyway.
+
 ### If you build your own isolation
 
 An isolated transceiver module is easier, but the original board's approach works
@@ -103,9 +119,18 @@ because that is where this encoder deliberately differs from the Python.
 ## Configuration
 
 Connect to `http://flipdot.local/`, or the IP the console prints. With no
-credentials stored — or after three failed attempts — the board serves the same
-page from its own open access point, `FLIPDOT-XXXX` at `192.168.4.1`, so a
-mistyped passphrase never means digging the board out.
+credentials stored, the board serves the same page from its own open access
+point, `FLIPDOT-XXXX` at `192.168.4.1`.
+
+**It will not fall back there by itself.** Once credentials are stored the board
+retries for ever and never gives up on the network, because giving up
+automatically cannot distinguish a mistyped passphrase from a router rebooting —
+and answering the second case by going off the network is exactly wrong. The
+internal RTC keeps running through an outage, so the clock stays right and the
+sign simply reconnects when the router returns.
+
+The cost of that is that a wrong passphrase has no software escape. That is what
+the reset button is for.
 
 Plain HTML forms, no JavaScript. The status page shows the exact 16 characters
 that will be sent, under a column ruler, so a truncation is visible before it
@@ -161,7 +186,8 @@ running.
 | `main/modes.c` | the mode table and the scheduler |
 | `main/mode_*.c` | one file per mode |
 | `main/timesrc.c` | timezone, SNTP, internal RTC, and the seam for a DS3231 |
-| `main/netcfg.c` | WiFi station with the AP fallback, mDNS |
+| `main/netcfg.c` | WiFi station, the provisioning AP, mDNS |
+| `main/button.c` | the reset button: hold to erase the configuration |
 | `main/webui.c` | the HTTP server, form parsing and pages |
 | `main/config.c` | NVS, with defaults |
 
