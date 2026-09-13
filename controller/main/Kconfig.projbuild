@@ -1,0 +1,40 @@
+menu "Flip-dot controller"
+
+    config FLIPDOT_UART_NUM
+        int "UART port for the display"
+        range 1 2
+        default 2
+        help
+            UART0 is the USB console. 1 and 2 are free.
+
+    config FLIPDOT_TX_GPIO
+        int "TX GPIO (to the MAX3490 DI)"
+        default 17
+        help
+            Avoid the strapping pins GPIO0, 2, 12 and 15. GPIO16/17 are the
+            UART2 defaults and are free on a WROOM devkit, but they are wired
+            to PSRAM on WROVER modules -- use 32/33 there.
+
+    config FLIPDOT_RX_GPIO
+        int "RX GPIO (from the MAX3490 RO)"
+        default 16
+
+    config FLIPDOT_ADDRESS
+        int "Display address (0-31)"
+        range 0 31
+        default 1
+        help
+            This unit was found at address 1. Overridable from the web UI.
+
+    config FLIPDOT_BAUD
+        int "Baud rate"
+        default 1200
+
+    config FLIPDOT_SETTLE_MS
+        int "Settle time after a repaint, milliseconds"
+        default 3000
+        help
+            The dots are mechanical. This also bounds the global repaint rate,
+            so no mode can flip the panel faster than this.
+
+endmenu

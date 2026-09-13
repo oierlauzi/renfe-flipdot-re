@@ -1,0 +1,6 @@
+## The only components fetched from Espressif's registry. Delete the mdns entry
+## and the mdns_* calls in netcfg.c to make the build work with no network.
+dependencies:
+  espressif/mdns: "^1.2.0"
+  idf:
+    version: ">=5.0"

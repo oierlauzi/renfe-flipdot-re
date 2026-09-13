@@ -21,7 +21,11 @@ help:  ## Show this help
 	  | awk -F'\t' '{printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: check
-check: rom-check symbols-check verify  ## Run every non-hardware check
+check: rom-check symbols-check verify controller-check  ## Run every non-hardware check
+
+.PHONY: controller-check
+controller-check:  ## Check the ESP32 encoder against tools/pit100.py (no ESP-IDF needed)
+	$(MAKE) -C controller/test
 
 .PHONY: rom-check
 rom-check:  ## Verify the ROM dump against the documented checksum

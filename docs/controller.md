@@ -161,11 +161,24 @@ implements the whole command set.
 
 The ESP32 maps onto the problem closely. The display computes nothing, so an
 ESP32 can be the whole upstream controller: accept data over WiFi, get the time
-from NTP, compute the ETA, format the line and send it. Parity is free —
-`Serial1.begin(1200, SERIAL_7E1, rx, tx)` — which is the thing that trips up both
-obvious alternatives. And it fits inside the enclosure, powered from the existing
-24 V rail through a small buck converter, so the finished object stays a
-self-contained sign.
+from NTP, compute the ETA, format the line and send it. Parity is free — a
+`uart_config_t` with `UART_DATA_7_BITS` and `UART_PARITY_EVEN` — which is the
+thing that trips up both obvious alternatives. And it fits inside the enclosure,
+powered from the existing 24 V rail through a small buck converter, so the
+finished object stays a self-contained sign.
+
+**This exists: [../controller/](../controller/).** An ESP-IDF project that drives
+the panel over the original link, configured from a plain-HTML web UI, with modes
+for a message, a Spanish date-and-time clock, a countdown, a count-up and a
+playlist. Its encoder is checked against [../tools/pit100.py](../tools/pit100.py)
+on the host with `make controller-check`, so the CP437 table and the accent fold
+do not have to be trusted twice.
+
+Two design points there are worth repeating here, because they are properties of
+the display rather than of the firmware. A single task owns the UART, so the
+repaint rate is bounded in one place no matter what asks for a frame; and a frame
+identical to what is already displayed is never sent, because the panel is a
+mechanical resource and silence is the cheapest thing to send it.
 
 **The 3.3 V catch.** Everything on the display side is 5 V-era CMOS. Use a genuine
 3.3 V transceiver — **MAX3490**, full duplex — not the 5 V MAX490 most cheap

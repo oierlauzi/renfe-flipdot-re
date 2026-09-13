@@ -95,6 +95,11 @@ tools/say.py                      # or type lines interactively
 tools/say.py --fill               # every dot on
 ```
 
+And to leave the laptop out of it, [controller/](controller/) is an ESP32
+firmware that becomes the sign's upstream controller: WiFi, a plain-HTML
+configuration page, NTP, and modes for a message, a clock, a countdown, a
+count-up and a playlist.
+
 | Area | State |
 | --- | --- |
 | ROM dump | Two independent reads, identical SHA-256, provenance recorded |
@@ -104,6 +109,7 @@ tools/say.py --fill               # every dot on
 | Physical layer | Opto-isolated 4-wire RS-422; wiring and polarity traced |
 | Command protocol | Fully mapped and exercised on the unit |
 | Flip-dot drive | Decoded: encoded address, shift clock, data, 74 bits per character |
+| Standalone controller | [controller/](controller/) — an ESP32 that replaces the original upstream controller |
 | Remaining | DB37 pin numbers, the switch-to-port mapping, handler C's frame layout — see [TODO.md](TODO.md) |
 
 ## Key findings

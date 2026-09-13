@@ -1,0 +1,14 @@
+# 4 MB is what the common ESP32 devkits carry, and partitions.csv needs it.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# The status page is assembled from many small chunks.
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=512
+
+# The scheduler task calls strftime and the web handlers build pages on stack.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=5120
+
+# Keep trying to reassociate rather than falling back to the SoftAP on a blip.
+CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE=y

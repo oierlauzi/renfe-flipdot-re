@@ -1,0 +1,8 @@
+# The app gets 2 MB up front. WiFi + HTTP server + mDNS already lands close to
+# the 1 MB the default table offers, and the real-time mode will add TLS, so
+# growing it later would mean a repartition and a full erase.
+#
+# Name,     Type, SubType,  Offset,   Size
+nvs,        data, nvs,      0x9000,   0x6000
+phy_init,   data, phy,      0xf000,   0x1000
+factory,    app,  factory,  0x10000,  0x200000
