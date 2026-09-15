@@ -20,13 +20,13 @@ static uint32_t render(char out[PANEL_CHARS + 1])
 
 static void form(httpd_req_t *r)
 {
-    mode_row_text(r, cfg_name(CFG_MSG_TEXT), "Text", cfg_get(CFG_MSG_TEXT),
-                  64, "'|' is an elastic gap: <code>ATOCHA|7</code>");
+    mode_row_text(r, cfg_name(CFG_MSG_TEXT), "Texto", cfg_get(CFG_MSG_TEXT),
+                  64, "«|» es un hueco elástico: <code>ATOCHA|7</code>");
 }
 
 const panel_mode_t mode_message = {
     .id     = "message",
-    .label  = "Custom message",
+    .label  = "Mensaje",
     .render = render,
     .form   = form,
 };

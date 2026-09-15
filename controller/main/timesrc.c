@@ -67,15 +67,15 @@ bool timesrc_ok(void)
 
 const char *timesrc_describe(void)
 {
-    static char buf[64];
+    static char buf[96];              /* UTF-8: accents take two bytes */
     if (!timesrc_ok())
-        return "not set: waiting for NTP";
+        return "sin hora: esperando a NTP";
     if (synced) {
         long age = (long)(time(NULL) - last_sync);
-        snprintf(buf, sizeof buf, "NTP, last sync %ld s ago", age);
+        snprintf(buf, sizeof buf, "NTP, última sincronización hace %ld s", age);
         return buf;
     }
-    return "internal RTC, not yet resynced";
+    return "reloj interno, aún sin resincronizar";
 }
 
 bool timesrc_local(struct tm *out)

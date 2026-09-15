@@ -148,7 +148,8 @@ esp_err_t netcfg_init(void)
     esp_err_t merr = mdns_init();
     if (merr == ESP_OK) {
         mdns_hostname_set(host);
-        mdns_instance_name_set("Flip-dot controller");
+        /* Shown by network service browsers, so it matches the page title. */
+        mdns_instance_name_set("Controlador del teleindicador");
         mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
         ESP_LOGI(TAG, "mDNS: http://%s.local/", host);
     } else {
@@ -175,13 +176,13 @@ const char *netcfg_status(void)
     static char buf[160];
     if (ap_mode)
         snprintf(buf, sizeof buf,
-                 "fallback AP '%s' (open) at %s -- set the credentials below",
+                 "punto de acceso propio «%s» (abierto) en %s: configurar la red abajo",
                  ssid_str, ip_str);
     else if (got_ip)
-        snprintf(buf, sizeof buf, "joined '%s' at %s, %d dBm",
+        snprintf(buf, sizeof buf, "conectado a «%s» en %s, %d dBm",
                  ssid_str, ip_str, netcfg_rssi());
     else
-        snprintf(buf, sizeof buf, "not joined to '%s'; retrying (attempt %d)",
+        snprintf(buf, sizeof buf, "sin conexión con «%s»; reintentando (intento %d)",
                  ssid_str, attempts + 1);
     return buf;
 }

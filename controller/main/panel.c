@@ -48,7 +48,7 @@ static void note_result(esp_err_t err, const char *why)
     pit100_hex(dev.rx, dev.rx_n, st.rx_hex, sizeof st.rx_hex);
     st.last_ok = (err == ESP_OK);
     if (err == ESP_OK)
-        snprintf(st.last_err, sizeof st.last_err, "ok");
+        snprintf(st.last_err, sizeof st.last_err, "correcto");
     else
         snprintf(st.last_err, sizeof st.last_err, "%s", why ? why : esp_err_to_name(err));
     if (err == ESP_ERR_TIMEOUT)
@@ -158,10 +158,10 @@ static void do_identify(void)
 
     xSemaphoreTake(mux, portMAX_DELAY);
     snprintf(st.version, sizeof st.version, "%s",
-             err == ESP_OK ? version : "no reply");
+             err == ESP_OK ? version : "sin respuesta");
     xSemaphoreGive(mux);
 
-    note_result(err, err == ESP_OK ? NULL : "identify: no reply");
+    note_result(err, err == ESP_OK ? NULL : "identificación: sin respuesta");
     ESP_LOGI(TAG, "identify -> '%s'", version);
 }
 
@@ -184,11 +184,13 @@ static void do_verify(void)
     bool match = memcmp(seen, st.frame, PANEL_CHARS) == 0;
     st.last_ok = match;
     if (n <= 0)
-        snprintf(st.last_err, sizeof st.last_err, "verify: no reply");
+        snprintf(st.last_err, sizeof st.last_err, "lectura: sin respuesta");
     else if (match)
-        snprintf(st.last_err, sizeof st.last_err, "verify: shadow matches");
+        snprintf(st.last_err, sizeof st.last_err,
+                 "lectura: el panel muestra lo enviado");
     else
-        snprintf(st.last_err, sizeof st.last_err, "verify: panel shows '%s'", seen);
+        snprintf(st.last_err, sizeof st.last_err,
+                 "lectura: el panel muestra «%s»", seen);
     pit100_hex(dev.rx, dev.rx_n, st.rx_hex, sizeof st.rx_hex);
     xSemaphoreGive(mux);
 }
@@ -252,7 +254,7 @@ esp_err_t panel_init(void)
     memset(&st, 0, sizeof st);
     memset(st.frame, 0, sizeof st.frame);     /* unknown: force the first paint */
     snprintf(st.version, sizeof st.version, "?");
-    snprintf(st.last_err, sizeof st.last_err, "not yet used");
+    snprintf(st.last_err, sizeof st.last_err, "aún sin usar");
 
     layout("", want);
 

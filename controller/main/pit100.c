@@ -19,9 +19,9 @@ static const char *TAG = "pit100";
 static const char *nak_text(uint8_t code)
 {
     switch (code) {
-    case 0x30: return "buffer overflow";
-    case 0x32: return "unspecified failure";
-    default:   return "unknown error code";
+    case 0x30: return "desbordamiento del búfer";
+    case 0x32: return "fallo sin especificar";
+    default:   return "código de error desconocido";
     }
 }
 
@@ -209,31 +209,31 @@ size_t pit100_drain(pit100_t *d, uint8_t *buf, size_t cap)
 /* Parse <ACK|NAK> <addr> [errcode [p1 p2]]. tools/pit100.py:328-343. */
 static esp_err_t read_ack(pit100_t *d, const char **err)
 {
-    static char detail[64];
+    static char detail[96];           /* UTF-8: accents take two bytes */
     uint8_t raw[32];
     size_t n = pit100_drain(d, raw, sizeof raw);
 
     if (!n) {
-        if (err) *err = "no reply: check wiring, line settings and address";
+        if (err) *err = "sin respuesta: revisar cableado, ajustes de línea y dirección";
         return ESP_ERR_TIMEOUT;
     }
     if (raw[0] == PIT_ACK)
         return ESP_OK;
     if (raw[0] == PIT_NAK) {
         if (n < 3) {
-            if (err) *err = "NAK, no error code";
+            if (err) *err = "NAK sin código de error";
             return ESP_FAIL;
         }
         uint8_t code = raw[2];
         if (!bare_error(code) && n >= 5)
-            snprintf(detail, sizeof detail, "NAK 0x%02X %s (params 0x%02X 0x%02X)",
+            snprintf(detail, sizeof detail, "NAK 0x%02X %s (parámetros 0x%02X 0x%02X)",
                      code, nak_text(code), raw[3], raw[4]);
         else
             snprintf(detail, sizeof detail, "NAK 0x%02X %s", code, nak_text(code));
         if (err) *err = detail;
         return ESP_FAIL;
     }
-    snprintf(detail, sizeof detail, "expected ACK or NAK, got 0x%02X", raw[0]);
+    snprintf(detail, sizeof detail, "se esperaba ACK o NAK y llegó 0x%02X", raw[0]);
     if (err) *err = detail;
     return ESP_FAIL;
 }

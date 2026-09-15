@@ -67,19 +67,19 @@ static void form(httpd_req_t *r)
 
     html_escape(cfg_get(CFG_PL_ITEMS), esc, sizeof esc);
     snprintf(buf, sizeof buf,
-             "<tr><th>Lines<td><textarea name=\"%s\" rows=\"6\" cols=\"32\">%s"
-             "</textarea> <small>one per line, 16 characters each</small>",
+             "<tr><th>Líneas<td><textarea name=\"%s\" rows=\"6\" cols=\"32\">%s"
+             "</textarea> <small>una por línea, 16 caracteres cada una</small>",
              cfg_name(CFG_PL_ITEMS), esc);
     httpd_resp_sendstr_chunk(r, buf);
 
-    mode_row_text(r, cfg_name(CFG_PL_DWELL), "Seconds each",
+    mode_row_text(r, cfg_name(CFG_PL_DWELL), "Segundos cada una",
                   cfg_get(CFG_PL_DWELL), 5,
-                  "30 s minimum: the dots are mechanical");
+                  "mínimo 30 s: los puntos son mecánicos");
 }
 
 const panel_mode_t mode_playlist = {
     .id     = "playlist",
-    .label  = "Playlist",
+    .label  = "Lista",
     .start  = start,
     .render = render,
     .form   = form,

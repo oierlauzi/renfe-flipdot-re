@@ -25,7 +25,7 @@ typedef struct {
     char     version[16];              /* SUB reply, "AK0052.139U1" when healthy */
     char     tx_hex[300];              /* last transaction, for the status page */
     char     rx_hex[300];
-    char     last_err[96];
+    char     last_err[160];           /* UTF-8: accents take two bytes */
     bool     last_ok;
     uint32_t paints;                   /* transactions that moved dots */
     uint32_t skipped;                  /* frames identical to what is shown */

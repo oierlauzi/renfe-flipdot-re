@@ -44,15 +44,15 @@ static uint32_t until_render(char out[PANEL_CHARS + 1])
 
 static void until_form(httpd_req_t *r)
 {
-    mode_row_text(r, cfg_name(CFG_TU_LABEL), "Label", cfg_get(CFG_TU_LABEL),
-                  16, "anything: a destination, CAFE, HORNO");
-    mode_row_text(r, cfg_name(CFG_TU_TIME), "Until", cfg_get(CFG_TU_TIME),
-                  5, "HH:MM, the next time it comes round");
+    mode_row_text(r, cfg_name(CFG_TU_LABEL), "Etiqueta", cfg_get(CFG_TU_LABEL),
+                  16, "lo que sea: un destino, CAFE, HORNO");
+    mode_row_text(r, cfg_name(CFG_TU_TIME), "Hasta", cfg_get(CFG_TU_TIME),
+                  5, "HH:MM; cuenta hasta la próxima vez que llegue");
 }
 
 const panel_mode_t mode_until = {
     .id     = "until",
-    .label  = "Time until",
+    .label  = "Tiempo hasta",
     .render = until_render,
     .form   = until_form,
 };
@@ -66,15 +66,15 @@ static uint32_t since_render(char out[PANEL_CHARS + 1])
 
 static void since_form(httpd_req_t *r)
 {
-    mode_row_text(r, cfg_name(CFG_TS_LABEL), "Label", cfg_get(CFG_TS_LABEL),
+    mode_row_text(r, cfg_name(CFG_TS_LABEL), "Etiqueta", cfg_get(CFG_TS_LABEL),
                   16, NULL);
-    mode_row_text(r, cfg_name(CFG_TS_TIME), "Since", cfg_get(CFG_TS_TIME),
-                  5, "HH:MM, the last time it came round");
+    mode_row_text(r, cfg_name(CFG_TS_TIME), "Desde", cfg_get(CFG_TS_TIME),
+                  5, "HH:MM; cuenta desde la última vez que pasó");
 }
 
 const panel_mode_t mode_since = {
     .id     = "since",
-    .label  = "Time since",
+    .label  = "Tiempo desde",
     .render = since_render,
     .form   = since_form,
 };

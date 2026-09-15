@@ -138,7 +138,11 @@ sign simply reconnects when the router returns.
 The cost of that is that a wrong passphrase has no software escape. That is what
 the reset button is for.
 
-Plain HTML forms, no JavaScript. The status page shows the exact 16 characters
+Plain HTML forms, no JavaScript, and **the page is in Spanish** — it is the
+interface to a Spanish sign, used by whoever stands in front of it. This document,
+the code and its comments, and the serial console stay in English, as the rest of
+the project does; the page's labels are quoted below in Spanish so they can be
+found on screen. The status page shows the exact 16 characters
 that will be sent, under a column ruler, so a truncation is visible before it
 reaches the panel:
 
@@ -149,16 +153,16 @@ reaches the panel:
 
 ### Modes
 
-| Mode | Line | Repaints |
-| --- | --- | --- |
-| Custom message | free text, truncated at 16 | only when you change it |
-| Date and time | `LUN 13 SEP 18h24` | on the minute |
-| Time until | label + minutes to the next `HH:MM` | on the minute |
-| Time since | label + minutes since the last `HH:MM` | on the minute |
-| Countdown | label + minutes left, start/pause/reset | when the number changes |
-| Count-up | label + minutes elapsed, start/pause/reset | when the number changes |
-| Playlist | one line at a time | on dwell expiry, 30 s minimum |
-| Blank | nothing | never |
+| Mode, as named on the page | | Line | Repaints |
+| --- | --- | --- | --- |
+| *Mensaje* | message | free text, truncated at 16 | only when you change it |
+| *Fecha y hora* | date and time | `LUN 13 SEP 18h24` | on the minute |
+| *Tiempo hasta* | time until | label + minutes to the next `HH:MM` | on the minute |
+| *Tiempo desde* | time since | label + minutes since the last `HH:MM` | on the minute |
+| *Cuenta atrás* | countdown | label + minutes left, start/pause/reset | when the number changes |
+| *Cronómetro* | count-up | label + minutes elapsed, start/pause/reset | when the number changes |
+| *Lista* | playlist | one line at a time | on dwell expiry, 30 s minimum |
+| *En blanco* | blank | nothing | never |
 
 The clock's template is editable, with presets in a dropdown:
 `%a %A %b %B %d %e %m %Y %y %H %I %M`, and `|` for the gap. There is no seconds
@@ -174,10 +178,12 @@ over every day, and nobody presses anything.
 
 **Countdown** and **count-up** are stopwatches. They run on the ESP32's monotonic
 clock, so they work before NTP has synced and are not disturbed when it does or
-when the clocks change in October. Their Start, Pause and Reset buttons appear on
+when the clocks change in October. Their *Iniciar*, *Pausa* and *Poner a cero*
+buttons appear on
 the page above the settings whenever one of them is the active mode. A countdown
-takes its duration as minutes or `H:MM`; press Start and it runs down, stopping
-itself at zero. Start on a finished countdown restarts it from the top.
+takes its duration as minutes or `H:MM`; press *Iniciar* and it runs down,
+stopping itself at zero. On a finished countdown the button reads *Volver a
+empezar* and restarts it from the top.
 
 Both show **whole minutes**, and the rounding differs on purpose. A count-up
 rounds down, so it reads `0` until a full minute has passed. A countdown rounds
@@ -191,7 +197,7 @@ way to know how long the board was off, so both come back stopped.
 
 The buttons live in their own form rather than beside the settings, because
 pressing Enter in a text field submits a form using its *first* button — which
-would otherwise have been Start. The page does not refresh itself; reload it to see
+would otherwise have been *Iniciar*. The page does not refresh itself; reload it to see
 the time move.
 
 **`|` is an elastic gap** that expands to fill the 16 columns, and the field
@@ -210,7 +216,7 @@ So: **no scrolling and no alternation, in any mode.** A marquee flips most of th
 (default 3 s) bounds the repaint rate globally in the panel task whatever a mode
 asks for, and a frame identical to what is displayed is never sent at all.
 
-The fill/clear/cycle buttons are the deliberate exception — they exist to move
+The *Llenar* / *Borrar* / *Alternar* buttons under *Prueba de puntos* are the deliberate exception — they exist to move
 every dot and find stuck ones. A button pressed on purpose, never a mode left
 running.
 

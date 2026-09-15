@@ -97,10 +97,11 @@ static uint32_t down_render(char out[PANEL_CHARS + 1])
 
 static void down_form(httpd_req_t *r)
 {
-    mode_row_text(r, cfg_name(CFG_CD_LABEL), "Label", cfg_get(CFG_CD_LABEL),
+    mode_row_text(r, cfg_name(CFG_CD_LABEL), "Etiqueta", cfg_get(CFG_CD_LABEL),
                   16, NULL);
-    mode_row_text(r, cfg_name(CFG_CD_DUR), "Duration", cfg_get(CFG_CD_DUR),
-                  5, "minutes, or H:MM. Takes effect on Save, even mid-count.");
+    mode_row_text(r, cfg_name(CFG_CD_DUR), "Duración", cfg_get(CFG_CD_DUR),
+                  5, "minutos, o H:MM. Se aplica al guardar, incluso con la "
+                     "cuenta en marcha.");
 }
 
 static void down_controls(httpd_req_t *r)
@@ -123,35 +124,36 @@ static void down_controls(httpd_req_t *r)
     format_hms(rem, left, sizeof left);
     format_hms(dur, total, sizeof total);
 
-    const char *state = !valid       ? "the duration is not valid"
-                      : finished     ? "finished"
-                      : snap.running ? "running"
-                      : el > 0       ? "paused"
-                                     : "ready";
+    const char *state = !valid       ? "la duración no es válida"
+                      : finished     ? "terminada"
+                      : snap.running ? "en marcha"
+                      : el > 0       ? "en pausa"
+                                     : "lista";
     snprintf(buf, sizeof buf,
-             "<p><strong>%s</strong> left of %s &mdash; %s</p><p>",
+             "<p>quedan <strong>%s</strong> de %s &mdash; %s</p><p>",
              left, total, state);
     httpd_resp_sendstr_chunk(r, buf);
 
     if (snap.running && !finished)
-        button(r, "pause", "Pause");
+        button(r, "pause", "Pausa");
     else
-        button(r, "start", finished ? "Restart" : el > 0 ? "Resume" : "Start");
-    button(r, "reset", "Reset");
+        button(r, "start", finished ? "Volver a empezar"
+                         : el > 0   ? "Reanudar" : "Iniciar");
+    button(r, "reset", "Poner a cero");
     httpd_resp_sendstr_chunk(r,
-        "<small>the page does not refresh itself; reload to see it move</small>");
+        "<small>la página no se actualiza sola: recargar para ver el avance</small>");
 }
 
 static const char *down_action(const char *name)
 {
     op_t op = parse_op(name);
     if (op == OP_UNKNOWN)
-        return "unknown control";
+        return "control desconocido";
 
     bool valid;
     int64_t dur = duration_ms(&valid);
     if (op == OP_START && !valid)
-        return "cannot start: the duration is not valid";
+        return "no se puede iniciar: la duración no es válida";
 
     int64_t now = now_ms();
     portENTER_CRITICAL(&lock);
@@ -173,7 +175,7 @@ static const char *down_action(const char *name)
 
 const panel_mode_t mode_countdown = {
     .id       = "countdown",
-    .label    = "Countdown",
+    .label    = "Cuenta atrás",
     .render   = down_render,
     .form     = down_form,
     .controls = down_controls,
@@ -196,7 +198,7 @@ static uint32_t up_render(char out[PANEL_CHARS + 1])
 
 static void up_form(httpd_req_t *r)
 {
-    mode_row_text(r, cfg_name(CFG_CU_LABEL), "Label", cfg_get(CFG_CU_LABEL),
+    mode_row_text(r, cfg_name(CFG_CU_LABEL), "Etiqueta", cfg_get(CFG_CU_LABEL),
                   16, NULL);
 }
 
@@ -211,24 +213,25 @@ static void up_controls(httpd_req_t *r)
     char elapsed[16], buf[200];
     format_hms(el, elapsed, sizeof elapsed);
 
-    snprintf(buf, sizeof buf, "<p><strong>%s</strong> elapsed &mdash; %s</p><p>",
-             elapsed, snap.running ? "running" : el > 0 ? "paused" : "ready");
+    snprintf(buf, sizeof buf,
+             "<p>llevamos <strong>%s</strong> &mdash; %s</p><p>",
+             elapsed, snap.running ? "en marcha" : el > 0 ? "en pausa" : "listo");
     httpd_resp_sendstr_chunk(r, buf);
 
     if (snap.running)
-        button(r, "pause", "Pause");
+        button(r, "pause", "Pausa");
     else
-        button(r, "start", el > 0 ? "Resume" : "Start");
-    button(r, "reset", "Reset");
+        button(r, "start", el > 0 ? "Reanudar" : "Iniciar");
+    button(r, "reset", "Poner a cero");
     httpd_resp_sendstr_chunk(r,
-        "<small>the page does not refresh itself; reload to see it move</small>");
+        "<small>la página no se actualiza sola: recargar para ver el avance</small>");
 }
 
 static const char *up_action(const char *name)
 {
     op_t op = parse_op(name);
     if (op == OP_UNKNOWN)
-        return "unknown control";
+        return "control desconocido";
 
     int64_t now = now_ms();
     portENTER_CRITICAL(&lock);
@@ -244,7 +247,7 @@ static const char *up_action(const char *name)
 
 const panel_mode_t mode_countup = {
     .id       = "countup",
-    .label    = "Count-up",
+    .label    = "Cronómetro",
     .render   = up_render,
     .form     = up_form,
     .controls = up_controls,

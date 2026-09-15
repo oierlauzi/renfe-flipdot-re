@@ -35,7 +35,7 @@ struct preset { const char *tpl, *shows; };
 static const struct preset PRESETS[] = {
     { "%a %d %b|%Hh%M", "LUN 13 SEP 18h24" },
     { "%d-%m-%Y|%Hh%M", "13-09-2026 18h24" },
-    { "%d %b|%Hh%M",    "13 SEP      18h24" },
+    { "%d %b|%Hh%M",    "13 SEP     18h24" },
 };
 #define PRESET_COUNT ((int)(sizeof PRESETS / sizeof PRESETS[0]))
 
@@ -96,8 +96,8 @@ static void form(httpd_req_t *r)
     /* No JavaScript, so the preset cannot fill the text box. Instead the select
      * wins when it is set to anything, and is ignored when left on "keep". */
     httpd_resp_sendstr_chunk(r,
-        "<tr><th>Preset<td><select name=\"clk.preset\">"
-        "<option value=\"\">&mdash; keep the template below &mdash;</option>");
+        "<tr><th>Formato<td><select name=\"clk.preset\">"
+        "<option value=\"\">&mdash; mantener la plantilla de abajo &mdash;</option>");
     for (int i = 0; i < PRESET_COUNT; i++) {
         char esc[64];
         html_escape(PRESETS[i].tpl, esc, sizeof esc);
@@ -107,18 +107,18 @@ static void form(httpd_req_t *r)
     }
     httpd_resp_sendstr_chunk(r, "</select>");
 
-    mode_row_text(r, cfg_name(CFG_CLK_TPL), "Template", cfg_get(CFG_CLK_TPL), 48,
-                  "%a %A %b %B %d %e %m %Y %y %H %I %M, and '|' for the gap. "
-                  "No seconds, on purpose.");
+    mode_row_text(r, cfg_name(CFG_CLK_TPL), "Plantilla", cfg_get(CFG_CLK_TPL), 48,
+                  "%a %A %b %B %d %e %m %Y %y %H %I %M, y «|» para el hueco. "
+                  "Sin segundos, a propósito.");
 
-    httpd_resp_sendstr_chunk(r, "<tr><th>Time source<td>");
+    httpd_resp_sendstr_chunk(r, "<tr><th>Origen de la hora<td>");
     html_escape(timesrc_describe(), buf, sizeof buf);
     httpd_resp_sendstr_chunk(r, buf);
 }
 
 const panel_mode_t mode_clock = {
     .id     = "clock",
-    .label  = "Date and time",
+    .label  = "Fecha y hora",
     .render = render,
     .form   = form,
 };

@@ -130,15 +130,18 @@ static size_t utf8_next(const char *s, uint32_t *cp)
 int cp437_encode(const char *utf8, uint8_t *out, size_t cap,
                  bool seven_bit, const char **why)
 {
+    /* Shown on the web page, so in Spanish. ROM 0x24 and 0x25 hold n-tilde and
+     * N-tilde, which is why the first two exist: see docs/font.md. */
     static const char *ERR_DOLLAR =
-        "'$' has no glyph on this panel: ROM 0x24 holds n-tilde. See docs/font.md";
+        "«$» no existe en este panel: en su lugar sale «ñ»";
     static const char *ERR_PERCENT =
-        "'%' has no glyph on this panel: ROM 0x25 holds N-tilde. See docs/font.md";
-    static const char *ERR_UTF8  = "not valid UTF-8";
-    static const char *ERR_ROOM  = "too long";
-    static const char *ERR_GLYPH = "character not in CP437";
+        "«%» no existe en este panel: en su lugar sale «Ñ»";
+    static const char *ERR_UTF8  = "la codificación del texto no es válida";
+    static const char *ERR_ROOM  = "es demasiado largo";
+    static const char *ERR_GLYPH = "tiene un carácter que el panel no puede mostrar";
     static const char *ERR_SEVEN =
-        "character cannot cross a 7-bit link: only n-tilde and N-tilde survive";
+        "tiene un carácter que no pasa por un enlace de 7 bits "
+        "(solo sobreviven ñ y Ñ)";
 
     if (why)
         *why = NULL;
