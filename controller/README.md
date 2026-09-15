@@ -116,6 +116,12 @@ generated is committed; the expectations are recomputed from the Python each run
 The layout rules and the 7-bit rules are asserted in `test/test_cp437.c` instead,
 because that is where this encoder deliberately differs from the Python.
 
+`test/test_stopwatch.c` checks `main/stopwatch.c` at exact minute boundaries —
+the one millisecond before a number changes and the one it changes on — which
+cannot be tested on the board without waiting for them. It covers both rounding
+directions, pause and resume, a countdown stopping itself, and a late render past
+the deadline not being carried forward if the duration is then lengthened.
+
 ## Configuration
 
 Connect to `http://flipdot.local/`, or the IP the console prints. With no
@@ -147,14 +153,46 @@ reaches the panel:
 | --- | --- | --- |
 | Custom message | free text, truncated at 16 | only when you change it |
 | Date and time | `LUN 13 SEP 18h24` | on the minute |
-| Countdown | label + minutes to an `HH:MM` | on the minute |
-| Count-up | label + minutes since an `HH:MM` | on the minute |
+| Time until | label + minutes to the next `HH:MM` | on the minute |
+| Time since | label + minutes since the last `HH:MM` | on the minute |
+| Countdown | label + minutes left, start/pause/reset | when the number changes |
+| Count-up | label + minutes elapsed, start/pause/reset | when the number changes |
 | Playlist | one line at a time | on dwell expiry, 30 s minimum |
 | Blank | nothing | never |
 
 The clock's template is editable, with presets in a dropdown:
 `%a %A %b %B %d %e %m %Y %y %H %I %M`, and `|` for the gap. There is no seconds
 directive, on purpose.
+
+### Time until and since, and the stopwatches
+
+These are two different pairs, and the difference is what drives them.
+
+**Time until** and **time since** run by themselves off the wall clock: minutes to
+the next occurrence of an `HH:MM`, or since the last one. They need NTP, they roll
+over every day, and nobody presses anything.
+
+**Countdown** and **count-up** are stopwatches. They run on the ESP32's monotonic
+clock, so they work before NTP has synced and are not disturbed when it does or
+when the clocks change in October. Their Start, Pause and Reset buttons appear on
+the page above the settings whenever one of them is the active mode. A countdown
+takes its duration as minutes or `H:MM`; press Start and it runs down, stopping
+itself at zero. Start on a finished countdown restarts it from the top.
+
+Both show **whole minutes**, and the rounding differs on purpose. A count-up
+rounds down, so it reads `0` until a full minute has passed. A countdown rounds
+up, so a fresh 10-minute timer reads `10`, not `9` — and `0 min` on the sign always
+means finished, never "under a minute left". The page shows seconds, since a web
+page does not wear out.
+
+A watch keeps running while you look at another mode, and while you save settings.
+It does **not** survive a reboot: the monotonic clock restarts from zero with no
+way to know how long the board was off, so both come back stopped.
+
+The buttons live in their own form rather than beside the settings, because
+pressing Enter in a text field submits a form using its *first* button — which
+would otherwise have been Start. The page does not refresh itself; reload it to see
+the time move.
 
 **`|` is an elastic gap** that expands to fill the 16 columns, and the field
 after it is held against the right edge — where the `min` vinyl sticker on the
@@ -184,7 +222,8 @@ running.
 | `main/panel.c` | the task that owns the UART: one writer, coalescing, settle, statistics |
 | `main/cp437.c` | UTF-8 → CP437 → 7-bit, and `layout()` |
 | `main/modes.c` | the mode table and the scheduler |
-| `main/mode_*.c` | one file per mode |
+| `main/mode_*.c` | the modes; `mode_until_since.c` and `mode_stopwatch.c` hold two each |
+| `main/stopwatch.c` | start/pause/reset and the minute rounding, with no ESP-IDF in it |
 | `main/timesrc.c` | timezone, SNTP, internal RTC, and the seam for a DS3231 |
 | `main/netcfg.c` | WiFi station, the provisioning AP, mDNS |
 | `main/button.c` | the reset button: hold to erase the configuration |

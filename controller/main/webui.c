@@ -139,6 +139,14 @@ static const char *form_get(const form_t *f, const char *key)
 
 /* ------------------------------------------------------------------ pieces */
 
+/* Post/redirect/get: a reload after pressing a button must not press it again. */
+static esp_err_t see_other(httpd_req_t *r)
+{
+    httpd_resp_set_status(r, "303 See Other");
+    httpd_resp_set_hdr(r, "Location", "/");
+    return httpd_resp_send(r, NULL, 0);
+}
+
 static void send(httpd_req_t *r, const char *s)
 {
     httpd_resp_sendstr_chunk(r, s);
@@ -237,6 +245,16 @@ static esp_err_t get_root(httpd_req_t *r)
     frame_preview(r, st.frame);
     send(r, "</fieldset>");
 
+    /* --- live controls, in a form of their own: see modes.h for why --- */
+    if (active->controls) {
+        sendf(r, "<form method=\"post\" action=\"/action\">"
+                 "<fieldset><legend>%s</legend>"
+                 "<input type=\"hidden\" name=\"m\" value=\"%s\">",
+              active->label, active->id);
+        active->controls(r);
+        send(r, "</fieldset></form>");
+    }
+
     /* --- mode and its settings, one form --- */
     send(r, "<form method=\"post\" action=\"/save\">"
             "<fieldset><legend>Mode</legend><table>");
@@ -325,8 +343,9 @@ static esp_err_t get_root(httpd_req_t *r)
 /* Keys whose value ends up on the panel, so they must encode cleanly. */
 static bool is_panel_text(cfg_key_t k)
 {
-    return k == CFG_MSG_TEXT || k == CFG_CLK_TPL || k == CFG_CD_LABEL
-        || k == CFG_CU_LABEL || k == CFG_PL_ITEMS;
+    return k == CFG_MSG_TEXT || k == CFG_CLK_TPL || k == CFG_PL_ITEMS
+        || k == CFG_TU_LABEL || k == CFG_TS_LABEL
+        || k == CFG_CD_LABEL || k == CFG_CU_LABEL;
 }
 
 static esp_err_t post_save(httpd_req_t *r)
@@ -369,10 +388,7 @@ static esp_err_t post_save(httpd_req_t *r)
     mode_refresh();
     mode_notify();
 
-    httpd_resp_set_status(r, "303 See Other");
-    httpd_resp_set_hdr(r, "Location", "/");
-    httpd_resp_send(r, NULL, 0);
-    return ESP_OK;
+    return see_other(r);
 }
 
 /* ---------------------------------------------------------------- exercise */
@@ -404,10 +420,37 @@ static esp_err_t post_exercise(httpd_req_t *r)
              "%s queued; the panel is slow, so reload in a few seconds.",
              what ? what : "nothing");
 
-    httpd_resp_set_status(r, "303 See Other");
-    httpd_resp_set_hdr(r, "Location", "/");
-    httpd_resp_send(r, NULL, 0);
-    return ESP_OK;
+    return see_other(r);
+}
+
+/* ------------------------------------------------------------------ action */
+
+/* A button from a mode's controls. Applies no settings: the controls form
+ * carries none, so a Start can never also save a half-typed field. */
+static esp_err_t post_action(httpd_req_t *r)
+{
+    form_t f;
+    if (form_read(r, &f) != ESP_OK) {
+        httpd_resp_send_err(r, HTTPD_400_BAD_REQUEST, "unreadable form");
+        return ESP_FAIL;
+    }
+    const char *id   = form_get(&f, "m");
+    const char *what = form_get(&f, "do");
+
+    /* By id, not "whichever mode is active": the page may have been loaded
+     * before someone switched modes, and the button belongs to the mode that
+     * drew it. mode_find() does not fall back, so a stale id does nothing. */
+    const panel_mode_t *m = id ? mode_find(id) : NULL;
+    if (!m || !m->action || !what) {
+        snprintf(notice, sizeof notice, "that control no longer exists");
+    } else {
+        const char *err = m->action(what);
+        if (err)
+            snprintf(notice, sizeof notice, "%s: %s", m->label, err);
+    }
+
+    mode_notify();                    /* repaint now, not at the next minute */
+    return see_other(r);
 }
 
 /* -------------------------------------------------------------------- init */
@@ -429,10 +472,13 @@ esp_err_t webui_init(void)
         .uri = "/save", .method = HTTP_POST, .handler = post_save };
     static const httpd_uri_t exercise = {
         .uri = "/exercise", .method = HTTP_POST, .handler = post_exercise };
+    static const httpd_uri_t action = {
+        .uri = "/action", .method = HTTP_POST, .handler = post_action };
 
     httpd_register_uri_handler(server, &root);
     httpd_register_uri_handler(server, &save);
     httpd_register_uri_handler(server, &exercise);
+    httpd_register_uri_handler(server, &action);
 
     ESP_LOGI(TAG, "web UI on port 80");
     return ESP_OK;

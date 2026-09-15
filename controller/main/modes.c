@@ -17,6 +17,8 @@ static const char *TAG = "modes";
 
 extern const panel_mode_t mode_message;
 extern const panel_mode_t mode_clock;
+extern const panel_mode_t mode_until;
+extern const panel_mode_t mode_since;
 extern const panel_mode_t mode_countdown;
 extern const panel_mode_t mode_countup;
 extern const panel_mode_t mode_playlist;
@@ -27,7 +29,9 @@ extern const panel_mode_t mode_blank;
 const panel_mode_t *const MODES[] = {
     &mode_message,
     &mode_clock,
-    &mode_countdown,
+    &mode_until,          /* the two that run by themselves off the wall clock */
+    &mode_since,
+    &mode_countdown,      /* the two driven by start/pause/reset */
     &mode_countup,
     &mode_playlist,
     &mode_blank,
@@ -40,12 +44,20 @@ static const panel_mode_t *current;
 
 /* ------------------------------------------------------------------ lookup */
 
-static const panel_mode_t *by_id(const char *id)
+const panel_mode_t *mode_find(const char *id)
 {
     for (int i = 0; i < MODE_COUNT; i++)
         if (strcmp(MODES[i]->id, id) == 0)
             return MODES[i];
-    return MODES[0];
+    return NULL;
+}
+
+/* An unknown stored id -- from an older firmware, say -- falls back to the first
+ * mode rather than leaving the panel with nothing to render. */
+static const panel_mode_t *by_id(const char *id)
+{
+    const panel_mode_t *m = mode_find(id);
+    return m ? m : MODES[0];
 }
 
 const panel_mode_t *mode_active(void)
@@ -91,8 +103,16 @@ static void scheduler_task(void *arg)
         panel_set(frame);
 
         /* due == 0 means the line only changes when the configuration does, so
-         * wait for a notification rather than spinning on a timer. */
-        TickType_t wait = due ? pdMS_TO_TICKS(due) : portMAX_DELAY;
+         * wait for a notification rather than spinning on a timer.
+         *
+         * Otherwise wait a little past the moment the number changes. Two
+         * reasons. pdMS_TO_TICKS rounds down, so at 100 Hz any due under 10 ms
+         * would be zero ticks and return at once, spinning until the millisecond
+         * clock caught up -- and a stopwatch really can ask for 1 ms. And waking
+         * a hair early re-renders the old number, which is skipped as identical
+         * but costs a second wake-up for nothing. The margin cannot cause a late
+         * repaint anyone would see: the panel's own settle is 3 s. */
+        TickType_t wait = due ? pdMS_TO_TICKS(due + 20) : portMAX_DELAY;
         ulTaskNotifyTake(pdTRUE, wait);
     }
 }

@@ -22,10 +22,13 @@ typedef enum {
 
     CFG_MSG_TEXT,
     CFG_CLK_TPL,
-    CFG_CD_LABEL,
-    CFG_CD_TIME,          /* "HH:MM" -- counts down to its next occurrence */
-    CFG_CU_LABEL,
-    CFG_CU_TIME,          /* "HH:MM" -- counts up from its last occurrence */
+    CFG_TU_LABEL,         /* time until */
+    CFG_TU_TIME,          /* "HH:MM" -- minutes to its next occurrence */
+    CFG_TS_LABEL,         /* time since */
+    CFG_TS_TIME,          /* "HH:MM" -- minutes since its last occurrence */
+    CFG_CD_LABEL,         /* countdown stopwatch */
+    CFG_CD_DUR,           /* minutes, or "H:MM" */
+    CFG_CU_LABEL,         /* count-up stopwatch */
     CFG_PL_ITEMS,         /* one line per entry */
     CFG_PL_DWELL,         /* seconds, floored at 30 */
 

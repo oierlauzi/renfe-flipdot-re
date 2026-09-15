@@ -32,6 +32,21 @@ typedef struct {
 
     /* Emit this mode's configuration rows as HTML table rows. */
     void (*form)(httpd_req_t *r);
+
+    /* Optional: live controls -- start, pause, reset -- emitted into a form of
+     * their own, separate from the settings.
+     *
+     * Separate because of implicit submission: pressing Enter in a text field
+     * submits the form using its FIRST submit button. Inside the settings form,
+     * a Start button would come before Save, so typing a label and pressing
+     * Enter would start the timer. In their own form they cannot be reached
+     * that way. */
+    void (*controls)(httpd_req_t *r);
+
+    /* Optional: act on a button from controls(). Returns NULL on success, or a
+     * one-line reason to show on the page. Called from the HTTP server's task,
+     * not the scheduler's, so shared state needs a lock. */
+    const char *(*action)(const char *name);
 } panel_mode_t;
 
 extern const panel_mode_t *const MODES[];
@@ -40,6 +55,10 @@ extern const int MODE_COUNT;
 /* The active mode, from configuration. Never NULL -- an unknown id falls back
  * to the first entry. */
 const panel_mode_t *mode_active(void);
+
+/* A mode by id, or NULL if there is none. Unlike mode_active() this does not
+ * fall back, because acting on the wrong mode is worse than acting on none. */
+const panel_mode_t *mode_find(const char *id);
 
 /* Re-read the active mode from configuration, calling stop()/start() if it
  * changed. */

@@ -1,11 +1,13 @@
-# Host-side checks for the encoder. No ESP32, no toolchain, no panel.
+# Host-side checks for the parts that are pure arithmetic: the encoder and the
+# stopwatch. No ESP32, no toolchain, no panel.
 #
 #   make          build and run everything
 #   make clean
 #
-# cp437.c is written to depend on nothing but the C library precisely so that it
-# can be compiled here and checked against tools/pit100.py, which is the code
-# that has actually driven the hardware.
+# cp437.c and stopwatch.c depend on nothing but the C library precisely so they
+# can be compiled here. cp437.c is checked against tools/pit100.py, the code that
+# has actually driven the hardware; stopwatch.c against exact minute boundaries,
+# which cannot be tested on the board without waiting for them.
 
 CC      ?= cc
 CFLAGS  ?= -Wall -Wextra -Werror -O1 -std=c11
@@ -19,10 +21,14 @@ all: check
 $(BUILD)/test_cp437: test_cp437.c ../main/cp437.c | $(BUILD)
 	$(CC) $(CFLAGS) -I../main -o $@ $^
 
+$(BUILD)/test_stopwatch: test_stopwatch.c ../main/stopwatch.c | $(BUILD)
+	$(CC) $(CFLAGS) -I../main -o $@ $^
+
 $(BUILD):
 	@mkdir -p $(BUILD)
 
-check: $(BUILD)/test_cp437
+check: $(BUILD)/test_cp437 $(BUILD)/test_stopwatch
+	@$(BUILD)/test_stopwatch
 	@$(BUILD)/test_cp437 layout
 	@$(BUILD)/test_cp437 sevenbit
 	@$(BUILD)/test_cp437 encode < samples.txt > $(BUILD)/got.hex

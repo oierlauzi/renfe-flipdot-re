@@ -33,10 +33,19 @@ static const entry_t TABLE[CFG_COUNT] = {
      * against the right edge where the "min" vinyl sticker continues it. */
     [CFG_CLK_TPL]      = { "clk.tpl",      "%a %d %b|%Hh%M", 0, 0 },
 
-    [CFG_CD_LABEL]     = { "cd.label",     "CHAMARTIN",     0, 0 },
-    [CFG_CD_TIME]      = { "cd.time",      "08:30",         0, 0 },
-    [CFG_CU_LABEL]     = { "cu.label",     "DESDE",         0, 0 },
-    [CFG_CU_TIME]      = { "cu.time",      "08:00",         0, 0 },
+    /* The wall-clock pair were stored under cd.* and cu.* before the
+     * stopwatches existed, and move to tu.* and ts.*. The duration deliberately
+     * gets a new name, cd.dur, so an "08:30" left in cd.time by an older build
+     * is never read back as a countdown of eight and a half hours. The labels do
+     * keep their names; an old label reappearing on a stopwatch is harmless. */
+    [CFG_TU_LABEL]     = { "tu.label",     "CHAMARTIN",     0, 0 },
+    [CFG_TU_TIME]      = { "tu.time",      "08:30",         0, 0 },
+    [CFG_TS_LABEL]     = { "ts.label",     "DESDE",         0, 0 },
+    [CFG_TS_TIME]      = { "ts.time",      "08:00",         0, 0 },
+
+    [CFG_CD_LABEL]     = { "cd.label",     "QUEDAN",        0, 0 },
+    [CFG_CD_DUR]       = { "cd.dur",       "10",            0, 0 },
+    [CFG_CU_LABEL]     = { "cu.label",     "LLEVAMOS",      0, 0 },
 
     [CFG_PL_ITEMS]     = { "pl.items",     "HOLA MUNDO\nRENFE CERCANIAS", 0, 0 },
     /* Floored at 30 s deliberately: a short dwell turns the playlist into a
