@@ -64,10 +64,14 @@ The unit is the top half of a platform sign:
 
 | Element | Content |
 | --- | --- |
+| `Vía N` indicator above | Which platform. Not part of this unit, which is one line of text |
 | Flip-dot line (this unit) | Destination, and minutes until arrival |
 | Vinyl sticker to its right | The fixed word `min` |
 | LED matrix below (not recovered) | Scrolling list of calling stations, and notices |
 | Fluorescent tube along the bottom | Lights the panel at night |
+
+Photographs of complete assemblies, in service and being taken down, are in
+[../hardware/photos/in-service/](../hardware/photos/in-service/).
 
 Because `min` is a sticker rather than rendered text, the line is laid out with
 the destination on the left and the number pushed to the right-hand end. That is

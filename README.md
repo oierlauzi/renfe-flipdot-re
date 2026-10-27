@@ -29,16 +29,34 @@ equipo que gobernaba el cartel, y [una réplica web](web-replica/).
 Este proyecto se documenta en **inglés**: es el idioma en el que estoy
 acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
 
+## In service, and after
+
+<table>
+<tr>
+<td width="50%"><img src="hardware/photos/in-service/mostoles-1997.jpg" alt="A platform sign at Móstoles in 1997, reading 'Vía 1, FUENLABRADA, 1 min' above a red LED row, with a train at the platform"></td>
+<td width="50%"><img src="hardware/photos/in-service/aravaca-retired.jpg" alt="A sign of the same kind lying on the platform at Aravaca, glass loose, still reading 'Vía 2, LAS ROZAS'"></td>
+</tr>
+<tr>
+<td><b>Móstoles, 1997.</b> From a Facebook post.</td>
+<td><b>Being disposed of.</b> Aravaca, <a href="https://x.com/David_82C/status/2069312279259062477">photographed by @David_82C</a></td>
+</tr>
+</table>
+
+The left photograph is the whole assembly, a year after this unit's firmware was
+programmed: the destination line, the printed `min` beside the number, and the
+LED row underneath that scrolled the calling stations. The right one has been
+unplugged and left on the platform, and it is still showing `LAS ROZAS`. Flip
+dots are mechanical, so they hold their last message with no power at all. That
+is why the firmware has a switch for whether to blank the panel on reset.
+
 ## The manufacturer, 1997
 
 <img src=".github/page-iberica-1997.jpg" width="640" alt="PAGE Ibérica advertisement from Vía Libre, March 1997, showing a platform display reading 'Vía 1, ATOCH-T.CANT, 6 min'">
 
-PAGE Ibérica's own advertisement in *Vía Libre*, March 1997. The display in the
-photograph is not this model, but the layout is the one this unit was built for:
-the destination on the left, the minutes pushed to the right-hand end, and the
-word `min` printed beside them rather than drawn by the sign. The Tres Cantos
-street address is the one on this unit's chassis plate, down to a different
-house number.
+PAGE Ibérica's own advertisement in *Vía Libre*, March 1997. The same layout
+again, and the line fits 16 characters exactly, the same as this unit. The Tres
+Cantos street address is the one on this unit's chassis plate, down to a
+different house number.
 
 ## The font
 
@@ -89,7 +107,10 @@ enclosure in two places, because the fluorescent tube's ballast lives in there.
 
 [MIT](LICENSE) for the documentation, the tools and the code. The original
 firmware in [original/](original/) belongs to its authors and is included only
-for interoperability research and preservation.
+for interoperability research and preservation. The same goes for the
+photographs in [hardware/photos/in-service/](hardware/photos/in-service/) and
+the advertisement above, which are other people's work, reproduced here with
+credit for the same reason.
 
 This is an unofficial fan project, not affiliated with, endorsed by or sponsored
 by RENFE, PAGE Ibérica or Telenorma. Trademarks and logos shown belong to their

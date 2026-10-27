@@ -20,6 +20,9 @@ Physical description of the unit. What it does with all this is in
 | [Flip-dot carrier.jpg](photos/Flip-dot%20carrier.jpg) | A carrier board: address switches and ribbon connector |
 | [Flip-dot daughter (front).jpg](photos/Flip-dot%20daughter%20%28front%29.jpg), [Flip-dot daughter (back).jpg](photos/Flip-dot%20daughter%20%28back%29.jpg) | One character module |
 
+[photos/in-service/](photos/in-service/) holds photographs of signs of this kind
+on platforms, in service and being taken down.
+
 ## The three boards
 
 | Board | Job |
