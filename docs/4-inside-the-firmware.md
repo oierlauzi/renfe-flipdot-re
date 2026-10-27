@@ -94,6 +94,7 @@ What the window holds:
 | Range | Size | Contents |
 | --- | --- | --- |
 | `0xE001-0xE040` | 64 | **The message buffer**, what a host writes |
+| `0xE041`, `0xE042` | 2 | Terminator, `0x03` written twice. Both render passes stop on it rather than on a count |
 | `0xE043-0xE082` | 64 | **The shadow**, what the panel currently shows |
 | `0xE084-0xE105` | | A second buffer and shadow, disabled in this build |
 

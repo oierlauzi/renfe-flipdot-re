@@ -64,15 +64,19 @@ The unit is the text line of a platform sign assembly:
 
 | Element | Content |
 | --- | --- |
-| `Vía N` indicator above | Which platform. Not part of this unit, which is one line of text |
+| Fixed legend on the glass | `Vía`, `Próxima Llegada`, and `min.` |
+| Platform number | A vinyl, applied beside `Vía` per installation |
 | Flip-dot line (this unit) | Destination, and minutes until arrival |
-| Vinyl sticker to its right | The fixed word `min` |
 | LED matrix below (not recovered) | Scrolling list of calling stations, and notices |
 | Fluorescent tube along the bottom | Lights the panel at night |
 
-Because `min` is a sticker rather than rendered text, the line is laid out with
-the destination on the left and the number pushed to the right-hand end. That is
-a convention of whatever drives the sign, not something the sign knows about.
+Because `min` is printed on the glass rather than rendered, the line is laid out
+with the destination on the left and the number pushed to the right-hand end.
+That is a convention of whatever drives the sign, not something the sign knows
+about.
+
+The platform number is a vinyl too, and not every station got them. Some signs
+spent their whole service life reading `Vía` with nothing after it.
 
 Three assemblies using this generation of display have been seen in service:
 single-sided platform signs, double-sided ones, and station-wide boards in the
@@ -82,6 +86,18 @@ firmware that treats the panel as a configurable option.
 
 Photographs of complete assemblies, in service and being taken down, are in
 [../hardware/photos/in-service/](../hardware/photos/in-service/).
+
+### How well they worked
+
+Not very, by the end. They failed often, and most often on the communication
+side: missing characters and wrong characters were an ordinary sight on a
+platform rather than an exceptional one.
+
+One failure is worth knowing about if you ever see it. A heart in the middle of
+a destination was common. CP437 puts a heart at `0x03`, and `0x03` is also the
+byte the firmware writes immediately after the message buffer, as the terminator
+both render passes stop on. See
+[4-inside-the-firmware.md](4-inside-the-firmware.md#the-window-at-0xe000).
 
 ### What the press said at the time
 
