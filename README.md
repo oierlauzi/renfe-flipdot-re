@@ -17,11 +17,8 @@ own.
 
 ![The salvaged unit mounted above a bookshelf at home, reading CHAMARTIN with 6 at the right-hand end and the printed min. beside it](hardware/photos/working.jpg)
 
-The unit salvaged for this project, back in service over a bookshelf and driven
-by the ESP32 in [controller/](controller/). The destination on the left, the
-countdown held against the right-hand end, and the `min.` that was always
-printed on the glass rather than drawn by the sign. Nine letters, six blank
-cells, and the number in the sixteenth.
+The unit salvaged for this project, driven by the ESP32 in
+[controller/](controller/).
 
 ## Español
 
@@ -41,9 +38,8 @@ acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
 
 <img src="hardware/photos/in-service/via-libre-1997.jpg" width="700" alt="Close-up of a platform sign reading 'Vía 1' and 'ATOCH-CHAMAR' in yellow dots, with 'Próxima Llegada' and 'min.' printed beside them and a dark LED row underneath">
 
-*Vía Libre*, March 1997, photographed by Luna. The whole sign in one frame: the
-platform number, the destination in dots, the printed `min` waiting for its
-number, and the dark LED row underneath that scrolled the calling stations.
+*Vía Libre*, March 1997, photographed by Luna. The dark strip under the text is
+the LED row that scrolled the stations the train would call at.
 
 <table>
 <tr>
@@ -64,23 +60,19 @@ number, and the dark LED row underneath that scrolled the calling stations.
 </tr>
 </table>
 
-Mounting varied by station. Móstoles hangs its sign from the platform canopy and
-Villalba puts it on a pole. Thirty years separate the top row from the bottom
-one, and the sign is unchanged.
+Mounting varied by station: under the canopy, or on a pole. Thirty years
+separate the top row from the bottom one.
 
-The last one has been unplugged and left on the platform, and it is still
-reading `LAS ROZAS`. Flip dots are mechanical, so they hold their last message
-with no power at all. That is why the firmware has a switch for whether to blank
-the panel on reset.
+Flip dots are mechanical and hold their last message with no power, which is why
+the firmware has a switch for whether to blank the panel on reset.
 
 ## The manufacturer, 1997
 
 <img src=".github/page-iberica-1997.jpg" width="640" alt="PAGE Ibérica advertisement from Vía Libre, March 1997, showing a platform display reading 'Vía 1, ATOCH-T.CANT, 6 min'">
 
-PAGE Ibérica's own advertisement in *Vía Libre*, March 1997. The same layout
-again, and the line fits 16 characters exactly, the same as this unit. The Tres
-Cantos street address is the one on this unit's chassis plate, down to a
-different house number.
+PAGE Ibérica's own advertisement in *Vía Libre*, March 1997. The line fits 16
+characters, like this unit, and the Tres Cantos street address is the one on its
+chassis plate, down to a different house number.
 
 ## The font
 
