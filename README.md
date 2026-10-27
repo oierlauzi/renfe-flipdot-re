@@ -47,15 +47,18 @@ number, and the dark LED row underneath that scrolled the calling stations.
 <td><b>Villalba, 1997.</b> <a href="https://www.facebook.com/groups/574304876033372/permalink/4097551237042034/">From a Facebook post</a></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img src="hardware/photos/in-service/aravaca-retired.jpg" width="300" alt="A sign of the same kind lying on the platform at Aravaca, glass loose, still reading 'Vía 2, LAS ROZAS'"></td>
+<td><img src="hardware/photos/in-service/pitis-2026.jpg" alt="A sign at Pitis in 2026 reading 'SI PARADA', with the Tren de los 80 at the platform"></td>
+<td align="center"><img src="hardware/photos/in-service/aravaca-retired.jpg" width="250" alt="A sign of the same kind lying on the platform at Aravaca, glass loose, still reading 'Vía 2, LAS ROZAS'"></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><b>Being disposed of.</b> Aravaca, <a href="https://x.com/David_82C/status/2069312279259062477">photographed by @David_82C</a></td>
+<td><b>Pitis, 2026.</b> A few months before it came down, with the <i>Tren de los 80</i> alongside</td>
+<td align="center"><b>Being disposed of.</b> Aravaca, <a href="https://x.com/David_82C/status/2069312279259062477">photographed by @David_82C</a></td>
 </tr>
 </table>
 
 Mounting varied by station. Móstoles hangs its sign from the platform canopy and
-Villalba puts it on a pole.
+Villalba puts it on a pole. Thirty years separate the top row from the bottom
+one, and the sign is unchanged.
 
 The last one has been unplugged and left on the platform, and it is still
 reading `LAS ROZAS`. Flip dots are mechanical, so they hold their last message
