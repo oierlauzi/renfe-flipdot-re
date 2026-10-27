@@ -5,7 +5,8 @@
 Reverse engineering of a **PAGE Ibérica PI-T100-M** flip-dot platform display,
 the kind that hung over RENFE Cercanías platforms from the mid-1990s and told
 you which train was coming and how many minutes away it was. They are being
-taken down as stations are refitted.
+taken down as stations are refitted, so the aims here are preservation,
+documentation and keeping one of them running.
 
 The goal was to put arbitrary text on one from a modern computer, over its
 original serial link, with no modification to the hardware or the firmware.
@@ -24,7 +25,7 @@ The unit salvaged for this project, driven by the ESP32 in
 
 Ingeniería inversa de un teleindicador **PAGE Ibérica PI-T100-M**, de los que se
 instalaron en las estaciones de **RENFE Cercanías** a mediados de los 90. El
-proyecto tiene el fin de preservar, experimentar y divulgar.
+proyecto tiene el fin de preservar, documentar y divulgar.
 
 El objetivo era enviar texto arbitrario al panel desde un ordenador moderno, a
 través del enlace serie existente, **sin modificar el hardware ni el software**.
