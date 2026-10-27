@@ -7,6 +7,7 @@ Physical description of the unit. What it does with all this is in
 
 | File | Subject |
 | --- | --- |
+| [working.jpg](photos/working.jpg) | The unit running, after the work in this repository |
 | [cover_open.jpg](photos/cover_open.jpg) | The whole unit with the cover off |
 | [sticker.jpg](photos/sticker.jpg) | Chassis label: model, serial, "MAESTRA" |
 | [Electronics.jpg](photos/Electronics.jpg), [Electronics + PSU.jpg](photos/Electronics%20%2B%20PSU.jpg) | The three boards, and with the power supply |

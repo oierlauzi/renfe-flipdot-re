@@ -12,8 +12,14 @@ original serial link, with no modification to the hardware or the firmware.
 
 **It works.** Text goes onto a real panel over the original link. There is also
 an [ESP32 controller](controller/) that replaces the sign's upstream controller
-outright, and [a web replica](web-replica/) for anyone without a panel in their
-living room.
+outright, and [a web replica](web-replica/) for anyone without a panel of their
+own.
+
+![The salvaged unit running, showing CHAMARTIN on the left and 6 at the right-hand end, with the printed min. beside it](hardware/photos/working.jpg)
+
+The destination on the left, the countdown held against the right-hand end, and
+the `min.` that was always printed on the glass rather than drawn by the sign.
+Nine letters, six blank cells, and the number in the sixteenth.
 
 ## Español
 
