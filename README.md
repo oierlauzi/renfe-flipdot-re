@@ -120,13 +120,6 @@ how it drives its dots. The first three files are enough to put text on a panel.
 | [ghidra/](ghidra/) | The symbol table and the script that applies it |
 | [TODO.md](TODO.md) | The questions that stayed open |
 
-## Safety
-
-Flip-dot coils expect short pulses. Leaving one energised will overheat it and
-can destroy it. This matters for any experiment that drives the panel directly
-instead of through the original firmware. There is also mains inside the
-enclosure in two places, because the fluorescent tube's ballast lives in there.
-
 ## Licence
 
 [MIT](LICENSE) for the documentation, the tools and the code. The original
