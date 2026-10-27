@@ -60,7 +60,7 @@ than Spanish rail sources.
 
 ## In the station
 
-The unit is the top half of a platform sign:
+The unit is the text line of a platform sign assembly:
 
 | Element | Content |
 | --- | --- |
@@ -69,9 +69,6 @@ The unit is the top half of a platform sign:
 | Vinyl sticker to its right | The fixed word `min` |
 | LED matrix below (not recovered) | Scrolling list of calling stations, and notices |
 | Fluorescent tube along the bottom | Lights the panel at night |
-
-Photographs of complete assemblies, in service and being taken down, are in
-[../hardware/photos/in-service/](../hardware/photos/in-service/).
 
 Because `min` is a sticker rather than rendered text, the line is laid out with
 the destination on the left and the number pushed to the right-hand end. That is
@@ -82,6 +79,46 @@ single-sided platform signs, double-sided ones, and station-wide boards in the
 concourse that stack two to four rows of 20 characters. The 20-character rows
 show that the line width varies between members of the family, which fits a
 firmware that treats the panel as a configurable option.
+
+Photographs of complete assemblies, in service and being taken down, are in
+[../hardware/photos/in-service/](../hardware/photos/in-service/).
+
+### What the press said at the time
+
+*Vía Libre* ran a feature on Cercanías passenger information in March 1997,
+with a section headed "Teleindicadores de andén electromagnéticos". José María
+Navarro, of PAGE Ibérica, describes the sign:
+
+> En los andenes anuncia en un panel, con una línea de excitación
+> electromagnética, qué tren va a llegar y cuántos minutos falta para su
+> detención en la parada, y en otra línea de texto móvil, de diodos,
+> información sobre las estaciones sucesivas donde el tren va a tener las
+> siguientes paradas.
+
+One electromagnetic line for the train and the minutes, and a second line of
+moving text, made of diodes, for the stations it will call at. That is the
+assembly above, described by the manufacturer, and it settles that the two rows
+are different technologies rather than one panel.
+
+The rest of the article is worth reading for anyone building a controller or
+looking for more of these units:
+
+* The data comes from centralised traffic control. If that link breaks, the
+  system can be driven from the Cercanías control centre, or from **the computer
+  installed at each station**. That computer is the upstream controller this
+  unit sits and waits for.
+* The links between the station terminals, the control centre and traffic
+  control run over **telephone quads** and fibre. A quad is four conductors, and
+  four conductors is what is populated on this unit's DB37.
+* Every part of the system is described as off-the-shelf, bought on the open
+  market to keep maintenance easy. The ROM agrees: an 8085, two 8155s, an 8251
+  and some Darlington arrays, with nothing custom in sight.
+* PAGE Ibérica's system was installed on lines C-5 (Móstoles, Atocha,
+  Fuenlabrada), C-8 (Atocha, Villalba) and C-10 (Villalba, Príncipe Pío, Atocha,
+  Chamartín), and was going in on C-4 and C-1. **Other cities had other
+  suppliers**: AEG-Matra in Málaga and Valencia, Electrans in Barcelona, Ikusi
+  in Bilbao. So an electromagnetic sign from outside Madrid is probably somebody
+  else's design, and nothing here need apply to it.
 
 ## The sign computes nothing
 

@@ -31,6 +31,12 @@ acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
 
 ## In service, and after
 
+<img src="hardware/photos/in-service/via-libre-1997.jpg" width="700" alt="Close-up of a platform sign reading 'Vía 1' and 'ATOCH-CHAMAR' in yellow dots, with 'Próxima Llegada' and 'min.' printed beside them and a dark LED row underneath">
+
+*Vía Libre*, March 1997, photographed by Luna. The whole sign in one frame: the
+platform number, the destination in dots, the printed `min` waiting for its
+number, and the dark LED row underneath that scrolled the calling stations.
+
 <table>
 <tr>
 <td width="50%"><img src="hardware/photos/in-service/mostoles-1997.jpg" alt="A platform sign at Móstoles in 1997, reading 'Vía 1, FUENLABRADA, 1 min' above a red LED row, with a train at the platform"></td>
@@ -48,16 +54,13 @@ acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
 </tr>
 </table>
 
-The two from 1997 show the complete assembly, a year after this unit's firmware
-was programmed: the platform number, the destination line, the printed `min`
-beside the number, and the LED row underneath that scrolled the calling
-stations. Mounting varied by station. Móstoles hangs its sign from the canopy
-and Villalba puts it on a pole.
+Mounting varied by station. Móstoles hangs its sign from the platform canopy and
+Villalba puts it on a pole.
 
-The third has been unplugged and left on the platform, and it is still reading
-`LAS ROZAS`. Flip dots are mechanical, so they hold their last message with no
-power at all. That is why the firmware has a switch for whether to blank the
-panel on reset.
+The last one has been unplugged and left on the platform, and it is still
+reading `LAS ROZAS`. Flip dots are mechanical, so they hold their last message
+with no power at all. That is why the firmware has a switch for whether to blank
+the panel on reset.
 
 ## The manufacturer, 1997
 
