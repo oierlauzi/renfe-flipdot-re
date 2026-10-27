@@ -72,7 +72,7 @@ the firmware has a switch for whether to blank the panel on reset.
 
 PAGE Ibérica's own advertisement in *Vía Libre*, March 1997. The line fits 16
 characters, like this unit, and the Tres Cantos street address is the one on its
-chassis plate, down to a different house number.
+chassis plate.
 
 ## The font
 
