@@ -37,7 +37,7 @@ acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
 <td width="50%"><img src="hardware/photos/in-service/aravaca-retired.jpg" alt="A sign of the same kind lying on the platform at Aravaca, glass loose, still reading 'Vía 2, LAS ROZAS'"></td>
 </tr>
 <tr>
-<td><b>Móstoles, 1997.</b> From a Facebook post.</td>
+<td><b>Móstoles, 1997.</b> <a href="https://www.facebook.com/groups/574304876033372/permalink/4106013116195846/">From a Facebook post</a></td>
 <td><b>Being disposed of.</b> Aravaca, <a href="https://x.com/David_82C/status/2069312279259062477">photographed by @David_82C</a></td>
 </tr>
 </table>
