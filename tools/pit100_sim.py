@@ -6,13 +6,13 @@ does with them: which receive handler ran, what landed in the message buffer,
 what it wrote to the flip-dot ports. Protocol hypotheses become experiments that
 cost a second and cannot damage the panel.
 
-Everything the model asserts about the hardware is documented in docs/io-map.md.
+Everything the model asserts about the hardware is documented in docs/4-inside-the-firmware.md.
 Where the hardware is unknown the stub says so rather than inventing behaviour --
 see UNKNOWN_PORTS and the --xram flag.
 
 Port C bit 5 must be SET or the unit never receives anything -- the RST5.5
 handler returns immediately. Handler B additionally requires the unit to be
-addressed with GS first. Both traps are documented in docs/dip-switches.md.
+addressed with GS first. Both traps are documented in docs/4-inside-the-firmware.md.
 
 Examples:
     python3 tools/pit100_sim.py --boot
@@ -31,7 +31,7 @@ from emu8085 import CPU8085
 ROM_PATH = "original/firmware.bin"
 
 # 6.144 MHz crystal, halved internally by the 8085. Lets cycle counts be
-# reported as real time -- see docs/dip-switches.md.
+# reported as real time -- see docs/4-inside-the-firmware.md.
 CPU_HZ = 3_072_000
 
 # 8251A status register bits.
@@ -40,7 +40,7 @@ TXRDY, RXRDY, TXEMPTY, PE, OE, FE, SYNDET, DSR = (
 
 # Ports with no model here. Reads return 0xFF (floating bus); every access is
 # counted so the report can say what was touched.
-# 0xC0-0xCF is the clock board (see docs/io-map.md). 0xFF on 0xCD is exactly the
+# 0xC0-0xCF is the clock board (see docs/4-inside-the-firmware.md). 0xFF on 0xCD is exactly the
 # "board absent" case the firmware checks for, so clock_service returns at once
 # and the clock never overwrites the first four display positions -- the right
 # default until it is known whether this unit has one fitted.
@@ -60,7 +60,7 @@ class PIT100:
         #   board - the expansion board is fitted, 8 KiB of its own
         #   alias - incomplete address decoding makes 0xE0xx hit the same
         #           81C55 bytes as 0xA0xx (plausible if A14 is not decoded)
-        # See docs/io-map.md; the three modes exist to be compared.
+        # See docs/4-inside-the-firmware.md; the three modes exist to be compared.
         self.xram_mode = xram
         self.xram = bytearray(0x2000) if xram == "board" else None
         self.has_xram = xram != "none"
@@ -70,7 +70,7 @@ class PIT100:
 
         # Display ports read back what was last written. The firmware depends on
         # this: the glyph shift loop does IN 0xE3 / ANI 0x03 to *preserve* bits
-        # 1:0, which carry the display attribute (docs/flipdot-interface.md).
+        # 1:0, which carry the display attribute (docs/5-the-panel.md).
         # Returning a floating 0xFF instead made those bits read as 11 forever,
         # silently discarding the attribute on every clocked bit.
         self.disp_latch = {0xE1: 0x00, 0xE2: 0x00, 0xE3: 0x00}
@@ -176,7 +176,7 @@ class PIT100:
             self.status |= RXRDY
 
     def poll_interrupts(self):
-        """RxRDY drives RST5.5 -- see docs/serial-protocol.md.
+        """RxRDY drives RST5.5 -- see docs/3-the-commands.md.
 
         RST5.5 is *level* sensitive on the 8085, so this must track RxRDY in both
         directions. Latching it (request-only, never clear) makes the handler
@@ -192,7 +192,7 @@ class PIT100:
         Without a tick the idle loop at 0x1675 never clears its flag and the
         display is never repainted -- fine for protocol replies, useless for
         anything to do with the panel. The rate is arbitrary; see assumption A2
-        in docs/flipdot-interface.md.
+        in docs/5-the-panel.md.
         """
         cpu = self.cpu
         seen_pc = set()

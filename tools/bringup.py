@@ -14,7 +14,7 @@ each stage prints what a failure means rather than just failing.
 can be debugged before any hardware exists. It cannot exercise the line sweep,
 which is about real UART settings.
 
-Wiring for the DSD TECH SH-U11 (docs/controller.md):
+Wiring for the DSD TECH SH-U11 (docs/2-talking-to-it.md):
 
     TxD+ -> green      TxD- -> yellow      (the display's receive pair)
     RxD+ -> blue       RxD- -> red         (the display's transmit pair)
@@ -60,7 +60,7 @@ def open_port(serial, port, baud, bits, parity, timeout=0.2):
 
 # Ordered by likelihood, not exhaustively. The first two are what the recorded
 # switch positions give under each polarity of the unresolved switch sense; see
-# docs/dip-switches.md. 9600 8E1 is the hardwired setting used when port C bit 5
+# docs/4-inside-the-firmware.md. 9600 8E1 is the hardwired setting used when port C bit 5
 # is clear -- but that also selects handler C, which does not speak this protocol,
 # so a hit there would be surprising.
 LIKELY = [(4800, 8, "N"), (2400, 7, "E"), (9600, 8, "E")]
@@ -190,7 +190,7 @@ def stage_line(port, verbose=False):
     print("             C bit 5 clear routes reception to handler C, a binary")
     print("             protocol this script does not speak; port A bit 6 clear")
     print("             selects handler A, which is not the command set either.")
-    print("             See docs/dip-switches.md.")
+    print("             See docs/4-inside-the-firmware.md.")
     print("          3. No common-mode reference. The cable has no signal ground,")
     print("             so tie the adapter's GND to the cable shield.")
     return None

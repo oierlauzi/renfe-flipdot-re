@@ -14,7 +14,7 @@ ROM = "original/firmware.bin"
 EXPECTED_SHA256 = "c78debbed9f1725786647b72d766300d6eadaa64c09e5ec8eedc780b27e77c75"
 EXPECTED_SIZE = 32768
 
-# Regions documented in docs/memory-map.md, for cross-checking.
+# Regions documented in docs/4-inside-the-firmware.md, for cross-checking.
 KNOWN = [
     (0x0000, 0x003F, "RST/TRAP vector table"),
     (0x0040, 0x0063, "vector trampolines"),

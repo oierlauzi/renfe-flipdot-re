@@ -210,16 +210,16 @@ DATA_REGIONS = [
     (0x00D2, 0x00E6, "reply_affixes",
      "per-command reply prefixes/suffixes, 0xFF-terminated", 8),
     (0x1C0D, 0x210D, "font_table",
-     "256 glyphs x 5 columns, one per line -- see docs/font.md", 5),
+     "256 glyphs x 5 columns, one per line -- see docs/5-the-panel.md", 5),
     (0x23CF, 0x24BB, "font_4x7",
      "59 glyphs x 4 columns x 7 rows, codes 0x20-0x5A, columns stored right to "
-     "left. Found via the linear search at 0x234B -- see docs/font.md", 4),
+     "left. Found via the linear search at 0x234B -- see docs/5-the-panel.md", 4),
     (0x2692, 0x2792, "alt_char_table",
      "128 pointers indexed by a 7-bit character code; 86 share the blank", 2),
     (0x2792, 0x2915, "alt_char_data",
      "43 entries x 9 bytes: 03h, then two 30-bit groups of 3 columns in "
      "10-bit fields. Glyph = top 5 bits of each field, so 3x5. Only 0-9 "
-     ":;<=>? and A-Z are non-blank. See docs/font.md", 9),
+     ":;<=>? and A-Z are non-blank. See docs/5-the-panel.md", 9),
 ]
 
 

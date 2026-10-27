@@ -4088,7 +4088,7 @@ send_buffer_until_ff_br1:
 	JMP	rx_handler_b_loop2
 	NOP
 font_5x7:
-	; 256 glyphs x 5 columns, one per line -- see docs/font.md  (1280 bytes)
+	; 256 glyphs x 5 columns, one per line -- see docs/5-the-panel.md  (1280 bytes)
 	db	00h,00h,00h,00h,00h	; 1C0D  .....
 	db	7Fh,45h,51h,45h,7Fh	; 1C12  .EQE.
 	db	7Fh,6Bh,4Fh,6Bh,7Fh	; 1C17  .kOk.
@@ -4781,7 +4781,7 @@ shift_bits_port_a:
 	JNZ	shift_bits_port_a
 	RET
 font_4x7:
-	; 59 glyphs x 4 columns x 7 rows, codes 0x20-0x5A, columns stored right to left. Found via the linear search at 0x234B -- see docs/font.md  (236 bytes)
+	; 59 glyphs x 4 columns x 7 rows, codes 0x20-0x5A, columns stored right to left. Found via the linear search at 0x234B -- see docs/5-the-panel.md  (236 bytes)
 	db	00h,00h,00h,00h	; 23CF  ....
 	db	00h,00h,00h,00h	; 23D3  ....
 	db	00h,00h,00h,00h	; 23D7  ....
@@ -5266,7 +5266,7 @@ alt_char_table:
 	db	92h,27h	; 278E  ..
 	db	92h,27h	; 2790  ..
 alt_char_data:
-	; 43 entries x 9 bytes: 03h, then two 30-bit groups of 3 columns in 10-bit fields. Glyph = top 5 bits of each field, so 3x5. Only 0-9 :;<=>? and A-Z are non-blank. See docs/font.md  (387 bytes)
+	; 43 entries x 9 bytes: 03h, then two 30-bit groups of 3 columns in 10-bit fields. Glyph = top 5 bits of each field, so 3x5. Only 0-9 :;<=>? and A-Z are non-blank. See docs/5-the-panel.md  (387 bytes)
 	db	03h,00h,00h,00h,00h,00h,00h,00h,00h	; 2792  .........
 	db	03h,73h,0EAh,0Fh,0BCh,0FBh,0F8h,37h,0B8h	; 279B  .s.....7.
 	db	03h,00h,7Eh,0F0h,00h,00h,7Eh,0F0h,00h	; 27A4  ..~...~..

@@ -6,7 +6,7 @@ column, left to right; within a byte bit 0 is the top row and bit 6 the bottom
 row. Bit 7 is unused and is clear throughout the table -- the extractor checks
 that as a self-test.
 
-See docs/font.md for the derivation.
+See docs/5-the-panel.md for the derivation.
 """
 
 import argparse
@@ -23,7 +23,7 @@ GLYPH_COUNT = 256
 # pointer table feeding 9-byte entries. Each entry holds two 30-bit groups (at
 # offsets 1 and 5) that the firmware clocks out 30 bits at a time. Within a
 # group each of the 3 columns occupies a 10-bit field, and the glyph is the top
-# 5 bits of each field. See docs/font.md.
+# 5 bits of each field. See docs/5-the-panel.md.
 ALT_TABLE = 0x2692
 ALT_COLS = 3
 ALT_ROWS = 5

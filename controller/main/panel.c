@@ -71,7 +71,7 @@ static uint32_t settle_ms(void)
 /* --------------------------------------------------------------- the moves */
 
 /* One repaint. The byte sequence and the reason for each step are in
- * docs/serial-protocol.md; the two RS are what make it work at all. */
+ * docs/3-the-commands.md; the two RS are what make it work at all. */
 static void do_frame(void)
 {
     char frame[PANEL_CHARS + 1];

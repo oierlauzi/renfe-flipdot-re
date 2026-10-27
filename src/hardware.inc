@@ -1,10 +1,10 @@
 ; hardware.inc - I/O port and memory equates for the PAGE Iberica PI-T100-M
 ;
-; Kept in sync with ghidra/symbols.csv and docs/io-map.md. Assembler: Macro
+; Kept in sync with ghidra/symbols.csv and docs/4-inside-the-firmware.md. Assembler: Macro
 ; Assembler AS (asl), CPU 8085.
 
 ; ---------------------------------------------------------------------------
-; Memory map - docs/memory-map.md
+; Memory map - docs/4-inside-the-firmware.md
 ; ---------------------------------------------------------------------------
 ROM_BASE        equ     0000h           ; U4 M27256, 32 KiB
 ROM_END         equ     7FFFh
@@ -13,7 +13,7 @@ ROM_USED_END    equ     3047h           ; last non-erased byte
 RAM_BASE        equ     0A000h          ; U2 M81C55-5 static RAM, 256 bytes
 RAM_END         equ     0A0FFh
 
-FONT_5X7        equ     1C0Dh           ; 256 glyphs x 5 columns - docs/font.md
+FONT_5X7        equ     1C0Dh           ; 256 glyphs x 5 columns - docs/5-the-panel.md
 FONT_GLYPH_SIZE equ     5
 FW_VERSION_STR  equ     0064h           ; "AK0052.139U1"
 
@@ -60,7 +60,7 @@ SW_BAUD_MASK    equ     0E0h            ; SW_PORT_B bits 7:5
 SW_MODE_BIT     equ     020h            ; SW_PORT_C bit 5
 
 ; ---------------------------------------------------------------------------
-; Display interface, group 0 - flip-dot panel (81C55-like, docs/io-map.md)
+; Display interface, group 0 - flip-dot panel (81C55-like, docs/4-inside-the-firmware.md)
 ; ---------------------------------------------------------------------------
 DISP0_CMD       equ     0E0h
 DISP0_PORT_A    equ     0E1h

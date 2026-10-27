@@ -28,7 +28,7 @@ mem,005b,vec_tab_rst55,label,RST5.5 slot - the only one besides RST7.5 with a re
 mem,005e,vec_tab_rst65,label,RST6.5 slot
 mem,0061,vec_tab_rst75,label,RST7.5 slot
 mem,0064,fw_version_string,data,"ASCII ""AK0052.139U1"""
-mem,0070,cfg_block,data,Build-time configuration constants 0x0070-0x008B. See docs/serial-protocol.md
+mem,0070,cfg_block,data,Build-time configuration constants 0x0070-0x008B. See docs/3-the-commands.md
 mem,0072,cfg_proto_enable,data,Nonzero enables the handler B ETX reply
 mem,007a,cfg_addr_mode,data,0xFF = address from sw_port_a; 0x00 = unaddressed
 mem,007b,cfg_buffer_len,data,"Message buffer length reported in the SUB block; 0x40 = 64. No direct reference - the code uses a literal 0x0040"
@@ -54,7 +54,7 @@ mem,0533,init_uart_from_switches,label,8251A init with the mode word taken from 
 mem,0675,select_rx_protocol,label,Sets rx_handler_sel from the expansion board or sw_port_a bit 6
 mem,08b7,rx_handler_a,func,"Serial receive handler A, dispatched from isr_rst55 when rx_handler_sel != 1"
 mem,0acb,rx_handler_b,func,"Serial receive handler B, dispatched from isr_rst55 when rx_handler_sel == 1"
-mem,0b76,rx_command_dispatch,label,Handler B command table: 28 ASCII control codes. See docs/serial-protocol.md
+mem,0b76,rx_command_dispatch,label,Handler B command table: 28 ASCII control codes. See docs/3-the-commands.md
 mem,0c1b,cmd_dc2_right,label,"DC2: cursor right, wrapping to the next row at column 64"
 mem,0c41,check_buffer_bounds,label,Clamps the write pointer to 0xE041 and latches error 0x30 on overflow
 mem,0c70,rx_b_return,label,"Shared RET for handler B; 38 command paths jump here"
@@ -95,7 +95,7 @@ mem,1b69,xram_read,func,"Banked read: A = (HL), via the 0xE000 window if the exp
 mem,1b95,xram_write,func,Banked write: (HL) = A. 21 callers
 mem,1bc4,xram_compare,func,Banked compare: A against (HL). 4 callers
 mem,1bf3,send_buffer_until_ff,func,Transmit banked memory from HL until a 0xFF sentinel
-mem,1c0d,font_5x7,data,256 glyphs x 5 columns; bit 0 = top row. See docs/font.md
+mem,1c0d,font_5x7,data,256 glyphs x 5 columns; bit 0 = top row. See docs/5-the-panel.md
 mem,3027,uart_send_timed,func,Transmit with a TxRDY timeout via watchdog_count. 21 callers
 mem,a003,timer_preload_lo,data,81C55 timer count LSB (baud divider)
 mem,a004,timer_preload_hi,data,81C55 timer count MSB
@@ -140,7 +140,7 @@ io,a3,sw_port_c,port,81C55 port C - DIP switches; bit 5 = startup mode
 io,a4,sw_timer_lo,port,81C55 timer count LSB - clocks the 8251A
 io,a5,sw_timer_hi,port,81C55 timer count MSB + mode bits
 io,c0,clock_reg_c0,port,"Clock board register; only ever written 0, alongside clock_reg_c1"
-io,c1,clock_reg_c1,port,Clock board register; only ever written 0. See docs/io-map.md
+io,c1,clock_reg_c1,port,Clock board register; only ever written 0. See docs/4-inside-the-firmware.md
 io,c2,clock_min_units,port,Clock minutes units digit; read and written as 0-9
 io,c3,clock_min_tens,port,Clock minutes tens digit; read and written as 0-5
 io,c4,clock_hour_units,port,Clock hours units digit; read and written as 0-9
@@ -224,7 +224,7 @@ mem,25A2,panel_0c_draw,label,"Panel family 0x0C: only raises the dirty flag 0xA0
 mem,25AB,panel_0d_draw,label,"Panel family 0x0D: only raises the dirty flag 0xA022"
 mem,25B4,panel_0e_draw,label,"Panel family 0x0E: latch HL and the position, then raise 0xA022"
 mem,2915,panel_1012_draw,label,"Panel families 0x10 and 0x12: per-character driver"
-mem,29D7,panel_11_draw,label,"Panel family 0x11 - this unit. 74-bit serial frame per character; see docs/flipdot-interface.md"
+mem,29D7,panel_11_draw,label,"Panel family 0x11 - this unit. 74-bit serial frame per character; see docs/5-the-panel.md"
 mem,2146,panel_0a_flush,func,"Family 0x0A end of pass: if 0xA022 is set, hold disp0_port_b at 0x40 or 0x80 for 500 ticks"
 mem,25A8,panel_0c_flush,func,"Family 0x0C end of pass: PUSH PSW / POP PSW / RET, a stub"
 mem,25B1,panel_0d_flush,func,"Family 0x0D end of pass: a stub, same as panel_0c_flush"

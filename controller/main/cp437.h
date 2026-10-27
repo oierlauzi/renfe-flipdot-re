@@ -1,6 +1,6 @@
 /* Text for the panel: CP437 with this ROM's quirks, and the 16-column layout.
  *
- * Ported from tools/pit100.py (encode, escape_controls) and docs/font.md.
+ * Ported from tools/pit100.py (encode, escape_controls) and docs/5-the-panel.md.
  */
 #pragma once
 

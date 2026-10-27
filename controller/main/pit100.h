@@ -1,7 +1,7 @@
 /* The PI-T100-M command protocol (receive handler B), over an ESP32 UART.
  *
  * A port of tools/pit100.py. The command set is derived in
- * docs/serial-protocol.md; every non-obvious step below cites the Python line
+ * docs/3-the-commands.md; every non-obvious step below cites the Python line
  * or the ROM address it came from.
  *
  * This layer is pure protocol. It does not decide when to repaint, does not

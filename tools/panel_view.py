@@ -6,7 +6,7 @@ data, and reconstructs the 5x7 glyphs. That turns the emulator into a virtual
 display: send a message, see the dots.
 
 The panel interface is a shift register, not a parallel matrix -- see
-docs/flipdot-interface.md for the derivation and, importantly, for the list of
+docs/5-the-panel.md for the derivation and, importantly, for the list of
 assumptions this rests on.
 
     PYTHONPATH=tools python3 tools/panel_view.py --text HOLA
@@ -126,7 +126,7 @@ def main():
 
     shown = [render(g) for _, g in found[:args.max]]
     if not shown:
-        print("no frames decoded - see docs/flipdot-interface.md for the "
+        print("no frames decoded - see docs/5-the-panel.md for the "
               "conditions the render path needs")
         return
     for row in range(7):

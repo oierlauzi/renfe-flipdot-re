@@ -3,12 +3,6 @@ original/firmware.bin   binary
 *.bin                   binary
 *.rom                   binary
 
-# Ghidra exports are generated; keep them out of diff noise and out of
-# language statistics.
-ghidra/export/*         -diff linguist-generated
-ghidra/export/*.lst     text eol=lf -diff linguist-generated
-ghidra/export/*.c       text eol=lf -diff linguist-generated
-
 # Photos and datasheets
 *.jpg                   binary
 *.jpeg                  binary

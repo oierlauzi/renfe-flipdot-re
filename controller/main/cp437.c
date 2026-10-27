@@ -87,7 +87,7 @@ static const struct { uint16_t cp; char to; } FOLD[] = {
  *
  * Only n-tilde and N-tilde survive, because the ROM duplicates them at exactly
  * the codes the stripping produces -- the one pair Spanish cannot do without,
- * put where a 7-bit link would deliver them. docs/font.md.
+ * put where a 7-bit link would deliver them. docs/5-the-panel.md.
  *
  * Everything else accented is folded to its unaccented letter here, which is a
  * visible approximation rather than a silent corruption. A CP437 byte at or
@@ -131,7 +131,7 @@ int cp437_encode(const char *utf8, uint8_t *out, size_t cap,
                  bool seven_bit, const char **why)
 {
     /* Shown on the web page, so in Spanish. ROM 0x24 and 0x25 hold n-tilde and
-     * N-tilde, which is why the first two exist: see docs/font.md. */
+     * N-tilde, which is why the first two exist: see docs/5-the-panel.md. */
     static const char *ERR_DOLLAR =
         "«$» no existe en este panel: en su lugar sale «ñ»";
     static const char *ERR_PERCENT =

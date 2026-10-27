@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host-side driver for the PAGE Iberica / Telenorma PI-T100-M flip-dot display.
 
-Implements the command protocol documented in docs/serial-protocol.md. Everything
+Implements the command protocol documented in docs/3-the-commands.md. Everything
 here is exercised against the emulator in tools/pit100_sim.py, so it can be
 developed and tested with no hardware attached; swap the transport for a serial
 port when the physical layer is known.
@@ -35,7 +35,7 @@ BROADCAST = 0x7F                 # GS parameter that every unit answers to
 STATUS_FRAME_PREFIX = bytes((CAN, CAN, RS, NAK))   # 18 18 1E 15, then <addr>
 STATUS_FRAME_LEN = 5
 
-BUFFER_COLS = 64                 # docs/serial-protocol.md: 0xE001-0xE040
+BUFFER_COLS = 64                 # docs/3-the-commands.md: 0xE001-0xE040
 PANEL_CHARS = 16
 
 # Error codes returned after a NAK. 0x30 and 0x32 arrive bare; anything else is
@@ -65,7 +65,7 @@ def escape_controls(payload):
     CP437's control-code glyphs (0x01-0x1F: smileys, card suits, arrows, note
     symbols). Verified in emulation, including mid-message and for 0x00.
 
-    See docs/serial-protocol.md.
+    See docs/3-the-commands.md.
     """
     out = bytearray()
     for b in payload:
@@ -76,7 +76,7 @@ def escape_controls(payload):
 
 
 # The ROM duplicates n-tilde and N-tilde below 0x80, at exactly the codes a 7-bit
-# link delivers them to: 0xA4 & 0x7F = 0x24, 0xA5 & 0x7F = 0x25. See docs/font.md.
+# link delivers them to: 0xA4 & 0x7F = 0x24, 0xA5 & 0x7F = 0x25. See docs/5-the-panel.md.
 SEVEN_BIT = {0xA4: 0x24, 0xA5: 0x25}
 
 
@@ -101,7 +101,7 @@ def encode(text, fold=False, seven_bit=False):
     unambiguous, or when the link turns out to be 8-bit after all and you still
     want the alternate glyphs.
 
-    See docs/font.md.
+    See docs/5-the-panel.md.
     """
     if fold:
         text = text.translate(FOLD)
@@ -109,7 +109,7 @@ def encode(text, fold=False, seven_bit=False):
         if bad in text:
             raise ValueError(
                 f"{bad!r} has no glyph on this panel - ROM 0x24/0x25 hold "
-                f"n-tilde and N-tilde instead. See docs/font.md")
+                f"n-tilde and N-tilde instead. See docs/5-the-panel.md")
     try:
         out = text.encode("cp437")
         return bytes(SEVEN_BIT.get(b, b) for b in out) if seven_bit else out
@@ -153,7 +153,7 @@ class PIT100:
         **Not optional if you want to see anything.** The repaint task spins at
         0x130B for as long as `selected` (0xA040) is set, so a selected unit
         accepts and ACKs text but never moves a dot. RS releases the interlock
-        and the panel updates. See docs/serial-protocol.md.
+        and the panel updates. See docs/3-the-commands.md.
         """
         self.t.write(bytes((RS,)))
 
@@ -203,7 +203,7 @@ class PIT100:
         to real memory that nothing will ever display. Kept because it is a clean
         way to prove a link works end to end without disturbing the panel, and
         because a different ROM build may well enable it.
-        See docs/io-map.md.
+        See docs/4-inside-the-firmware.md.
         """
         n = len(data)
         self.t.write(bytes((EOT, 0x32, offset >> 8, offset & 0xFF,
@@ -255,7 +255,7 @@ class PIT100:
         What the two lines physically do is unknown. Not brightness (the dots are
         mechanical) and not the fluorescent tube (it is electrically independent
         of the electronics). The leading candidate is that they target the LED
-        matrix further along the same ribbon. See docs/flipdot-interface.md.
+        matrix further along the same ribbon. See docs/5-the-panel.md.
         """
         if not 0 <= value <= 7:
             raise ValueError("attribute is 3 bits: 0-7")
@@ -316,7 +316,7 @@ class PIT100:
         With config byte 0x008B non-zero the firmware would report the
         instantaneous port state instead; this build has it at 0.
 
-        What each bit means needs the hardware. See docs/serial-protocol.md.
+        What each bit means needs the hardware. See docs/3-the-commands.md.
         """
         self.t.write(bytes((BS,)))
         raw = self.t.read_reply(2)
@@ -379,14 +379,14 @@ def strip_status_frames(data):
 
 class SimTransport:
     """Talks to the emulated firmware, so the protocol can be tested with no
-    hardware. Switch settings mirror docs/dip-switches.md defaults."""
+    hardware. Switch settings mirror docs/4-inside-the-firmware.md defaults."""
 
     def __init__(self, address=5, port_c=0xFF, xram="board", boot_steps=300_000,
                  port_b=0xFE):
         from pit100_sim import PIT100 as Machine
         port_a = 0x40 | (address & 0x1F)      # bit 6 set -> command protocol
         # port B bit 0 clear: pad with spaces rather than solid blocks, and use
-        # the paged render pass. See docs/dip-switches.md.
+        # the paged render pass. See docs/4-inside-the-firmware.md.
         self.m = Machine(open("original/firmware.bin", "rb").read(),
                          port_a, port_b, port_c, xram=xram)
         self.m.run(boot_steps, tick=2000)
@@ -419,7 +419,7 @@ class SimTransport:
 class SerialTransport:
     """The real thing, once the physical layer is known.
 
-    Defaults reflect the switches as found: see docs/dip-switches.md. The reply
+    Defaults reflect the switches as found: see docs/4-inside-the-firmware.md. The reply
     timeout allows for the firmware's fixed 3.9 ms turnaround plus the frame time,
     which is 183 ms for five bytes at 300 baud.
     """
