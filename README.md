@@ -15,11 +15,13 @@ an [ESP32 controller](controller/) that replaces the sign's upstream controller
 outright, and [a web replica](web-replica/) for anyone without a panel of their
 own.
 
-![The salvaged unit running, showing CHAMARTIN on the left and 6 at the right-hand end, with the printed min. beside it](hardware/photos/working.jpg)
+![The salvaged unit mounted above a bookshelf at home, reading CHAMARTIN with 6 at the right-hand end and the printed min. beside it](hardware/photos/working.jpg)
 
-The destination on the left, the countdown held against the right-hand end, and
-the `min.` that was always printed on the glass rather than drawn by the sign.
-Nine letters, six blank cells, and the number in the sixteenth.
+The unit salvaged for this project, back in service over a bookshelf and driven
+by the ESP32 in [controller/](controller/). The destination on the left, the
+countdown held against the right-hand end, and the `min.` that was always
+printed on the glass rather than drawn by the sign. Nine letters, six blank
+cells, and the number in the sixteenth.
 
 ## Español
 
