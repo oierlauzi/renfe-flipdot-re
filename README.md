@@ -3,10 +3,10 @@
 <img src=".github/renfe-galleta-glyph.png" width="90" align="right" alt="RENFE's 'galleta' logo, hand-drawn as a single 5x7 flip-dot glyph. A fan mockup, not ROM data">
 
 Reverse engineering of a **PAGE Ibérica PI-T100-M** flip-dot platform display,
-installed in RENFE Cercanías stations from the mid-1990s to announce the next
-train and the minutes until its arrival. They are being taken down as stations
-are refitted, so the aims here are to preserve one, document it and experiment
-with it.
+installed from the mid-1990s in the stations of **RENFE Cercanías Madrid** to
+announce the next train and the minutes until its arrival. They are being
+taken down as stations are refitted, so the aims here are to preserve one,
+document it and experiment with it.
 
 The goal was to put arbitrary text on one from a modern computer, over its
 original serial link, with no modification to the hardware or the firmware.
@@ -24,8 +24,8 @@ The unit salvaged for this project, driven by the ESP32 in
 ## Español
 
 Ingeniería inversa de un teleindicador **PAGE Ibérica PI-T100-M**, de los que se
-instalaron en las estaciones de **RENFE Cercanías** a mediados de los 90. El
-proyecto tiene el fin de preservar, documentar y experimentar.
+instalaron en las estaciones de **RENFE Cercanías Madrid** a mediados de los 90.
+El proyecto tiene el fin de preservar, documentar y experimentar.
 
 El objetivo era enviar texto arbitrario al panel desde un ordenador moderno, a
 través del enlace serie existente, **sin modificar el hardware ni el software**.
