@@ -13,8 +13,8 @@ original serial link, with no modification to the hardware or the firmware.
 
 **It works.** Text goes onto a real panel over the original link. There is also
 an [ESP32 controller](controller/) that replaces the sign's upstream controller
-outright, and [a web replica](web-replica/) for anyone without a panel of their
-own.
+outright, and [a web replica](https://oierlauzi.github.io/renfe-flipdot-re/)
+for anyone without a panel of their own.
 
 ![The salvaged unit mounted above a bookshelf at home, reading CHAMARTIN with 6 at the right-hand end and the printed min. beside it](hardware/photos/working.jpg)
 
@@ -30,7 +30,8 @@ El proyecto tiene el fin de preservar, documentar y experimentar.
 El objetivo era enviar texto arbitrario al panel desde un ordenador moderno, a
 través del enlace serie existente, **sin modificar el hardware ni el software**.
 Funciona. También hay un [controlador ESP32](controller/) que sustituye al
-equipo que gobernaba el cartel, y [una réplica web](web-replica/).
+equipo que gobernaba el cartel, y
+[una réplica web](https://oierlauzi.github.io/renfe-flipdot-re/).
 
 Este proyecto se documenta en **inglés**: es el idioma en el que estoy
 acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
@@ -106,7 +107,7 @@ how it drives its dots. The first three files are enough to put text on a panel.
 | [docs/](docs/) | The documentation, in reading order |
 | [hardware/](hardware/) | Parts, boards, connectors, photographs |
 | [controller/](controller/) | The ESP32 firmware that replaces the original controller |
-| [web-replica/](web-replica/) | A browser replica of the display |
+| [web-replica/](web-replica/) | A browser replica of the display, [live here](https://oierlauzi.github.io/renfe-flipdot-re/) |
 | [tools/](tools/) | Scripts: drive a panel, emulate the firmware, read the ROM |
 | [original/](original/) | The ROM dump. Ground truth, never edited |
 | [src/](src/) | Annotated assembly that rebuilds the ROM byte for byte |

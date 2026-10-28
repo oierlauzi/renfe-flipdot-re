@@ -1,8 +1,8 @@
 # Web replica
 
-A browser replica of the display, for anyone without a panel in their living
-room. Published to GitHub Pages from this directory by
-[../.github/workflows/pages.yml](../.github/workflows/pages.yml).
+A browser replica of the display, for anyone without a panel of their own. It is
+published at <https://oierlauzi.github.io/renfe-flipdot-re/> from this
+directory, by [../.github/workflows/pages.yml](../.github/workflows/pages.yml).
 
 | File | |
 | --- | --- |
