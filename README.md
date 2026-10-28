@@ -3,10 +3,10 @@
 <img src=".github/renfe-galleta-glyph.png" width="90" align="right" alt="RENFE's 'galleta' logo, hand-drawn as a single 5x7 flip-dot glyph. A fan mockup, not ROM data">
 
 Reverse engineering of a **PAGE Ibérica PI-T100-M** flip-dot platform display,
-the kind that hung over RENFE Cercanías platforms from the mid-1990s and
-announced the next train and the minutes until its arrival. They are being
-taken down as stations are refitted, so the aims here are to preserve one,
-document it and experiment with it.
+installed in RENFE Cercanías stations from the mid-1990s to announce the next
+train and the minutes until its arrival. They are being taken down as stations
+are refitted, so the aims here are to preserve one, document it and experiment
+with it.
 
 The goal was to put arbitrary text on one from a modern computer, over its
 original serial link, with no modification to the hardware or the firmware.
