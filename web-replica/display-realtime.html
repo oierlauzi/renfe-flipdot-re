@@ -18,20 +18,23 @@
 <iframe id="panel" title="Teleindicador flip-dot en directo"></iframe>
 
 <script>
-/* display-realtime.html — display.html with a live ADIF feed behind it.
+/* display-realtime.html — display.html with a live departures feed behind it.
  *
  * Embedding display.html gives a still: its text is baked into the URL. This
  * page takes a station instead of a text and keeps the panel fed:
  *
  *   display-realtime.html?station=17000&via=4
+ *   display-realtime.html?network=barcelona_rodalies&station=71801
  *
  * Parameters
- *   station   ADIF station code (required; 17000 is Madrid-Chamartín)
+ *   station   Renfe station code (required; 17000 is Madrid-Chamartín)
+ *   network   mitren.app network the code belongs to; madrid_cercanias if
+ *             omitted. The full list is Realtime.NETWORKS in realtime.js.
  *   via       platform to show. Filters to trains leaving from it, and the
  *             sign reads that number — a real one is bolted to one platform.
  *             Omit to show the whole station and whatever platform is assigned.
  *   cycle     0 to hold the next train only; otherwise rotate every 6 s
- *   source    'demo' for the simulated feed, for testing without ADIF
+ *   source    'demo' for the simulated feed, for testing offline
  *   plus display.html's own appearance parameters, passed straight through:
  *   dot, showoff, showmin, deadon, deadoff, deadseed, ledc, scroll, speed
  */
@@ -45,6 +48,7 @@
   const MAX_ROWS = 12;
 
   const station = (Q.get('station') || '').trim();
+  const network = (Q.get('network') || '').trim() || Realtime.DEFAULT_NETWORK;
   const platform = (Q.get('via') || '').trim();
   const cycling = Q.get('cycle') !== '0';
   const showMinutes = Q.get('showmin') !== '0';
@@ -111,7 +115,7 @@
 
   const source = Q.get('source') === 'demo'
     ? Realtime.DemoSource({ station: station })
-    : Realtime.AdifSource({ station: station });
+    : Realtime.MitrenSource({ station: station, network: network });
 
   source.start({
     // An embedded sign has nowhere to report a status, and a dark panel is the

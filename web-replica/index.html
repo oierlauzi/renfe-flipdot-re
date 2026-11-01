@@ -453,20 +453,25 @@
     <div class="field">
       <label for="live-source" data-i18n="labelLiveSource">Fuente</label>
       <select id="live-source">
-        <option value="adif" selected data-i18n="optionSourceAdif">ADIF (en directo)</option>
+        <option value="mitren" selected data-i18n="optionSourceMitren">mitren.app (en directo)</option>
         <option value="demo" data-i18n="optionSourceDemo">Simulación</option>
       </select>
     </div>
-    <p class="live-help" id="live-help" data-i18n-html="adifHelp"></p>
+    <p class="live-help" id="live-help" data-i18n-html="mitrenHelp"></p>
   </fieldset>
 
   <fieldset>
     <legend data-i18n="legendLiveStation">Estación y vía</legend>
     <div class="field">
+      <label for="live-network" data-i18n="labelNetwork">Red</label>
+      <!-- Filled from Realtime.NETWORKS. -->
+      <select id="live-network"></select>
+    </div>
+    <div class="field">
       <label for="live-preset" data-i18n="labelPreset">Estaciones</label>
       <select id="live-preset">
         <option value="">—</option>
-        <optgroup id="preset-group-panel" label="Tuvieron/tienen este teleindicador">
+        <optgroup id="preset-group-panel" label="Tuvieron/tienen este teleindicador" data-network="madrid_cercanias">
           <option value="97100">Pitis</option>
           <option value="17009">Universidad-Cantoblanco</option>
           <option value="12004">Collado Mediano</option>
@@ -474,7 +479,7 @@
           <option value="10104">Galapagar-La Navata</option>
           <option value="18004">Delicias</option>
         </optgroup>
-        <optgroup id="preset-group-major" label="Estaciones principales de Madrid">
+        <optgroup id="preset-group-major" label="Estaciones principales de Madrid" data-network="madrid_cercanias">
           <option value="17000" selected>Madrid Chamartín</option>
           <option value="18000">Madrid Atocha Cercanías</option>
         </optgroup>
@@ -501,7 +506,7 @@
        data-i18n node. -->
   <p class="live-disclaimer" id="live-disclaimer"></p>
 
-  <p class="live-notice" data-i18n-html="adifNotice"></p>
+  <p class="live-notice" data-i18n-html="mitrenNotice"></p>
 </section>
 
 <form id="settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-manual" hidden>
@@ -636,8 +641,9 @@
       legendLiveSource: 'Origen de los datos',
       labelLiveSource: 'Fuente',
       optionSourceDemo: 'Simulación',
-      optionSourceAdif: 'ADIF (en directo)',
-      adifHelp: 'Datos en directo del sistema de información al viajero de ADIF, por WebSocket contra <code>info.adif.es</code>. Introduce el código numérico de la estación: 17000 es Madrid-Chamartín. Si la vía aún no está asignada, el tren aparece sin ella, igual que en los paneles reales.',
+      optionSourceMitren: 'mitren.app (en directo)',
+      mitrenHelp: 'Datos en directo de <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a>, que combina el horario y el tiempo real que publica Renfe para Cercanías y Rodalies. Elige la red e introduce el código numérico de la estación: 17000 es Madrid-Chamartín. Si la vía aún no está asignada, el tren aparece sin ella, igual que en los paneles reales. No incluye trenes de larga distancia ni las paradas intermedias.',
+      labelNetwork: 'Red',
       legendLiveStation: 'Estación y vía',
       labelPreset: 'Estaciones',
       presetNone: '—',
@@ -656,7 +662,7 @@
       status_nodata: 'Sin datos',
       needStation: 'introduce el código de la estación',
       liveDisclaimer: 'Los horarios se muestran tal y como llegan y pueden estar incompletos, retrasados o ser incorrectos. No sirven para planificar ningún viaje: consulta siempre los paneles oficiales de la estación o la <a href="%URL%" target="_blank" rel="noopener noreferrer">información oficial de ADIF</a>. No se acepta responsabilidad alguna por pérdidas o daños derivados de su uso.',
-      adifNotice: '<strong>Nota para ADIF.</strong> Esto es un proyecto de aficionado sin ánimo de lucro, hecho de buena fe para divulgar y preservar una pieza del patrimonio ferroviario: no tiene publicidad, ni analítica, ni monetización de ningún tipo. Todo ocurre en el navegador de quien visita la página, sin ningún servidor intermedio: se abre una conexión por pestaña, a una sola estación cada vez, contra el mismo servicio público que alimenta sus paneles de información al viajero. Es ADIF quien envía los cambios; el cliente solo responde con un ping cada 15 segundos y reintenta con espera creciente si se corta. No se recopilan datos de forma masiva, no se almacenan, no se redistribuyen ni se presentan como fuente oficial: a los usuarios se les remite siempre a los canales oficiales. Si en ADIF prefieren que esta función no exista, basta con un mensaje en el <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a> y se retirará sin demora y sin necesidad de ningún trámite formal. La intención nunca ha sido perjudicar sus sistemas ni competir con sus servicios.',
+      mitrenNotice: '<strong>Origen de los datos.</strong> Los trenes llegan de <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a>, un proyecto de código abierto de <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a>, al que va todo el mérito. Este es un proyecto de aficionado sin ánimo de lucro, sin publicidad, ni analítica, ni monetización. Todo ocurre en el navegador de quien visita la página: se abre una sola conexión por pestaña, a una sola estación cada vez, con un ping por minuto y reintentos con espera creciente si se corta. Si el autor de mitren.app prefiere que esta función no exista, basta con un mensaje en el <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a> y se retirará sin demora.',
       footer: 'Creado por Oier Lauzirika Zarrabeitia. Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE y Renfe Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.'
     },
     en: {
@@ -701,8 +707,9 @@
       legendLiveSource: 'Data source',
       labelLiveSource: 'Source',
       optionSourceDemo: 'Simulation',
-      optionSourceAdif: 'ADIF (live)',
-      adifHelp: 'Live data from ADIF\'s passenger information system, over a WebSocket to <code>info.adif.es</code>. Enter the station\'s numeric code: 17000 is Madrid-Chamartín. Trains whose platform has not been assigned yet show none, exactly as the real signs do.',
+      optionSourceMitren: 'mitren.app (live)',
+      mitrenHelp: 'Live data from <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a>, which combines the timetable and real-time feeds Renfe publishes for its Cercanías and Rodalies networks. Pick the network and enter the station\'s numeric code: 17000 is Madrid-Chamartín. Trains whose platform has not been assigned yet show none, exactly as the real signs do. Long-distance trains and calling points are not included.',
+      labelNetwork: 'Network',
       legendLiveStation: 'Station and platform',
       labelPreset: 'Stations',
       presetNone: '—',
@@ -721,7 +728,7 @@
       status_nodata: 'No data',
       needStation: 'enter the station code',
       liveDisclaimer: 'Departures are shown exactly as they arrive and may be incomplete, delayed or wrong. Do not rely on them to plan a journey: always check the official signs at the station or <a href="%URL%" target="_blank" rel="noopener noreferrer">ADIF\'s official information</a>. No liability is accepted for any loss or damage arising from their use.',
-      adifNotice: '<strong>A note for ADIF.</strong> This is a non-commercial fan project, made in good faith to document and preserve a piece of railway heritage: it carries no advertising, no analytics and no monetisation of any kind. Everything happens in the visitor\'s own browser, with no server in between: one connection per tab, to a single station at a time, against the same public service that feeds your passenger information boards. ADIF pushes the updates; the client only answers with a ping every 15 seconds and backs off progressively if the connection drops. Nothing is harvested in bulk, stored, redistributed or presented as an official source — visitors are always pointed back to official channels. If ADIF would rather this feature did not exist, a message on the <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">GitHub repository</a> is enough: it will be taken down promptly, with no formalities needed. There has never been any intention to burden your systems or to compete with your services.',
+      mitrenNotice: '<strong>Where the data comes from.</strong> Departures come from <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a>, an open-source project by <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a>, who deserves all the credit. This is a non-commercial fan project with no advertising, no analytics and no monetisation. Everything happens in the visitor\'s own browser: one connection per tab, to a single station at a time, with a ping once a minute and a progressive back-off if the connection drops. If the author of mitren.app would rather this feature did not exist, a message on the <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">GitHub repository</a> is enough and it will be taken down promptly.',
       footer: 'Created by Oier Lauzirika Zarrabeitia. Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE, ADIF or PAGE Ibérica. ADIF and Administrador de Infraestructuras Ferroviarias are registered trademarks of ADIF; RENFE and Renfe Cercanías is a registered trademark of Renfe Operadora. They are cited here for descriptive purposes only. Trademarks belong to their respective owners.'
     }
   };
@@ -801,6 +808,7 @@
     const live = new URLSearchParams(params);
     for (const key of ['text', 'min', 'led', 'via']) live.delete(key);
     live.set('station', liveEls.station.value.trim());
+    if (liveEls.network.value !== Realtime.DEFAULT_NETWORK) live.set('network', liveEls.network.value);
     if (liveEls.platform.value.trim()) live.set('via', liveEls.platform.value.trim());
     if (!liveEls.cycle.checked) live.set('cycle', '0');
     if (liveEls.source.value === 'demo') live.set('source', 'demo');
@@ -1071,6 +1079,7 @@
   const liveEls = {
     source: document.getElementById('live-source'),
     help: document.getElementById('live-help'),
+    network: document.getElementById('live-network'),
     preset: document.getElementById('live-preset'),
     presetPanel: document.getElementById('preset-group-panel'),
     presetMajor: document.getElementById('preset-group-major'),
@@ -1092,7 +1101,11 @@
   const CYCLE_MS = 6000;
 
   function liveConfig() {
-    return { kind: liveEls.source.value, station: liveEls.station.value.trim() };
+    return {
+      kind: liveEls.source.value,
+      network: liveEls.network.value,
+      station: liveEls.station.value.trim()
+    };
   }
 
   let lastStatus = { state: 'idle', detail: null };
@@ -1119,7 +1132,7 @@
     stopLive();
     renderDisclaimer();
     const cfg = liveConfig();
-    if (cfg.kind === 'adif' && !/^\d+$/.test(cfg.station)) {
+    if (cfg.kind === 'mitren' && !/^\d+$/.test(cfg.station)) {
       setStatus('idle', t('needStation'));
       render();
       return;
@@ -1130,7 +1143,7 @@
 
     source = cfg.kind === 'demo'
       ? Realtime.DemoSource({ station: cfg.station })
-      : Realtime.AdifSource({ station: cfg.station });
+      : Realtime.MitrenSource({ station: cfg.station, network: cfg.network });
 
     source.start({
       onStatus: (state, detail) => setStatus(state, detail),
@@ -1148,7 +1161,7 @@
     if (liveOverride) { liveOverride = null; apply(); }
   }
 
-  const MAX_ROWS = 12; // ADIF sends the whole day; a sign shows the next few
+  const MAX_ROWS = 12; // a sign shows the next few
 
   function render() {
     const rows = Realtime.selectDepartures(departures, {
@@ -1210,8 +1223,8 @@
       dest.textContent = Realtime.foldToPanel(dep.destination);
       li.appendChild(dest);
 
-      // ADIF reports early running as a negative delay; only lateness is worth
-      // flagging, and "+-1 min" is not a thing.
+      // Only lateness is worth flagging, and "+-1 min" is not a thing. The
+      // mitren.app board folds the delay into the time and reports none.
       if (dep.delayMin > 0) {
         const delay = document.createElement('span');
         delay.className = 'dep-delay';
@@ -1236,8 +1249,24 @@
   }
 
   function syncSourceFields() {
-    liveEls.help.hidden = liveEls.source.value !== 'adif';
+    liveEls.help.hidden = liveEls.source.value !== 'mitren';
   }
+
+  for (const net of Realtime.NETWORKS) {
+    const option = document.createElement('option');
+    option.value = net.id;
+    option.textContent = net.name;
+    liveEls.network.appendChild(option);
+  }
+  liveEls.network.value = Realtime.DEFAULT_NETWORK;
+
+  liveEls.network.addEventListener('change', () => {
+    // The presets are all on one network; a code means nothing on another.
+    const option = liveEls.preset.selectedOptions[0];
+    const presetNet = option && option.parentElement && option.parentElement.dataset.network;
+    if (presetNet && presetNet !== liveEls.network.value) liveEls.preset.value = '';
+    startLive();
+  });
 
   liveEls.source.addEventListener('change', () => { syncSourceFields(); startLive(); });
 
@@ -1245,6 +1274,8 @@
     const option = liveEls.preset.selectedOptions[0];
     if (!option || !option.value) return;
     liveEls.station.value = option.value;
+    const net = option.parentElement && option.parentElement.dataset.network;
+    if (net) liveEls.network.value = net;
     startLive();
   });
 
