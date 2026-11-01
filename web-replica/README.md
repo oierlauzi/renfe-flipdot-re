@@ -37,9 +37,11 @@ does not check `Origin`:
 ```
 wss://mitren.app/api/ws/trains/madrid_cercanias?listing=0
   <-  {"type":"subscribed","nucleus":"madrid_cercanias","station_id":null,...}
-  ->  {"type":"subscribe","station_id":"17000"}
-  <-  {"type":"subscribed","nucleus":"madrid_cercanias","station_id":"17000"}
+  ->  {"type":"subscriptions","station_ids":["17000"],"train_ids":["..."]}
+  <-  {"type":"subscriptions","station_ids":["17000"],"train_ids":["..."],...}
   <-  {"type":"arrivals_update","station_id":"17000","arrivals":[...]}
+  <-  {"type":"train_update","train_id":"...","data":{"stops":[...],...}}
+  <-  {"type":"train_removed","train_id":"..."}
   ->  {"type":"ping"}
   <-  {"type":"pong","server_epoch":...}
 ```
@@ -48,6 +50,25 @@ The protocol is documented in `app/routers/trains_api.py` upstream, and the row
 shape in `app/schemas/arrivals.py`. `listing=0` turns off the network-wide train
 positions, the heaviest message and one the panel has no use for. The board is
 pushed at once on subscribe and again on every server poll cycle.
+
+#### Calling points
+
+The board names no stops, but each running train has its own channel whose
+`data.stops[]` lists every call (`TrainStop` in `app/schemas/train_detail.py`
+upstream). The same socket follows up to 4 trains, so the page asks for the
+train on the panel and the next ones, by the board row's `identity.technical_id`,
+and the LED row announces what comes after this station:
+
+```
+PARA EN: UNIVERSIDAD-CANTOBLANCO, ALCOBENDAS-S.S. REYES
+```
+
+Stops whose `times.display.service_state` is `skipped` or `canceled` are left
+out, and names use `short_name` where mitren.app has one. A timetabled train
+that has not set off yet has no live id and gets `train_removed`, so its LED
+row stays dark until it starts running. Changing the followed set is limited
+to 30 times a minute per socket; the client spaces changes 3 s apart and
+treats the same trains in another order as no change.
 
 What the panel takes from each row:
 
@@ -70,8 +91,8 @@ What changed against ADIF:
   the socket is per network. `display-realtime.html` takes `network=`, and
   without it looks the code up in `stations.js`, so existing embeds keep
   working.
-* **No calling points.** The board does not list them, so the LED row stays
-  dark. Train detail would have them, at the cost of extra subscriptions.
+* **Calling points only for running trains** (see above). ADIF listed them
+  for every train on the board.
 * **Up to 20 rows, at most 3 per line**, instead of the whole day.
 * **No separate delay figure.**
 
