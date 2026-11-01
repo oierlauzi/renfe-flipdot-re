@@ -80,9 +80,7 @@ on the panel's carrier boards, and its label is on the EPROM. The detail is in
 
 <img src=".github/page-iberica-1997.jpg" width="640" alt="PAGE Ibérica advertisement from Vía Libre, March 1997, showing a platform display reading 'Vía 1, ATOCH-T.CANT, 6 min'">
 
-PAGE Ibérica's own advertisement in *Vía Libre*, March 1997. The line fits 16
-characters, like this unit, and the Tres Cantos street address is the one on its
-chassis plate.
+PAGE Ibérica's own advertisement in *Vía Libre*, March 1997.
 
 ## The font
 
