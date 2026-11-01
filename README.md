@@ -71,9 +71,8 @@ As of November 2026, the only ones known to remain in service are at Méndez
 **PAGE Ibérica** integrated the sign rather than building all of it. The
 electronics, including the flip-dot panel, were designed and built by
 **Telenorma**, short for *Telefonbau und Normalzeit*, German for "telephone
-construction and standard time". The firm built both, which is how a telephone
-company's boards ended up in a railway sign. Its logo is on the motherboard and
-on the panel's carrier boards, and its label is on the EPROM. The detail is in
+construction and standard time". Its logo is on the motherboard and on the
+panel's carrier boards, and its label is on the EPROM. The detail is in
 [docs/1-the-device.md](docs/1-the-device.md#who-built-it).
 
 <img src=".github/page-iberica-1997.jpg" width="640" alt="PAGE Ibérica advertisement from Vía Libre, March 1997, showing a platform display reading 'Vía 1, ATOCH-T.CANT, 6 min'">
