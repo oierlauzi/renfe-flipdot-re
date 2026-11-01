@@ -36,7 +36,7 @@ equipo que gobernaba el cartel, y
 Este proyecto se documenta en **inglés**: es el idioma en el que estoy
 acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
 
-## In service, and after
+## In service and retirement
 
 <img src="hardware/photos/in-service/via-libre-1997.jpg" width="700" alt="Close-up of a platform sign reading 'Vía 1' and 'ATOCH-CHAMAR' in yellow dots, with 'Próxima Llegada' and 'min.' printed beside them and a dark LED row underneath">
 
@@ -67,6 +67,9 @@ separate the top row from the bottom one.
 
 Flip dots are mechanical and hold their last message with no power, which is why
 the firmware has a switch for whether to blank the panel on reset.
+
+As of November 2026, the only ones known to remain in service are at Méndez
+Álvaro, on line C-5.
 
 ## The manufacturer
 
