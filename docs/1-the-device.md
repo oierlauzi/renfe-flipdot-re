@@ -38,8 +38,9 @@ but no date. Everything agrees on a mid-1990s build.
 
 ## Who built it
 
-Two marks say the electronics are German, not Spanish: the EPROM sticker, and
-the Telenorma logo on the motherboard silkscreen. All three boards carry
+Three marks say the hardware is German, not Spanish: the EPROM sticker, the
+Telenorma logo on the motherboard silkscreen, and the same logo on the flip-dot
+carrier boards out in the panel. All three boards inside the enclosure carry
 German-industrial part numbers of the form `300-48.0216.5586`.
 
 **Telenorma** descends from Telefonbau und Normalzeit of Frankfurt, literally
@@ -47,10 +48,11 @@ German-industrial part numbers of the form `300-48.0216.5586`.
 built public and station clock installations. It later became part of Bosch
 Telecom.
 
-So Telenorma designed the electronics and wrote the firmware, and PAGE Ibérica
-supplied the sign around them: the enclosure, the flip-dot panel and the
-fluorescent tube. The chassis plate reads `FABRICADO`, which fits either
-manufacture under licence or assembly around bought-in boards.
+So Telenorma designed and built the electronics and the flip-dot panel, and
+wrote the firmware. PAGE Ibérica integrated them into a sign: the enclosure, the
+fluorescent tube and the plate on the outside. The chassis plate reads
+`FABRICADO`, which fits either manufacture under licence or assembly around
+bought-in parts.
 
 The firmware agrees. It is not a RENFE one-off but a generic display terminal:
 ASCII control codes, addressing, framing, acknowledgements, an identify command,
