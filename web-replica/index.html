@@ -11,9 +11,9 @@
 <link rel="icon" type="image/png" sizes="192x192" href="favicon-192x192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="favicon-512x512.png">
 <link rel="apple-touch-icon" href="favicon-192x192.png">
-<script src="./cp437.js"></script>
-<script src="./stations.js"></script>
-<script src="./realtime.js"></script>
+<script src="./cp437.js?v=dev"></script>
+<script src="./stations.js?v=dev"></script>
+<script src="./realtime.js?v=dev"></script>
 <style>
   :root { color-scheme: light; }
   body {
@@ -269,6 +269,16 @@
   .station-suggest .empty { color: #93918a; cursor: default; background: none; }
   .station-current { margin: 10px 0 0; font-size: 15px; font-weight: 600; }
   .station-current a { font-weight: 400; font-size: 12px; }
+  .departures li { flex-wrap: wrap; }
+  .departures .dep-stops {
+    flex-basis: 100%;
+    margin: -2px 0 0 40px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #6b6a63;
+  }
+  .departures .dep-debug { flex-basis: 100%; margin-left: 40px; font: 11px ui-monospace, monospace; color: #93918a; }
+  .live-debug { margin: 8px 4px 0; padding: 8px; background: #24221f; color: #e6e3da; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; word-break: break-all; border-radius: 4px; }
   .departures .dep-plat.is-guess { color: #a9a69d; font-style: italic; }
   .departures .dep-rt {
     flex: none;
@@ -291,6 +301,7 @@
     .field label { flex: 1 0 100%; }
     .departures li { gap: 8px; padding: 7px 10px; }
     .departures .dep-dest { min-width: 0; overflow-wrap: anywhere; }
+    .departures .dep-stops, .departures .dep-debug { margin-left: 0; }
     .departures .dep-min { min-width: 44px; }
   }
   .departures-empty {
@@ -609,6 +620,8 @@
 
   <ol class="departures" id="live-departures" aria-labelledby="departures-title"></ol>
   <p class="departures-key" id="departures-title"></p>
+  <!-- Only with ?debug in the URL: what the source follows and what came back. -->
+  <pre class="live-debug" id="live-debug" hidden></pre>
 
   <!-- Filled by renderCredit(), so it follows the language switch. -->
   <aside class="live-credit" id="live-credit"></aside>
@@ -714,6 +727,7 @@
       demoStation: 'Datos simulados',
       noDepartures: 'Sin trenes que mostrar.',
       viaShort: 'Vía',
+      callingAt: 'Para en',
       platformGuess: 'Vía habitual, aún sin confirmar',
       due: 'Ahora',
       atPlatform: 'En andén',
@@ -785,6 +799,7 @@
       demoStation: 'Simulated data',
       noDepartures: 'No trains to show.',
       viaShort: 'Plat.',
+      callingAt: 'Calling at',
       platformGuess: 'Usual platform, not yet confirmed',
       due: 'Due',
       atPlatform: 'At platform',
@@ -1168,6 +1183,7 @@
     statusText: document.getElementById('live-status-text'),
     list: document.getElementById('live-departures'),
     key: document.getElementById('departures-title'),
+    debug: document.getElementById('live-debug'),
     credit: document.getElementById('live-credit')
   };
 
@@ -1462,6 +1478,7 @@
 
       const mins = document.createElement('span');
       mins.className = 'dep-min';
+      li.dataset.stops = String((dep.stops || []).length);
       const m = Realtime.minutesTo(dep.epoch);
       // "Now" only on mitren.app's word that the train is there; a countdown
       // reaching zero is not evidence of that, so it holds at 1 min.
@@ -1470,8 +1487,41 @@
       else mins.textContent = Math.max(1, m) + ' min';
       li.appendChild(mins);
 
+      if (dep.stops && dep.stops.length) {
+        const stops = document.createElement('span');
+        stops.className = 'dep-stops';
+        stops.textContent = t('callingAt') + ': ' + dep.stops.join(', ');
+        li.appendChild(stops);
+      }
+      if (DEBUG) {
+        const state = source && source.debugState ? source.debugState().states : {};
+        const dbg = document.createElement('span');
+        dbg.className = 'dep-debug';
+        dbg.textContent = 'id=' + (dep.trainId || '—') + ' rt=' + dep.realtime +
+          ' state=' + (dep.trainId ? (state[dep.trainId] || 'not followed') : 'no live id');
+        li.appendChild(dbg);
+      }
+
       liveEls.list.appendChild(li);
     });
+    renderDebug();
+  }
+
+  /* ?debug in the URL shows what the source is following and the last frames
+     the server sent, so a problem with mitren.app's data can be read off a
+     phone screen. */
+  const DEBUG = new URLSearchParams(location.search).has('debug');
+  function renderDebug() {
+    if (!DEBUG) return;
+    liveEls.debug.hidden = false;
+    const st = source && source.debugState ? source.debugState() : {};
+    const frames = Realtime.lastFrames.slice(-8).map(f => f.type + ' (' + f.chars + ')').join(', ');
+    liveEls.debug.textContent =
+      'station ' + station.network + '/' + station.code + '\n' +
+      'followed: ' + (st.followed || '—') + '\n' +
+      'states: ' + JSON.stringify(st.states || {}) + '\n' +
+      'issue: ' + (st.lastIssue || '—') + '\n' +
+      'frames: ' + frames;
   }
 
   liveEls.demo.addEventListener('change', startLive);

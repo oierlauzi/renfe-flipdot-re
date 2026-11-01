@@ -26,6 +26,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Scripts are linked as name.js?v=dev. Stamping the commit in makes every
+      # deploy a new URL, so a browser never runs a fresh page against a script
+      # it cached from the previous one (Pages lets browsers cache for 10 min).
+      - name: Stamp script URLs
+        run: sed -i "s/\.js?v=dev\"/.js?v=${GITHUB_SHA::8}\"/g" web-replica/*.html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

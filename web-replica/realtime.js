@@ -182,6 +182,11 @@
     let subscribeTimer = null;
     let sendSubscriptions = null;   // set while a socket is open
     const stopsByTrain = new Map();
+    // What became of each followed train, for the page's debug view:
+    // waiting (asked, no answer yet), stops, nomatch (its stop list does not
+    // include this station), removed (not running), or empty (no stops left).
+    const trainState = new Map();
+    let lastIssue = null;
     let board = null;         // the last mapped board, before stops are laid on
     let emit = null;
 
@@ -210,6 +215,8 @@
       followed = key;
       lastSentAt = Date.now();
       for (const id of stopsByTrain.keys()) if (!ids.includes(id)) stopsByTrain.delete(id);
+      for (const id of trainState.keys()) if (!ids.includes(id)) trainState.delete(id);
+      for (const id of ids) if (!trainState.has(id)) trainState.set(id, 'waiting');
       sendSubscriptions(ids);
     }
 
@@ -283,11 +290,18 @@
             if (!id || !wanted.includes(id)) return;
             const stops = remainingStops(msg.data, here, station);
             if (stops) stopsByTrain.set(id, stops); else stopsByTrain.delete(id);
+            trainState.set(id, !stops ? 'nomatch' : stops.length ? 'stops' : 'empty');
+            if (!stops) {
+              const list = msg.data && Array.isArray(msg.data.stops) ? msg.data.stops : [];
+              lastIssue = 'train ' + id + ': ' + list.length + ' stops, ids ' +
+                list.slice(0, 6).map(x => x && (x.station_id || x.stop_id)).join(',');
+            }
             if (board) handlers.onDepartures(withStops(board));
             return;
           }
           case 'train_removed':
             // Not running yet, or finished: its stops are not known live.
+            if (trainState.has(String(msg.train_id || ''))) trainState.set(String(msg.train_id), 'removed');
             if (stopsByTrain.delete(String(msg.train_id || '')) && board) {
               handlers.onDepartures(withStops(board));
             }
@@ -299,6 +313,7 @@
             // forget what was sent so the next sync tries again.
             if (/subscription|rate limit/i.test(text)) {
               if (global.console) global.console.warn('realtime: ' + text);
+              lastIssue = text;
               followed = null;
               holdUntil = Date.now() + 20000;
               syncSubscriptions();
@@ -357,6 +372,10 @@
           if (dep && dep.trainId && !wanted.includes(dep.trainId)) wanted.push(dep.trainId);
         }
         syncSubscriptions();
+      },
+      /* For the page's debug view: what is followed and what came of it. */
+      debugState() {
+        return { followed: followed, states: Object.fromEntries(trainState), lastIssue: lastIssue };
       }
     };
   }
