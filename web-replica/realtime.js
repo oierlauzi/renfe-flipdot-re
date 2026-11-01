@@ -47,31 +47,105 @@
   // station code is ignored silently, so this is what tells the two apart.
   const DATA_TIMEOUT_MS = 30000;
 
-  /* Renfe's Cercanías and Rodalies networks as mitren.app names them. Station
-     codes are Renfe's five-digit ones, the same that ADIF uses, so a code is
-     only meaningful together with its network. */
-  const NETWORKS = [
-    { id: 'madrid_cercanias', name: 'Cercanías Madrid' },
-    { id: 'barcelona_rodalies', name: 'Rodalies Barcelona' },
-    { id: 'valencia_rodalia', name: 'Rodalia València' },
-    { id: 'sevilla_cercanias', name: 'Cercanías Sevilla' },
-    { id: 'malaga_cercanias', name: 'Cercanías Málaga' },
-    { id: 'cadiz_cercanias', name: 'Cercanías Cádiz' },
-    { id: 'bilbao_aldiriak', name: 'Bilbao Aldiriak' },
-    { id: 'donostia_aldiriak', name: 'Donostia Aldiriak' },
-    { id: 'cantabria_cercanias', name: 'Cercanías Cantabria' },
-    { id: 'asturias_cercanias', name: 'Cercanías Asturias' },
-    { id: 'zaragoza_cercanias', name: 'Cercanías Zaragoza' },
-    { id: 'murcia_cercanias', name: 'Cercanías Murcia' },
-    { id: 'alacant_cercanias', name: 'Cercanías Alacant' },
-    { id: 'cartagena_cercanias', name: 'Cercanías Cartagena' },
-    { id: 'tarragona_rodalies', name: 'Rodalies Tarragona' },
-    { id: 'girona_rodalies', name: 'Rodalies Girona' },
-    { id: 'lleida_rodalies', name: 'Rodalies Lleida' },
-    { id: 'leon_cercanias', name: 'Cercanías León' },
-    { id: 'ferrol_cercanias', name: 'Cercanías Ferrol' }
-  ];
+  // --- Networks and stations ----------------------------------------------
+  //
+  // From stations.js, which tools/build_stations.py generates out of the data
+  // mitren.app itself ships: the search API that would answer this at runtime
+  // has no CORS header. Station codes are Renfe's five-digit ones, the same
+  // ADIF uses; the socket is per network, so a code travels with its network.
+  const DATA = global.RealtimeData || {
+    networks: [{ id: 'madrid_cercanias', name: 'Cercanías Madrid', city: 'madrid' }],
+    stations: []
+  };
+  const NETWORKS = DATA.networks;
   const DEFAULT_NETWORK = 'madrid_cercanias';
+  const networkById = new Map(NETWORKS.map(n => [n.id, n]));
+
+  /* Case- and accent-insensitive form for matching. "Ñ" folds to "N" here,
+     which is what someone typing on a keyboard without one expects. */
+  function fold(text) {
+    return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  const STATIONS = DATA.stations.map(row => {
+    const st = {
+      network: row[0], code: row[1], name: row[2],
+      short: row[3] || '', mini: row[4] || '', town: row[5] || '',
+      aliases: row[6] ? row[6].split('|') : []
+    };
+    st.networkName = (networkById.get(st.network) || {}).name || st.network;
+    st.haystack = fold([st.name, st.short, st.mini, st.town].concat(st.aliases).join(' '));
+    st.foldedName = fold(st.name);
+    return st;
+  });
+  const stationByKey = new Map(STATIONS.map(st => [st.network + '/' + st.code, st]));
+
+  /* Every spelling of a station's name, longest first, keyed by each of them.
+     A departure names its destination in full; the panel picks the longest
+     form that fits, the way ADIF's own name ladder used to be read. */
+  const ladderByName = new Map();
+  for (const st of STATIONS) {
+    const ladder = [st.name, st.short, st.mini].filter(Boolean);
+    for (const form of ladder) {
+      const key = fold(form);
+      if (!ladderByName.has(key)) ladderByName.set(key, ladder);
+    }
+  }
+  function nameLadder(name) {
+    return ladderByName.get(fold(name)) || [String(name || '')];
+  }
+
+  function findStation(network, code) {
+    return stationByKey.get(String(network) + '/' + String(code).trim()) || null;
+  }
+
+  /* A code on its own. Most codes belong to one network; where one is shared
+     (a guest line), the default network wins, then the first listed. */
+  function networkForCode(code) {
+    const matches = STATIONS.filter(st => st.code === String(code).trim());
+    if (!matches.length) return null;
+    const home = matches.find(st => st.network === DEFAULT_NETWORK);
+    return (home || matches[0]).network;
+  }
+
+  /* Ranked matches for what someone typed: a station code, or words from the
+     name, its short forms, its town or mitren.app's search aliases, in any
+     order and without accents. `network` floats that network's matches up. */
+  function searchStations(query, options) {
+    const prefer = options && options.network;
+    const limit = (options && options.limit) || 8;
+    const q = fold(query);
+    if (!q) return [];
+    const words = q.split(' ');
+    const scored = [];
+    for (const st of STATIONS) {
+      let score;
+      if (/^\d+$/.test(q)) {
+        if (!st.code.startsWith(q)) continue;
+        score = st.code === q ? 0 : 1;
+      } else {
+        if (!words.every(w => st.haystack.includes(w))) continue;
+        if (st.foldedName.startsWith(q)) score = 0;
+        else if ((' ' + st.foldedName).includes(' ' + words[0])) score = 1;
+        else if (st.foldedName.includes(words[0])) score = 2;
+        else score = 3;   // matched on town or alias only
+      }
+      if (prefer && st.network !== prefer) score += 0.5;
+      scored.push([score, st]);
+    }
+    scored.sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name, 'es'));
+    return scored.slice(0, limit).map(x => x[1]);
+  }
+
+  /* The station's page on mitren.app. The city/mode form is the public one;
+     mitren.app redirects it to its canonical slug where those differ. */
+  function stationUrl(network, code) {
+    const net = networkById.get(network);
+    if (!net || !/^\d+$/.test(String(code))) return 'https://mitren.app/';
+    return 'https://mitren.app/' + encodeURIComponent(net.city) + '/cercanias/stations/' +
+      encodeURIComponent(code);
+  }
 
   /* A short trace for debugging from the console. */
   const lastFrames = [];
@@ -85,6 +159,7 @@
     const network = String((options && options.network) || DEFAULT_NETWORK).trim();
     const url = (options && options.url) ||
       MITREN_WS + encodeURIComponent(network) + '?listing=0';
+    const here = findStation(network, station);
     let socket = null, pinger = null, retry = null, dataTimer = null;
     let attempts = 0, stopped = false;
 
@@ -134,7 +209,7 @@
             return;
           case 'arrivals_update': {
             if (String(msg.station_id) !== station) return;
-            const departures = mapMitren(msg);
+            const departures = mapMitren(msg, here);
             if (!departures) return;
             gotData = true;
             reported = false;
@@ -187,31 +262,44 @@
 
   /* One arrivals_update carries the station's next trains (up to 20, at most
      3 per line), realtime where the server has it and timetable otherwise.
-     Field meanings are documented in app/schemas/arrivals.py upstream. */
-  function mapMitren(msg) {
+     Field meanings are documented in app/schemas/arrivals.py upstream.
+     `here` is the station being shown, when stations.js knows it. */
+  function mapMitren(msg, here) {
     if (!Array.isArray(msg.arrivals)) return null;
+    // It is an arrivals board, so trains that end their run here are on it
+    // too. A departure sign does not announce those.
+    const ownNames = new Set(here ? [here.name, here.short, here.mini].filter(Boolean).map(fold) : []);
     const rows = [];
     for (const row of msg.arrivals) {
       if (!row || row.service_state === 'canceled') continue;
       const epoch = Number(row.epoch);
       if (!Number.isFinite(epoch) || epoch <= 0) continue;
       const destination = row.display_destination_name || row.destination_name;
-      if (!destination) continue;
+      if (!destination || ownNames.has(fold(destination))) continue;
 
       const platform = row.platform || null;
       const line = row.line || {};
       const identity = row.identity || {};
+      const confirmed = !!(platform && platform.confirmed && platform.value);
       rows.push({
         destination: String(destination),
         epoch: epoch,
-        // Only a platform the operator has actually given. mitren.app also
-        // predicts one from habit ("confirmed": false), which is useful in its
-        // app but is not what a real sign shows: it stays blank until assigned.
-        platform: platform && platform.confirmed && platform.value ? String(platform.value) : null,
+        // Only a platform the operator has actually given goes on the panel.
+        // mitren.app also predicts one from habit, which a real sign would not
+        // show; the list on the page shows it greyed out as `platformGuess`.
+        platform: confirmed ? String(platform.value) : null,
+        platformGuess: !confirmed && platform
+          ? (platform.pair && platform.pair.length ? platform.pair.join('/') : (platform.value || null))
+          : null,
         line: line.short_name || row.short_name || '',
+        lineColor: line.color_bg || null,
+        lineTextColor: line.color_fg || null,
         train: identity.public_number || null,
-        // The board carries the delay already folded into `epoch`, not as a
-        // separate figure.
+        realtime: !!row.is_realtime,
+        // at_station / arriving, resolved by mitren.app from positive evidence.
+        presence: row.presence || null,
+        isOrigin: !!row.is_origin,
+        // The board folds the delay into `epoch` rather than reporting it.
         delayMin: null,
         // Nor does it carry calling points, so the LED row stays dark.
         stops: []
@@ -354,11 +442,14 @@
     // ("BILBAO ABANDO-I." + "12" renders as "BILBAO ABANDO-12"). One blank cell
     // between the two keeps them legible.
     const room = showMinutes ? Math.max(1, PANEL_CELLS - mins.length - 1) : PANEL_CELLS;
+    // Names arrive in full. Take the longest of mitren.app's own forms that
+    // fits ("BILBAO-ABANDO-INDALECIO PRIETO" -> "BILBAO-ABANDO"), and only cut
+    // the shortest when none does; a trailing hyphen or space is an artefact
+    // of that cut, so it goes too.
+    const ladder = nameLadder(dep.destination).map(foldToPanel);
+    const fitting = ladder.find(form => form.length <= room);
     return {
-      // Station names arrive in full, and many Cercanías destinations fit 16
-      // cells as they are. The rest simply get cut; a trailing hyphen or space
-      // is an artefact of that cut, so it goes too.
-      text: foldToPanel(dep.destination).slice(0, room).replace(/[\s-]+$/, ''),
+      text: (fitting || ladder[ladder.length - 1]).slice(0, room).replace(/[\s-]+$/, ''),
       min: mins,
       // A platform filter means the sign is bolted to that platform, so it
       // always reads that number. Otherwise show the assignment if there is
@@ -395,6 +486,12 @@
     MITREN_WS: MITREN_WS,
     NETWORKS: NETWORKS,
     DEFAULT_NETWORK: DEFAULT_NETWORK,
+    STATIONS: STATIONS,
+    findStation: findStation,
+    networkForCode: networkForCode,
+    searchStations: searchStations,
+    stationUrl: stationUrl,
+    nameLadder: nameLadder,
     PANEL_CELLS: PANEL_CELLS,
     blankPanel: blankPanel,
     foldToPanel: foldToPanel,

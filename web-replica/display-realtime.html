@@ -7,6 +7,7 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="apple-touch-icon" href="favicon-192x192.png">
+<script src="./stations.js"></script>
 <script src="./realtime.js"></script>
 <style>
   html, body { margin: 0; padding: 0; background: #d9d7d2; overflow: hidden; }
@@ -28,8 +29,9 @@
  *
  * Parameters
  *   station   Renfe station code (required; 17000 is Madrid-Chamartín)
- *   network   mitren.app network the code belongs to; madrid_cercanias if
- *             omitted. The full list is Realtime.NETWORKS in realtime.js.
+ *   network   mitren.app network the code belongs to. Optional: without it
+ *             the network is looked up from the code in stations.js, falling
+ *             back to madrid_cercanias. The list is Realtime.NETWORKS.
  *   via       platform to show. Filters to trains leaving from it, and the
  *             sign reads that number — a real one is bolted to one platform.
  *             Omit to show the whole station and whatever platform is assigned.
@@ -48,7 +50,8 @@
   const MAX_ROWS = 12;
 
   const station = (Q.get('station') || '').trim();
-  const network = (Q.get('network') || '').trim() || Realtime.DEFAULT_NETWORK;
+  const network = (Q.get('network') || '').trim() ||
+    Realtime.networkForCode(station) || Realtime.DEFAULT_NETWORK;
   const platform = (Q.get('via') || '').trim();
   const cycling = Q.get('cycle') !== '0';
   const showMinutes = Q.get('showmin') !== '0';

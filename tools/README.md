@@ -15,6 +15,7 @@ installed, and that is `pyserial`.
 | [disasm.py](disasm.py) | Disassembler, cross-references, and the rebuildable listing |
 | [extract_font.py](extract_font.py) | Render or export the glyph tables |
 | [rom_info.py](rom_info.py) | Integrity check, used extent, strings |
+| [build_stations.py](build_stations.py) | Regenerates the web replica's station list from a dondeestamitren checkout |
 
 `say.py` and `bringup.py` are covered in
 [../docs/2-talking-to-it.md](../docs/2-talking-to-it.md). The rest are below.

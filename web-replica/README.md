@@ -10,7 +10,8 @@ directory, by [../.github/workflows/pages.yml](../.github/workflows/pages.yml).
 | `display.html` | The panel itself. Its text comes from the URL, so it can be embedded |
 | `display-realtime.html` | `display.html` with a live arrivals feed behind it |
 | `cp437.js` | The code page, including the `ñ` and `Ñ` substitutions |
-| `realtime.js` | The live departure sources: mitren.app, and a simulation |
+| `realtime.js` | The live departure sources (mitren.app and a simulation), station search |
+| `stations.js` | Generated station list. Rebuilt by [../tools/build_stations.py](../tools/build_stations.py) |
 | `support.js` | Generated runtime. Rebuilt from a separate `dc-runtime` project, not from here |
 | `reference.svg` | Reference artwork |
 
@@ -53,9 +54,11 @@ What the panel takes from each row:
 | Field | Use |
 | --- | --- |
 | `epoch` | Departure time, delay already included |
-| `display_destination_name` | Destination, in full |
-| `platform.value` | Only when `platform.confirmed`; a predicted platform is left blank, as a real sign would |
-| `line.short_name` | `C2`, `R4`… |
+| `display_destination_name` | Destination, in full. Rows naming the station itself are trains ending their run there, and are dropped |
+| `platform.value` | On the panel only when `platform.confirmed`, as a real sign would. The list shows the predicted one, or `pair`, greyed out |
+| `line` | `short_name` (`C2`, `R4`…) and the line's colours, for the badges in the list |
+| `is_realtime` | Realtime or timetable, marked in the list |
+| `presence` | "Now" / "At platform" in the list; a countdown reaching zero is not taken as presence |
 | `service_state` | `canceled` rows are dropped |
 
 What changed against ADIF:
@@ -64,13 +67,34 @@ What changed against ADIF:
   `Realtime.NETWORKS`. Long-distance trains are no longer shown, which suits a
   sign that only ever stood on Cercanías platforms.
 * **A station needs its network.** Codes are still Renfe's five-digit ones, but
-  the socket is per network. `display-realtime.html` takes `network=` and
-  defaults to `madrid_cercanias`, so existing embeds keep working.
+  the socket is per network. `display-realtime.html` takes `network=`, and
+  without it looks the code up in `stations.js`, so existing embeds keep
+  working.
 * **No calling points.** The board does not list them, so the LED row stays
   dark. Train detail would have them, at the cost of extra subscriptions.
 * **Up to 20 rows, at most 3 per line**, instead of the whole day.
-* **No separate delay figure**, and no short name ladder: long names are cut
-  at the panel width.
+* **No separate delay figure.**
+
+### Station names
+
+mitren.app's search API would turn "Sants" into `barcelona_rodalies/71801`, but
+it has no CORS header either. So the names are baked into `stations.js`
+instead, about 1,000 stations, generated from the data dondeestamitren itself
+ships (Apache-2.0):
+
+```sh
+git clone --depth 1 https://github.com/jotaelediaz/dondeestamitren
+python3 tools/build_stations.py dondeestamitren > web-replica/stations.js
+```
+
+That gives the page a search box (by name, town, mitren.app's aliases or code,
+accents optional) instead of a bare code field, a link to each station on
+mitren.app, and mitren.app's short names: the panel takes the longest form of
+a destination that fits ("BILBAO-ABANDO" rather than "BILBAO-ABANDO-IND"),
+which is what ADIF's name ladder used to provide. A code missing from the list
+can still be typed in.
+
+### Load on mitren.app
 
 The server is a small VPS that caps WebSocket connections at 200 overall and
 20 per IP, and drops a client silent for 150 s. The client keeps to one socket
