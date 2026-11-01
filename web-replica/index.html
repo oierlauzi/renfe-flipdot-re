@@ -247,27 +247,6 @@
   .station-suggest .empty { color: #93918a; cursor: default; background: none; }
   .station-current { margin: 10px 0 0; font-size: 15px; font-weight: 600; }
   .station-current a { font-weight: 400; font-size: 12px; }
-  .station-chips {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-top: 12px;
-    font-size: 12.5px;
-    color: #6b6a63;
-  }
-  .station-chips span { flex-basis: 100%; }
-  .station-chips button {
-    padding: 4px 10px;
-    background: #eceae4;
-    color: #24221f;
-    border: 1px solid #c9c6bd;
-    border-radius: 999px;
-    font-size: 12.5px;
-    cursor: pointer;
-  }
-  .station-chips button:hover { background: #ddd9d0; }
-  .station-chips button[aria-pressed="true"] { background: #8a5a2b; border-color: #8a5a2b; color: #f4f2e9; }
   .departures .dep-plat.is-guess { color: #a9a69d; font-style: italic; }
   .departures .dep-rt {
     flex: none;
@@ -525,16 +504,6 @@
           aria-labelledby="live-search" hidden></ul>
     </div>
     <p class="station-current" id="live-current" aria-live="polite"></p>
-    <div class="station-chips" role="group" aria-labelledby="chips-label">
-      <span id="chips-label" data-i18n="chipsLabel">Tuvieron o tienen este teleindicador</span>
-      <!-- Madrid stations known to have had this sign. -->
-      <button type="button" data-network="madrid_cercanias" data-code="97100">Pitis</button>
-      <button type="button" data-network="madrid_cercanias" data-code="17009">Universidad-Cantoblanco</button>
-      <button type="button" data-network="madrid_cercanias" data-code="12004">Collado Mediano</button>
-      <button type="button" data-network="madrid_cercanias" data-code="10100">Pinar de Las Rozas</button>
-      <button type="button" data-network="madrid_cercanias" data-code="10104">Galapagar-La Navata</button>
-      <button type="button" data-network="madrid_cercanias" data-code="18004">Delicias</button>
-    </div>
   </fieldset>
 
   <fieldset>
@@ -691,7 +660,6 @@
       searchPlaceholder: 'Nombre, municipio o código',
       noMatches: 'Ninguna estación coincide.',
       unknownStation: 'Estación %CODE%',
-      chipsLabel: 'Tuvieron o tienen este teleindicador',
       viewOnMitren: 'Ver en mitren.app',
       legendLiveOptions: 'Panel',
       labelPlatformFilter: 'Solo la vía',
@@ -759,7 +727,6 @@
       searchPlaceholder: 'Name, town or code',
       noMatches: 'No station matches.',
       unknownStation: 'Station %CODE%',
-      chipsLabel: 'Have or formerly had this sign',
       viewOnMitren: 'View on mitren.app',
       legendLiveOptions: 'Panel',
       labelPlatformFilter: 'Only platform',
@@ -1132,7 +1099,6 @@
     search: document.getElementById('live-search'),
     suggest: document.getElementById('live-suggest'),
     current: document.getElementById('live-current'),
-    chips: document.querySelectorAll('.station-chips button'),
     platform: document.getElementById('live-platform'),
     cycle: document.getElementById('live-cycle'),
     demo: document.getElementById('live-demo'),
@@ -1195,10 +1161,6 @@
     link.textContent = t('viewOnMitren');
     meta.appendChild(link);
     liveEls.current.appendChild(meta);
-    for (const chip of liveEls.chips) {
-      chip.setAttribute('aria-pressed', String(
-        chip.dataset.network === station.network && chip.dataset.code === station.code));
-    }
     renderCredit();
   }
 
@@ -1294,11 +1256,6 @@
     closeSuggestions();
     liveEls.search.value = stationLabel(station);
   });
-
-  for (const chip of liveEls.chips) {
-    chip.addEventListener('click', () =>
-      chooseStation({ network: chip.dataset.network, code: chip.dataset.code }));
-  }
 
   let lastStatus = { state: 'idle', detail: null };
 
