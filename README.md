@@ -68,7 +68,14 @@ separate the top row from the bottom one.
 Flip dots are mechanical and hold their last message with no power, which is why
 the firmware has a switch for whether to blank the panel on reset.
 
-## The manufacturer, 1997
+## The manufacturer
+
+**PAGE Ibérica** integrated the sign rather than building all of it. The
+enclosure, the flip-dot panel, the fluorescent tube and the plate on the outside
+are theirs. The electronics inside are not. They were designed and built by
+**Telenorma**, a German manufacturer of telephone and public clock
+installations, whose logo is on the motherboard and whose label is on the EPROM.
+The detail is in [docs/1-the-device.md](docs/1-the-device.md#who-built-it).
 
 <img src=".github/page-iberica-1997.jpg" width="640" alt="PAGE Ibérica advertisement from Vía Libre, March 1997, showing a platform display reading 'Vía 1, ATOCH-T.CANT, 6 min'">
 
