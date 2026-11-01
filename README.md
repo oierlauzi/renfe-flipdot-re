@@ -58,7 +58,7 @@ the LED row that scrolled the stations the train would call at.
 </tr>
 <tr>
 <td><b>Pitis, 2026.</b> A few months before it came down, with the <i>Tren de los 80</i> alongside</td>
-<td align="center"><b>Being disposed of.</b> Aravaca, <a href="https://x.com/David_82C/status/2069312279259062477">photographed by @David_82C</a></td>
+<td align="center"><b>Unit being disposed of.</b> Aravaca, June 2026. <a href="https://x.com/David_82C/status/2069312279259062477">From Twitter</a></td>
 </tr>
 </table>
 
