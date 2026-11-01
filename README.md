@@ -38,11 +38,6 @@ acostumbrado a programar, y hacerlo en otros me resulta inconsistente.
 
 ## In service and retirement
 
-<img src="hardware/photos/in-service/via-libre-1997.jpg" width="700" alt="Close-up of a platform sign reading 'Vía 1' and 'ATOCH-CHAMAR' in yellow dots, with 'Próxima Llegada' and 'min.' printed beside them and a dark LED row underneath">
-
-*Vía Libre*, March 1997, photographed by Luna. The dark strip under the text is
-the LED row that scrolled the stations the train would call at.
-
 <table>
 <tr>
 <td width="50%"><img src="hardware/photos/in-service/mostoles-1997.jpg" alt="A platform sign at Móstoles in 1997, reading 'Vía 1, FUENLABRADA, 1 min' above a red LED row, with a train at the platform"></td>
