@@ -8,212 +8,244 @@
  * `epoch` is the departure time in seconds. Minutes-to-go are recomputed from
  * it locally on every tick rather than being read from the message, so a stale
  * feed still counts down correctly — only the delay figure goes stale, not the
- * clock. ADIF's own `countdown` field agrees with this to the minute.
+ * clock.
  */
 (function (global) {
   'use strict';
 
-  // --- SignalR JSON hub protocol, spoken directly over a raw WebSocket ------
+  // --- ¿Dónde está mi tren? (mitren.app) -----------------------------------
   //
-  // Not @microsoft/signalr, for two reasons. The page ships no dependencies,
-  // and more importantly the library's default path begins with an HTTP POST
-  // to `<hub>/negotiate` — a fetch, and therefore subject to CORS, which a
-  // cross-origin static page would lose. Browsers do NOT apply CORS to the
-  // WebSocket handshake, so going straight to wss:// is the only transport
-  // available to a page served from anywhere but the hub's own origin. This is
-  // what the library calls `skipNegotiation: true`.
+  // https://github.com/jotaelediaz/dondeestamitren, deployed at mitren.app. It
+  // blends Renfe's GTFS timetable with the GTFS-RT feeds server-side, so it
+  // already does the work this page cannot: naming the destination, which the
+  // real-time feeds never do (see README.md).
   //
-  // Verified against ADIF on 2026-08-10 from a foreign origin: connecting to
-  // the hub path with NO `?id=` succeeds and receives live data. Supplying an
-  // `?id=` that did not come from `negotiate` is refused with close code 1006 —
-  // so the token must be omitted, not invented.
+  // Its REST API (/api/v1/…) sends no Access-Control-Allow-Origin header, so a
+  // page on GitHub Pages cannot fetch() it. Its WebSocket can be used, for the
+  // same reason the ADIF hub could: browsers do not apply CORS to the WebSocket
+  // handshake, and the server does not check Origin. The board it pushes is
+  // built by the same serializer as REST /arrivals, so nothing is lost.
   //
-  // Wire format: UTF-8 JSON records terminated by 0x1e.
-  //   ->  {"protocol":"json","version":1}          handshake request
-  //   <-  {}                                       handshake ack ({"error"} on failure)
-  //   <-> {"type":6}                               ping
-  //   <-  {"type":1,"target":"M","arguments":[…]}  server calling the client
-  //   ->  {"type":1,"invocationId":"0",
-  //        "target":"M","arguments":[…]}           client calling the hub
-  //   <-  {"type":3,"invocationId":"0","error":…}  completion, possibly failed
-  const RS = '\x1e'; // written as an escape: a literal 0x1e in source is too easy to mangle
-  const PING = { type: 6 };
-  const PING_MS = 15000;
-  // Generous, because it is not a health check: a busy station answers
-  // instantly, but smaller ones have taken over 14 s to push their first
-  // message, and reporting "no data" while one is still on its way is worse
-  // than waiting.
+  // Protocol, from app/routers/trains_api.py upstream. Plain JSON frames:
+  //   wss://mitren.app/api/ws/trains/<nucleus>?listing=0
+  //   <-  {"type":"subscribed","nucleus":…,"station_id":null,…}   on connect
+  //   ->  {"type":"subscribe","station_id":"17000"}
+  //   <-  {"type":"subscribed","station_id":"17000"}
+  //   <-  {"type":"arrivals_update","station_id":"17000","arrivals":[…]}
+  //       at once, then again on every poll cycle of the server
+  //   ->  {"type":"ping"}   <-  {"type":"pong","server_epoch":…}
+  //   <-  {"type":"error","message":…}
+  // listing=0 opts out of the nucleus-wide train positions, which this page has
+  // no use for and which are by far the heaviest message.
+  //
+  // The server drops a client that sends nothing for 150 s, and is a small VPS
+  // with a global cap of 200 sockets, so: one socket per tab, one station, a
+  // ping well inside the idle window, and a patient reconnect.
+  const MITREN_WS = 'wss://mitren.app/api/ws/trains/';
+  const PING_MS = 60000;
+  // Not a health check: the first board is pushed on subscribe, but an unknown
+  // station code is ignored silently, so this is what tells the two apart.
   const DATA_TIMEOUT_MS = 30000;
 
-  function encode(obj) { return JSON.stringify(obj) + RS; }
+  // --- Networks and stations ----------------------------------------------
+  //
+  // From stations.js, which tools/build_stations.py generates out of the data
+  // mitren.app itself ships: the search API that would answer this at runtime
+  // has no CORS header. Station codes are Renfe's five-digit ones, the same
+  // ADIF uses; the socket is per network, so a code travels with its network.
+  const DATA = global.RealtimeData || {
+    networks: [{ id: 'madrid_cercanias', name: 'Cercanías Madrid', city: 'madrid' }],
+    stations: []
+  };
+  const NETWORKS = DATA.networks;
+  const DEFAULT_NETWORK = 'madrid_cercanias';
+  const networkById = new Map(NETWORKS.map(n => [n.id, n]));
 
-  function decode(buffer) {
-    // Returns [messages, remainder] — a socket frame may split or coalesce records.
-    const parts = buffer.split(RS);
-    const remainder = parts.pop();
-    const messages = [];
-    for (const part of parts) {
-      if (!part) continue;
-      try { messages.push(JSON.parse(part)); } catch (e) { /* skip malformed record */ }
-    }
-    return [messages, remainder];
+  /* Case- and accent-insensitive form for matching. "Ñ" folds to "N" here,
+     which is what someone typing on a keyboard without one expects. */
+  function fold(text) {
+    return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   }
 
-  /* A short trace for debugging from the console. Only a preview of each
-     message is kept: ADIF's payload is well over half a megabyte, and holding
-     25 of them verbatim would cost more memory than the rest of the page. */
+  const STATIONS = DATA.stations.map(row => {
+    const st = {
+      network: row[0], code: row[1], name: row[2],
+      short: row[3] || '', mini: row[4] || '', town: row[5] || '',
+      aliases: row[6] ? row[6].split('|') : []
+    };
+    st.networkName = (networkById.get(st.network) || {}).name || st.network;
+    st.haystack = fold([st.name, st.short, st.mini, st.town].concat(st.aliases).join(' '));
+    st.foldedName = fold(st.name);
+    return st;
+  });
+  const stationByKey = new Map(STATIONS.map(st => [st.network + '/' + st.code, st]));
+
+  /* Every spelling of a station's name, longest first, keyed by each of them.
+     A departure names its destination in full; the panel picks the longest
+     form that fits, the way ADIF's own name ladder used to be read. */
+  const ladderByName = new Map();
+  for (const st of STATIONS) {
+    const ladder = [st.name, st.short, st.mini].filter(Boolean);
+    for (const form of ladder) {
+      const key = fold(form);
+      if (!ladderByName.has(key)) ladderByName.set(key, ladder);
+    }
+  }
+  function nameLadder(name) {
+    return ladderByName.get(fold(name)) || [String(name || '')];
+  }
+
+  function findStation(network, code) {
+    return stationByKey.get(String(network) + '/' + String(code).trim()) || null;
+  }
+
+  /* A code on its own. Most codes belong to one network; where one is shared
+     (a guest line), the default network wins, then the first listed. */
+  function networkForCode(code) {
+    const matches = STATIONS.filter(st => st.code === String(code).trim());
+    if (!matches.length) return null;
+    const home = matches.find(st => st.network === DEFAULT_NETWORK);
+    return (home || matches[0]).network;
+  }
+
+  /* Ranked matches for what someone typed: a station code, or words from the
+     name, its short forms, its town or mitren.app's search aliases, in any
+     order and without accents. `network` floats that network's matches up. */
+  function searchStations(query, options) {
+    const prefer = options && options.network;
+    const limit = (options && options.limit) || 8;
+    const q = fold(query);
+    if (!q) return [];
+    const words = q.split(' ');
+    const scored = [];
+    for (const st of STATIONS) {
+      let score;
+      if (/^\d+$/.test(q)) {
+        if (!st.code.startsWith(q)) continue;
+        score = st.code === q ? 0 : 1;
+      } else {
+        if (!words.every(w => st.haystack.includes(w))) continue;
+        if (st.foldedName.startsWith(q)) score = 0;
+        else if ((' ' + st.foldedName).includes(' ' + words[0])) score = 1;
+        else if (st.foldedName.includes(words[0])) score = 2;
+        else score = 3;   // matched on town or alias only
+      }
+      if (prefer && st.network !== prefer) score += 0.5;
+      scored.push([score, st]);
+    }
+    scored.sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name, 'es'));
+    return scored.slice(0, limit).map(x => x[1]);
+  }
+
+  /* The station's page on mitren.app. The city/mode form is the public one;
+     mitren.app redirects it to its canonical slug where those differ. */
+  function stationUrl(network, code) {
+    const net = networkById.get(network);
+    if (!net || !/^\d+$/.test(String(code))) return 'https://mitren.app/';
+    return 'https://mitren.app/' + encodeURIComponent(net.city) + '/cercanias/stations/' +
+      encodeURIComponent(code);
+  }
+
+  /* A short trace for debugging from the console. */
   const lastFrames = [];
-  function remember(msg) {
-    const text = JSON.stringify(msg);
-    lastFrames.push({
-      type: msg.type,
-      target: msg.target || null,
-      chars: text.length,
-      preview: text.slice(0, 500)
-    });
+  function remember(msg, text) {
+    lastFrames.push({ type: msg.type || null, chars: text.length, preview: text.slice(0, 500) });
     if (lastFrames.length > 25) lastFrames.shift();
   }
 
-  // How often to re-ask for a snapshot that the server failed to produce, and
-  // how long to wait between tries.
-  const SNAPSHOT_RETRIES = 3;
-  const SNAPSHOT_RETRY_MS = 6000;
-
-  function SignalRSource(options) {
-    const url = options.url;
-    // [{target, arguments, optional}, …] sent once connected. `optional` marks
-    // a call the connection can live without — see AdifSource.
-    const invocations = options.subscribe || [];
-    const map = options.map;
+  function MitrenSource(options) {
+    const station = String((options && options.station) || '').trim();
+    const network = String((options && options.network) || DEFAULT_NETWORK).trim();
+    const url = (options && options.url) ||
+      MITREN_WS + encodeURIComponent(network) + '?listing=0';
+    const here = findStation(network, station);
     let socket = null, pinger = null, retry = null, dataTimer = null;
     let attempts = 0, stopped = false;
 
     function open(handlers) {
       if (stopped) return;
       handlers.onStatus('connecting', null);
-      let buffer = '';
-      let handshakeDone = false;
       let reported = false;   // a specific failure was surfaced; don't overwrite it
       let gotData = false;
-      const retries = {};     // invocationId -> attempts made at an optional call
-
-      function invoke(inv, invocationId) {
-        if (!socket || socket.readyState !== WebSocket.OPEN) return;
-        socket.send(encode({
-          type: 1, invocationId: invocationId,
-          target: inv.target, arguments: inv.arguments || []
-        }));
-      }
+      let busy = false;       // the server turned us away for load, not for a fault
 
       try {
         socket = new WebSocket(url);
       } catch (err) {
         // Malformed URL, or a mixed-content block on an http:// page.
         handlers.onStatus('error', err.message);
-        return schedule(handlers);
+        return schedule(handlers, false);
       }
+      const sock = socket;
+      const send = (obj) => {
+        if (sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify(obj));
+      };
 
-      socket.addEventListener('open', () => {
-        socket.send(encode({ protocol: 'json', version: 1 }));
+      sock.addEventListener('open', () => {
+        // The server subscribes the socket to the nucleus by itself and says so;
+        // the station is asked for once that arrives (below). Sending it now
+        // would also work, but this way an unknown network surfaces as its own
+        // error rather than as a silent station.
+        pinger = setInterval(() => send({ type: 'ping' }), PING_MS);
+        dataTimer = setTimeout(() => {
+          if (!gotData && !reported) handlers.onStatus('nodata', null);
+        }, DATA_TIMEOUT_MS);
       });
 
-      socket.addEventListener('message', (event) => {
-        buffer += typeof event.data === 'string' ? event.data : '';
-        let messages;
-        [messages, buffer] = decode(buffer);
+      sock.addEventListener('message', (event) => {
+        if (typeof event.data !== 'string') return;
+        let msg;
+        try { msg = JSON.parse(event.data); } catch (e) { return; }
+        if (!msg || typeof msg !== 'object') return;
+        remember(msg, event.data);
 
-        for (const msg of messages) {
-          if (!handshakeDone) {
-            handshakeDone = true;
-            if (msg.error) {
-              // The hub rejected the handshake itself (protocol/version mismatch).
-              reported = true;
-              handlers.onStatus('error', msg.error);
-              socket.close();
-              return;
+        switch (msg.type) {
+          case 'subscribed':
+            if (msg.station_id == null) {
+              attempts = 0;
+              send({ type: 'subscribe', station_id: station });
             }
-            attempts = 0;
-            handlers.onStatus('connecting', null);
-            pinger = setInterval(() => {
-              if (socket && socket.readyState === WebSocket.OPEN) socket.send(encode(PING));
-            }, PING_MS);
-            // A hub that accepts the connection but never pushes looks identical
-            // to a healthy one, so give the first message a deadline. An unknown
-            // station code lands here.
-            dataTimer = setTimeout(() => {
-              if (!gotData && !reported) handlers.onStatus('nodata', null);
-            }, DATA_TIMEOUT_MS);
-            invocations.forEach((inv, i) => invoke(inv, String(i)));
-            continue;
-          }
-
-          if (msg.type === 6) continue;                                  // ping
-          if (msg.type === 3) {                                          // completion
-            if (!msg.error) continue;
-            const failed = invocations[Number(msg.invocationId)];
-            if (failed && failed.optional) {
-              // The server could not produce this call's result, but the
-              // connection and any subscription made alongside it are fine, so
-              // this must not put the source into a terminal error state. Retry
-              // a few times; failing that, the deadline above reports no data,
-              // and a later server push still promotes the source to live.
-              retries[msg.invocationId] = (retries[msg.invocationId] || 0) + 1;
-              if (global.console) {
-                global.console.warn('realtime: ' + failed.target + ' failed (attempt ' +
-                  retries[msg.invocationId] + '): ' + msg.error);
-              }
-              if (retries[msg.invocationId] <= SNAPSHOT_RETRIES) {
-                const sock = socket;
-                setTimeout(() => {
-                  if (!stopped && sock === socket) invoke(failed, msg.invocationId);
-                }, SNAPSHOT_RETRY_MS * retries[msg.invocationId]);
-              }
-              continue;
-            }
-            reported = true;
-            handlers.onStatus('error', msg.error);
-            continue;
-          }
-          if (msg.type === 7) {
-            reported = true;
-            handlers.onStatus('error', msg.error || 'closed by server');
-            continue;
-          }
-          if (msg.type !== 1 && msg.type !== 2) continue;
-
-          remember(msg);
-          const departures = map(msg);
-          if (departures) {
+            return;
+          case 'arrivals_update': {
+            if (String(msg.station_id) !== station) return;
+            const departures = mapMitren(msg, here);
+            if (!departures) return;
             gotData = true;
             reported = false;
             clearTimeout(dataTimer);
             handlers.onStatus('live', null);
             handlers.onDepartures(departures);
+            return;
           }
+          case 'error':
+            reported = true;
+            busy = /busy|too many/i.test(String(msg.message || ''));
+            handlers.onStatus('error', String(msg.message || 'server error'));
+            return;
+          default:
+            return;   // pong, and anything newer than this page
         }
       });
 
-      socket.addEventListener('close', (event) => {
+      sock.addEventListener('close', (event) => {
         clearInterval(pinger);
         clearTimeout(dataTimer);
-        if (stopped) return;
-        // 1006 before the handshake is the signature of a rejected Origin, a
-        // bad connection token, or a path that is not a hub.
-        if (!reported) {
-          handlers.onStatus('error', handshakeDone
-            ? 'connection lost (' + event.code + ')'
-            : 'refused before handshake (' + event.code + ')');
-        }
-        schedule(handlers);
+        if (stopped || sock !== socket) return;
+        if (!reported) handlers.onStatus('error', 'connection lost (' + event.code + ')');
+        // 1013 is "try again later": the server is full. Don't add to it.
+        schedule(handlers, busy || event.code === 1013);
       });
 
-      socket.addEventListener('error', () => { /* 'close' always follows; report there */ });
+      sock.addEventListener('error', () => { /* 'close' always follows; report there */ });
     }
 
-    function schedule(handlers) {
+    function schedule(handlers, longWait) {
       if (stopped) return;
-      const delay = Math.min(30000, 1000 * Math.pow(2, attempts++));
-      retry = setTimeout(() => open(handlers), delay);
+      const base = Math.min(60000, 2000 * Math.pow(2, attempts++));
+      const delay = longWait ? Math.max(base, 60000) : base;
+      // Jitter, so that a server restart is not met by every tab at once.
+      retry = setTimeout(() => open(handlers), delay * (0.75 + Math.random() * 0.5));
     }
 
     return {
@@ -223,112 +255,57 @@
         clearInterval(pinger);
         clearTimeout(retry);
         clearTimeout(dataTimer);
-        if (socket) { try { socket.close(); } catch (e) { /* already closing */ } socket = null; }
+        if (socket) { try { socket.close(1000); } catch (e) { /* already closing */ } socket = null; }
       }
     };
   }
 
-  // --- ADIF ----------------------------------------------------------------
-  //
-  // Protocol captured from info.adif.es on 2026-08-10:
-  //   wss://info.adif.es/InfoStation
-  //   -> JoinInfo("PRO-ECM-<stationCode>")
-  //   -> GetLastMessage("PRO-ECM-<stationCode>")
-  //   <- ReceiveMessage(<JSON string>)   repeated as the board changes
-  // The group prefix is not station-specific: PRO-ECM-17000 (Chamartín),
-  // PRO-ECM-71801 (Barcelona Sants) and PRO-ECM-60000 (Puerta de Atocha) all
-  // answer, while a bare code with no prefix is silently ignored.
-  const ADIF_HUB = 'wss://info.adif.es/InfoStation';
-  const ADIF_GROUP_PREFIX = 'PRO-ECM-';
-
-  function AdifSource(options) {
-    const group = ADIF_GROUP_PREFIX + String((options && options.station) || '').trim();
-    return SignalRSource({
-      url: (options && options.url) || ADIF_HUB,
-      subscribe: [
-        // JoinInfo is the subscription and must succeed. GetLastMessage only
-        // fetches the board as it stands right now, so that the panel fills in
-        // without waiting for ADIF's next push — useful, but not essential, and
-        // it is the call that throws HybridCache errors on their side for some
-        // stations. Losing it costs freshness, not the feed.
-        { target: 'JoinInfo', arguments: [group] },
-        { target: 'GetLastMessage', arguments: [group], optional: true }
-      ],
-      map: mapAdif
-    });
-  }
-
-  /* One ReceiveMessage carries the station's whole board — settings, every
-     train, and a station-code lookup table — as a JSON *string* argument. */
-  function mapAdif(msg) {
-    if (msg.type !== 1 || msg.target !== 'ReceiveMessage') return null;
-    let payload;
-    try { payload = JSON.parse(msg.arguments[0]); } catch (e) { return null; }
-    if (!payload || !Array.isArray(payload.trains)) return null;
-
-    const stations = payload.stations || {};
+  /* One arrivals_update carries the station's next trains (up to 20, at most
+     3 per line), realtime where the server has it and timetable otherwise.
+     Field meanings are documented in app/schemas/arrivals.py upstream.
+     `here` is the station being shown, when stations.js knows it. */
+  function mapMitren(msg, here) {
+    if (!Array.isArray(msg.arrivals)) return null;
+    // It is an arrivals board, so trains that end their run here are on it
+    // too. A departure sign does not announce those.
+    const ownNames = new Set(here ? [here.name, here.short, here.mini].filter(Boolean).map(fold) : []);
     const rows = [];
-    for (const train of payload.trains) {
-      // A train whose journey ends here is an arrival, not a departure.
-      if (train.class_stop === 'destination') continue;
-      const when = train.departure_time || train.arrival_time;
-      const epoch = when ? Date.parse(when) / 1000 : NaN;
-      if (!Number.isFinite(epoch)) continue;
+    for (const row of msg.arrivals) {
+      if (!row || row.service_state === 'canceled') continue;
+      const epoch = Number(row.epoch);
+      if (!Number.isFinite(epoch) || epoch <= 0) continue;
+      const destination = row.display_destination_name || row.destination_name;
+      if (!destination || ownNames.has(fold(destination))) continue;
 
-      const destination = (train.destinations || [])
-        .map(d => stationName(stations, d.code))
-        .filter(Boolean)
-        .join(' / ');
-      if (!destination) continue;
-
+      const platform = row.platform || null;
+      const line = row.line || {};
+      const identity = row.identity || {};
+      const confirmed = !!(platform && platform.confirmed && platform.value);
       rows.push({
-        destination: destination,
+        destination: String(destination),
         epoch: epoch,
-        // Empty until the platform is actually assigned, which is what the real
-        // signs show too. platform_preview ("4 · 5") is a hint, not an
-        // assignment, so it is deliberately not used here.
-        platform: train.platform || null,
-        line: lineLabel(train),
-        train: trainNumber(train),
-        delayMin: Number(train.delay_out || train.delay_in || 0) || null,
-        // The calling points after this station, in order — what the LED
-        // matrix announces as "PARA EN: …". journey_stops_origin is the
-        // mirror image, the stops already made, and is not wanted here.
-        stops: (train.journey_stops_destination || [])
-          .map(s => stationName(stations, s.code))
-          .filter(Boolean)
+        // Only a platform the operator has actually given goes on the panel.
+        // mitren.app also predicts one from habit, which a real sign would not
+        // show; the list on the page shows it greyed out as `platformGuess`.
+        platform: confirmed ? String(platform.value) : null,
+        platformGuess: !confirmed && platform
+          ? (platform.pair && platform.pair.length ? platform.pair.join('/') : (platform.value || null))
+          : null,
+        line: line.short_name || row.short_name || '',
+        lineColor: line.color_bg || null,
+        lineTextColor: line.color_fg || null,
+        train: identity.public_number || null,
+        realtime: !!row.is_realtime,
+        // at_station / arriving, resolved by mitren.app from positive evidence.
+        presence: row.presence || null,
+        isOrigin: !!row.is_origin,
+        // The board folds the delay into `epoch` rather than reporting it.
+        delayMin: null,
+        // Nor does it carry calling points, so the LED row stays dark.
+        stops: []
       });
     }
     return rows;
-  }
-
-  /* stations[code].name is a list of variants from longest to shortest, e.g.
-     ["València Joaquín Sorolla", "València Joaquín Sorolla",
-      "València Joaq. Sorolla"]. The flip-dot row is 16 cells, so take the
-     shortest one ADIF itself publishes rather than truncating a long one. */
-  function stationName(stations, code) {
-    const entry = stations[code];
-    if (!entry) return code || '';
-    const names = entry.name;
-    if (Array.isArray(names) && names.length) return String(names[names.length - 1]);
-    return typeof names === 'string' ? names : (code || '');
-  }
-
-  /* Cercanías products are coded C<line>CER<núcleo> — "C03CERMAD" is line C-3
-     in Madrid, "C4BCERMAD" is C-4B. Long-distance products are already their
-     own name (AVE, ALVIA, AVANT, IRYO), so those pass through untouched. */
-  function lineLabel(train) {
-    const commercial = (train.commercial_id || [])[0] || {};
-    const product = commercial.product || '';
-    const cercanias = /^C(\d{1,2}[A-Z]?)CER/.exec(product);
-    if (cercanias) return 'C' + cercanias[1].replace(/^0+(?=\d)/, '');
-    return product || train.traffic_type || '';
-  }
-
-  function trainNumber(train) {
-    const commercial = (train.commercial_id || [])[0] || {};
-    const numbers = commercial.numbers || [];
-    return numbers[0] || train.technical_number_out || train.technical_number_planif || null;
   }
 
   // --- Demo source ---------------------------------------------------------
@@ -438,8 +415,8 @@
 
   /* Departures worth showing, soonest first, with anything already gone
      dropped. Platform matching is loose on purpose: the feed may render a vía
-     as "4", "04" or "PLATF.(4)". ADIF sends the whole day, so cap the list —
-     a sign shows the next few. */
+     as "4", "04" or "PLATF.(4)". Cap the list anyway — a sign shows the next
+     few. */
   function selectDepartures(departures, options) {
     const wanted = String((options && options.platform) || '').trim();
     const max = (options && options.max) || 12;
@@ -465,12 +442,14 @@
     // ("BILBAO ABANDO-I." + "12" renders as "BILBAO ABANDO-12"). One blank cell
     // between the two keeps them legible.
     const room = showMinutes ? Math.max(1, PANEL_CELLS - mins.length - 1) : PANEL_CELLS;
+    // Names arrive in full. Take the longest of mitren.app's own forms that
+    // fits ("BILBAO-ABANDO-INDALECIO PRIETO" -> "BILBAO-ABANDO"), and only cut
+    // the shortest when none does; a trailing hyphen or space is an artefact
+    // of that cut, so it goes too.
+    const ladder = nameLadder(dep.destination).map(foldToPanel);
+    const fitting = ladder.find(form => form.length <= room);
     return {
-      // ADIF publishes each station name as a ladder of progressively shorter
-      // forms and mapAdif already takes the shortest, which fits 16 cells for
-      // most stations. The rest are 17-22 and simply get cut; a trailing hyphen
-      // is an artefact of that cut, while a trailing period usually is not.
-      text: foldToPanel(dep.destination).slice(0, room).replace(/[\s-]+$/, ''),
+      text: (fitting || ladder[ladder.length - 1]).slice(0, room).replace(/[\s-]+$/, ''),
       min: mins,
       // A platform filter means the sign is bolted to that platform, so it
       // always reads that number. Otherwise show the assignment if there is
@@ -500,12 +479,19 @@
   }
 
   global.Realtime = {
-    SignalRSource: SignalRSource,
-    AdifSource: AdifSource,
+    MitrenSource: MitrenSource,
     DemoSource: DemoSource,
-    mapAdif: mapAdif,
+    mapMitren: mapMitren,
     lastFrames: lastFrames,
-    ADIF_HUB: ADIF_HUB,
+    MITREN_WS: MITREN_WS,
+    NETWORKS: NETWORKS,
+    DEFAULT_NETWORK: DEFAULT_NETWORK,
+    STATIONS: STATIONS,
+    findStation: findStation,
+    networkForCode: networkForCode,
+    searchStations: searchStations,
+    stationUrl: stationUrl,
+    nameLadder: nameLadder,
     PANEL_CELLS: PANEL_CELLS,
     blankPanel: blankPanel,
     foldToPanel: foldToPanel,

@@ -12,6 +12,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="favicon-512x512.png">
 <link rel="apple-touch-icon" href="favicon-192x192.png">
 <script src="./cp437.js"></script>
+<script src="./stations.js"></script>
 <script src="./realtime.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -195,39 +196,101 @@
     font-size: 13px;
   }
   .departures .dep-min { min-width: 58px; text-align: right; }
-  .live-help {
-    margin: 4px 4px 0;
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: #6b6a63;
-  }
-  .live-help[hidden] { display: none; }
-  .live-help code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    background: #eceae4;
-    padding: 1px 4px;
-    border-radius: 3px;
-  }
-  .live-disclaimer {
-    margin: 12px 4px 0;
-    padding: 8px 12px;
-    border-left: 3px solid #c8912f;
-    background: #f7f1e2;
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: #6b6a63;
-  }
-  .live-notice {
-    margin: 8px 4px 0;
-    padding: 8px 12px;
-    border-left: 3px solid #c9c6bd;
+  .live-credit {
+    margin: 16px 4px 0;
+    padding: 10px 14px;
+    border-left: 3px solid #8a5a2b;
     background: #f4f2e9;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #4a4842;
+  }
+  .live-credit p { margin: 0 0 6px; }
+  .live-credit p:last-child { margin-bottom: 0; }
+  .live-credit .small { font-size: 12px; color: #6b6a63; }
+  .station-search { position: relative; padding: 6px 0 0; }
+  .station-search label { display: block; font-size: 14px; margin-bottom: 6px; }
+  .station-search input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #c9c6bd;
+    border-radius: 4px;
+    font-size: 16px;   /* 16px stops iOS zooming in on focus */
+  }
+  .station-search input:focus { outline: 2px solid #8a5a2b; outline-offset: 1px; }
+  .station-suggest {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    margin: 4px 0 0;
+    padding: 4px 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #c9c6bd;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .station-suggest[hidden] { display: none; }
+  .station-suggest li {
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .station-suggest li[aria-selected="true"],
+  .station-suggest li:hover { background: #ece2d3; }
+  .station-suggest .meta,
+  .station-current .meta { display: block; font-size: 12px; color: #6b6a63; }
+  .station-suggest .empty { color: #93918a; cursor: default; background: none; }
+  .station-current { margin: 10px 0 0; font-size: 15px; font-weight: 600; }
+  .station-current a { font-weight: 400; font-size: 12px; }
+  .station-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
     font-size: 12.5px;
-    line-height: 1.5;
     color: #6b6a63;
   }
-  .live-notice strong { color: #4a4842; }
+  .station-chips span { flex-basis: 100%; }
+  .station-chips button {
+    padding: 4px 10px;
+    background: #eceae4;
+    color: #24221f;
+    border: 1px solid #c9c6bd;
+    border-radius: 999px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .station-chips button:hover { background: #ddd9d0; }
+  .station-chips button[aria-pressed="true"] { background: #8a5a2b; border-color: #8a5a2b; color: #f4f2e9; }
+  .departures .dep-plat.is-guess { color: #a9a69d; font-style: italic; }
+  .departures .dep-rt {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid #93918a;
+    box-sizing: border-box;
+    align-self: center;
+  }
+  .departures .dep-rt.is-live { background: #3f8f4a; border-color: #3f8f4a; }
+  .departures-key { margin: 6px 4px 0; font-size: 12px; color: #6b6a63; }
+  .departures-key .dep-rt { display: inline-block; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #93918a; box-sizing: border-box; vertical-align: middle; margin: 0 3px 0 0; }
+  .departures-key .dep-rt.is-live { background: #3f8f4a; border-color: #3f8f4a; }
+  @media (max-width: 520px) {
+    .download-row { flex-wrap: wrap; padding: 0 16px; }
+    form, .tab-panel { padding: 0 16px; }
+    .field { flex-wrap: wrap; }
+    .field label { flex: 1 0 100%; }
+    .departures li { gap: 8px; padding: 7px 10px; }
+    .departures .dep-dest { min-width: 0; overflow-wrap: anywhere; }
+    .departures .dep-min { min-width: 44px; }
+  }
   .departures-empty {
     padding: 12px;
     background: #f4f2e9;
@@ -449,59 +512,50 @@
   </div>
 
   <fieldset>
-    <legend data-i18n="legendLiveSource">Origen de los datos</legend>
-    <div class="field">
-      <label for="live-source" data-i18n="labelLiveSource">Fuente</label>
-      <select id="live-source">
-        <option value="adif" selected data-i18n="optionSourceAdif">ADIF (en directo)</option>
-        <option value="demo" data-i18n="optionSourceDemo">Simulación</option>
-      </select>
+    <legend data-i18n="legendStation">Estación</legend>
+    <div class="station-search">
+      <label for="live-search" data-i18n="labelSearch">Buscar estación</label>
+      <!-- ARIA 1.2 combobox; the options are built by renderSuggestions(). -->
+      <input type="text" id="live-search" role="combobox" autocomplete="off"
+             spellcheck="false" aria-autocomplete="list" aria-expanded="false"
+             aria-controls="live-suggest" aria-describedby="live-current"
+             data-i18n-placeholder="searchPlaceholder"
+             placeholder="Nombre, municipio o código">
+      <ul id="live-suggest" class="station-suggest" role="listbox"
+          aria-labelledby="live-search" hidden></ul>
     </div>
-    <p class="live-help" id="live-help" data-i18n-html="adifHelp"></p>
+    <p class="station-current" id="live-current" aria-live="polite"></p>
+    <div class="station-chips" role="group" aria-labelledby="chips-label">
+      <span id="chips-label" data-i18n="chipsLabel">Tuvieron o tienen este teleindicador</span>
+      <!-- Madrid stations known to have had this sign. -->
+      <button type="button" data-network="madrid_cercanias" data-code="97100">Pitis</button>
+      <button type="button" data-network="madrid_cercanias" data-code="17009">Universidad-Cantoblanco</button>
+      <button type="button" data-network="madrid_cercanias" data-code="12004">Collado Mediano</button>
+      <button type="button" data-network="madrid_cercanias" data-code="10100">Pinar de Las Rozas</button>
+      <button type="button" data-network="madrid_cercanias" data-code="10104">Galapagar-La Navata</button>
+      <button type="button" data-network="madrid_cercanias" data-code="18004">Delicias</button>
+    </div>
   </fieldset>
 
   <fieldset>
-    <legend data-i18n="legendLiveStation">Estación y vía</legend>
+    <legend data-i18n="legendLiveOptions">Panel</legend>
     <div class="field">
-      <label for="live-preset" data-i18n="labelPreset">Estaciones</label>
-      <select id="live-preset">
-        <option value="">—</option>
-        <optgroup id="preset-group-panel" label="Tuvieron/tienen este teleindicador">
-          <option value="97100">Pitis</option>
-          <option value="17009">Universidad-Cantoblanco</option>
-          <option value="12004">Collado Mediano</option>
-          <option value="10100">Pinar de las Rozas</option>
-          <option value="10104">Galapagar-La Navata</option>
-          <option value="18004">Delicias</option>
-        </optgroup>
-        <optgroup id="preset-group-major" label="Estaciones principales de Madrid">
-          <option value="17000" selected>Madrid Chamartín</option>
-          <option value="18000">Madrid Atocha Cercanías</option>
-        </optgroup>
-      </select>
-    </div>
-    <div class="field">
-      <label for="live-station" data-i18n="labelStation">Código de estación</label>
-      <input type="text" id="live-station" value="17000" autocomplete="off"
-             spellcheck="false" inputmode="numeric" placeholder="17000">
-    </div>
-    <div class="field">
-      <label for="live-platform" data-i18n="labelPlatformFilter">Filtro de vía</label>
-      <input type="text" id="live-platform" maxlength="3" placeholder="—" autocomplete="off">
+      <label for="live-platform" data-i18n="labelPlatformFilter">Solo la vía</label>
+      <input type="text" id="live-platform" maxlength="3" placeholder="—" autocomplete="off" inputmode="numeric">
     </div>
     <div class="field field-check">
       <label for="live-cycle"><input type="checkbox" id="live-cycle"> <span data-i18n="labelCycle">Rotar entre los próximos trenes</span></label>
     </div>
+    <div class="field field-check">
+      <label for="live-demo"><input type="checkbox" id="live-demo"> <span data-i18n="labelDemo">Usar datos simulados</span></label>
+    </div>
   </fieldset>
 
-  <ol class="departures" id="live-departures"></ol>
+  <ol class="departures" id="live-departures" aria-labelledby="departures-title"></ol>
+  <p class="departures-key" id="departures-title"></p>
 
-  <!-- Filled by renderDisclaimer(): the text carries a link whose target
-       depends on the station currently selected, so it cannot be a plain
-       data-i18n node. -->
-  <p class="live-disclaimer" id="live-disclaimer"></p>
-
-  <p class="live-notice" data-i18n-html="adifNotice"></p>
+  <!-- Filled by renderCredit(), so it follows the language switch. -->
+  <aside class="live-credit" id="live-credit"></aside>
 </section>
 
 <form id="settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-manual" hidden>
@@ -585,10 +639,9 @@
 
 <footer data-i18n="footer">
   Creado por Oier Lauzirika Zarrabeitia. Proyecto de aficionado, no oficial. No afiliado, respaldado ni
-  patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de
-  Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE y Renfe
-  Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente
-  con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.
+  patrocinado por RENFE ni PAGE Ibérica. RENFE y Renfe Cercanías son marcas
+  registradas de Renfe Operadora. Se citan aquí únicamente con fines
+  descriptivos. Las marcas pertenecen a sus respectivos propietarios.
 </footer>
 
 <script>
@@ -633,31 +686,34 @@
       labelPlatform: 'Vía',
       tabManual: 'Manual',
       tabLive: 'Tiempo real',
-      legendLiveSource: 'Origen de los datos',
-      labelLiveSource: 'Fuente',
-      optionSourceDemo: 'Simulación',
-      optionSourceAdif: 'ADIF (en directo)',
-      adifHelp: 'Datos en directo del sistema de información al viajero de ADIF, por WebSocket contra <code>info.adif.es</code>. Introduce el código numérico de la estación: 17000 es Madrid-Chamartín. Si la vía aún no está asignada, el tren aparece sin ella, igual que en los paneles reales.',
-      legendLiveStation: 'Estación y vía',
-      labelPreset: 'Estaciones',
-      presetNone: '—',
-      presetGroupPanel: 'Tuvieron/tienen este teleindicador',
-      presetGroupMajor: 'Estaciones principales de Madrid',
-      labelStation: 'Código de estación',
-      labelPlatformFilter: 'Filtro de vía',
+      legendStation: 'Estación',
+      labelSearch: 'Buscar estación',
+      searchPlaceholder: 'Nombre, municipio o código',
+      noMatches: 'Ninguna estación coincide.',
+      unknownStation: 'Estación %CODE%',
+      chipsLabel: 'Tuvieron o tienen este teleindicador',
+      viewOnMitren: 'Ver en mitren.app',
+      legendLiveOptions: 'Panel',
+      labelPlatformFilter: 'Solo la vía',
       labelCycle: 'Rotar entre los próximos trenes',
+      labelDemo: 'Usar datos simulados',
+      demoStation: 'Datos simulados',
       noDepartures: 'Sin trenes que mostrar.',
       viaShort: 'Vía',
+      platformGuess: 'Vía habitual, aún sin confirmar',
       due: 'Ahora',
+      atPlatform: 'En andén',
+      rtLive: 'En tiempo real',
+      rtScheduled: 'Según horario',
+      departuresKey: '<span class="dep-rt is-live"></span>en tiempo real · <span class="dep-rt"></span>según horario · <i>vía en gris</i>: la habitual, aún sin confirmar. El panel solo muestra la vía confirmada.',
       status_idle: 'Inactivo',
       status_connecting: 'Conectando…',
       status_live: 'En directo',
       status_error: 'Error',
       status_nodata: 'Sin datos',
-      needStation: 'introduce el código de la estación',
-      liveDisclaimer: 'Los horarios se muestran tal y como llegan y pueden estar incompletos, retrasados o ser incorrectos. No sirven para planificar ningún viaje: consulta siempre los paneles oficiales de la estación o la <a href="%URL%" target="_blank" rel="noopener noreferrer">información oficial de ADIF</a>. No se acepta responsabilidad alguna por pérdidas o daños derivados de su uso.',
-      adifNotice: '<strong>Nota para ADIF.</strong> Esto es un proyecto de aficionado sin ánimo de lucro, hecho de buena fe para divulgar y preservar una pieza del patrimonio ferroviario: no tiene publicidad, ni analítica, ni monetización de ningún tipo. Todo ocurre en el navegador de quien visita la página, sin ningún servidor intermedio: se abre una conexión por pestaña, a una sola estación cada vez, contra el mismo servicio público que alimenta sus paneles de información al viajero. Es ADIF quien envía los cambios; el cliente solo responde con un ping cada 15 segundos y reintenta con espera creciente si se corta. No se recopilan datos de forma masiva, no se almacenan, no se redistribuyen ni se presentan como fuente oficial: a los usuarios se les remite siempre a los canales oficiales. Si en ADIF prefieren que esta función no exista, basta con un mensaje en el <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a> y se retirará sin demora y sin necesidad de ningún trámite formal. La intención nunca ha sido perjudicar sus sistemas ni competir con sus servicios.',
-      footer: 'Creado por Oier Lauzirika Zarrabeitia. Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE, ADIF ni PAGE Ibérica. ADIF y Administrador de Infraestructuras Ferroviarias son marcas registradas de ADIF; RENFE y Renfe Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.'
+      needStation: 'elige una estación',
+      credit: '<p><strong>Datos de <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a></strong> Gracias a <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a> y a su proyecto, que combina los horarios y los datos en tiempo real de los operadores ferroviarios españoles.</p>',
+      footer: 'Creado por Oier Lauzirika Zarrabeitia. Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE ni PAGE Ibérica. RENFE y Renfe Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.'
     },
     en: {
       title: "RENFE Cercanías flip-dot display replica",
@@ -698,31 +754,34 @@
       labelPlatform: 'Platform',
       tabManual: 'Manual',
       tabLive: 'Live',
-      legendLiveSource: 'Data source',
-      labelLiveSource: 'Source',
-      optionSourceDemo: 'Simulation',
-      optionSourceAdif: 'ADIF (live)',
-      adifHelp: 'Live data from ADIF\'s passenger information system, over a WebSocket to <code>info.adif.es</code>. Enter the station\'s numeric code: 17000 is Madrid-Chamartín. Trains whose platform has not been assigned yet show none, exactly as the real signs do.',
-      legendLiveStation: 'Station and platform',
-      labelPreset: 'Stations',
-      presetNone: '—',
-      presetGroupPanel: 'Have or formerly had this sign',
-      presetGroupMajor: 'Major stations in Madrid',
-      labelStation: 'Station code',
-      labelPlatformFilter: 'Platform filter',
+      legendStation: 'Station',
+      labelSearch: 'Find a station',
+      searchPlaceholder: 'Name, town or code',
+      noMatches: 'No station matches.',
+      unknownStation: 'Station %CODE%',
+      chipsLabel: 'Have or formerly had this sign',
+      viewOnMitren: 'View on mitren.app',
+      legendLiveOptions: 'Panel',
+      labelPlatformFilter: 'Only platform',
       labelCycle: 'Rotate through upcoming trains',
+      labelDemo: 'Use simulated data',
+      demoStation: 'Simulated data',
       noDepartures: 'No trains to show.',
       viaShort: 'Plat.',
+      platformGuess: 'Usual platform, not yet confirmed',
       due: 'Due',
+      atPlatform: 'At platform',
+      rtLive: 'Real time',
+      rtScheduled: 'Timetabled',
+      departuresKey: '<span class="dep-rt is-live"></span>real time · <span class="dep-rt"></span>timetabled · <i>grey platform</i>: the usual one, not yet confirmed. The panel only shows a confirmed platform.',
       status_idle: 'Idle',
       status_connecting: 'Connecting…',
       status_live: 'Live',
       status_error: 'Error',
       status_nodata: 'No data',
-      needStation: 'enter the station code',
-      liveDisclaimer: 'Departures are shown exactly as they arrive and may be incomplete, delayed or wrong. Do not rely on them to plan a journey: always check the official signs at the station or <a href="%URL%" target="_blank" rel="noopener noreferrer">ADIF\'s official information</a>. No liability is accepted for any loss or damage arising from their use.',
-      adifNotice: '<strong>A note for ADIF.</strong> This is a non-commercial fan project, made in good faith to document and preserve a piece of railway heritage: it carries no advertising, no analytics and no monetisation of any kind. Everything happens in the visitor\'s own browser, with no server in between: one connection per tab, to a single station at a time, against the same public service that feeds your passenger information boards. ADIF pushes the updates; the client only answers with a ping every 15 seconds and backs off progressively if the connection drops. Nothing is harvested in bulk, stored, redistributed or presented as an official source — visitors are always pointed back to official channels. If ADIF would rather this feature did not exist, a message on the <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">GitHub repository</a> is enough: it will be taken down promptly, with no formalities needed. There has never been any intention to burden your systems or to compete with your services.',
-      footer: 'Created by Oier Lauzirika Zarrabeitia. Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE, ADIF or PAGE Ibérica. ADIF and Administrador de Infraestructuras Ferroviarias are registered trademarks of ADIF; RENFE and Renfe Cercanías is a registered trademark of Renfe Operadora. They are cited here for descriptive purposes only. Trademarks belong to their respective owners.'
+      needStation: 'pick a station',
+      credit: '<p><strong>Data from <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a></strong> Thanks to <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a> and his project, which combines the timetable and real-time feeds from Spanish rail operators.</p>',
+      footer: 'Created by Oier Lauzirika Zarrabeitia. Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE or PAGE Ibérica. RENFE and Renfe Cercanías are registered trademarks of Renfe Operadora. They are cited here for descriptive purposes only. Trademarks belong to their respective owners.'
     }
   };
   const LANG_KEY = 'renfe-flipdot-lang';
@@ -800,10 +859,11 @@
 
     const live = new URLSearchParams(params);
     for (const key of ['text', 'min', 'led', 'via']) live.delete(key);
-    live.set('station', liveEls.station.value.trim());
+    live.set('station', station.code);
+    if (station.network !== Realtime.DEFAULT_NETWORK) live.set('network', station.network);
     if (liveEls.platform.value.trim()) live.set('via', liveEls.platform.value.trim());
     if (!liveEls.cycle.checked) live.set('cycle', '0');
-    if (liveEls.source.value === 'demo') live.set('source', 'demo');
+    if (liveEls.demo.checked) live.set('source', 'demo');
     return { page: 'display-realtime.html', params: live };
   }
 
@@ -1069,18 +1129,18 @@
 
   // --- Live departures ----------------------------------------------------
   const liveEls = {
-    source: document.getElementById('live-source'),
-    help: document.getElementById('live-help'),
-    preset: document.getElementById('live-preset'),
-    presetPanel: document.getElementById('preset-group-panel'),
-    presetMajor: document.getElementById('preset-group-major'),
-    station: document.getElementById('live-station'),
+    search: document.getElementById('live-search'),
+    suggest: document.getElementById('live-suggest'),
+    current: document.getElementById('live-current'),
+    chips: document.querySelectorAll('.station-chips button'),
     platform: document.getElementById('live-platform'),
     cycle: document.getElementById('live-cycle'),
+    demo: document.getElementById('live-demo'),
     status: document.getElementById('live-status'),
     statusText: document.getElementById('live-status-text'),
     list: document.getElementById('live-departures'),
-    disclaimer: document.getElementById('live-disclaimer')
+    key: document.getElementById('departures-title'),
+    credit: document.getElementById('live-credit')
   };
 
   let source = null;          // the running source, or null
@@ -1090,9 +1150,154 @@
   let ticker = null;
 
   const CYCLE_MS = 6000;
+  const STATION_KEY = 'renfe-flipdot-live-station';
 
-  function liveConfig() {
-    return { kind: liveEls.source.value, station: liveEls.station.value.trim() };
+  /* The station on show, as {network, code}. Remembered across visits, since
+     whoever comes back to a live sign most likely wants the same one. */
+  let station = (function () {
+    const saved = String(store.get(STATION_KEY) || '').split('/');
+    if (saved.length === 2 && /^\d+$/.test(saved[1]) &&
+        Realtime.NETWORKS.some(n => n.id === saved[0])) {
+      return { network: saved[0], code: saved[1] };
+    }
+    return { network: Realtime.DEFAULT_NETWORK, code: '17000' };
+  })();
+
+  function stationLabel(st) {
+    const known = Realtime.findStation(st.network, st.code);
+    return known ? known.name : t('unknownStation').replace('%CODE%', st.code);
+  }
+
+  function chooseStation(st) {
+    station = { network: st.network, code: String(st.code) };
+    store.set(STATION_KEY, station.network + '/' + station.code);
+    liveEls.search.value = stationLabel(station);
+    closeSuggestions();
+    renderCurrent();
+    startLive();
+  }
+
+  /* The name, its network and code, and a link to the same station on
+     mitren.app — which is where to go for anything this page leaves out. */
+  function renderCurrent() {
+    const known = Realtime.findStation(station.network, station.code);
+    const net = Realtime.NETWORKS.find(n => n.id === station.network);
+    liveEls.current.textContent = '';
+    liveEls.current.append(stationLabel(station));
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.append(((net && net.name) || station.network) + ' · ' + station.code +
+      (known && known.town ? ' · ' + known.town : '') + ' · ');
+    const link = document.createElement('a');
+    link.href = Realtime.stationUrl(station.network, station.code);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = t('viewOnMitren');
+    meta.appendChild(link);
+    liveEls.current.appendChild(meta);
+    for (const chip of liveEls.chips) {
+      chip.setAttribute('aria-pressed', String(
+        chip.dataset.network === station.network && chip.dataset.code === station.code));
+    }
+    renderCredit();
+  }
+
+  function renderCredit() {
+    liveEls.credit.innerHTML = t('credit');
+    liveEls.key.innerHTML = t('departuresKey');
+  }
+
+  // --- Station search: an ARIA 1.2 combobox with a list popup.
+  let matches = [];
+  let active = -1;
+
+  function closeSuggestions() {
+    matches = [];
+    active = -1;
+    liveEls.suggest.hidden = true;
+    liveEls.suggest.textContent = '';
+    liveEls.search.setAttribute('aria-expanded', 'false');
+    liveEls.search.removeAttribute('aria-activedescendant');
+  }
+
+  function renderSuggestions() {
+    const query = liveEls.search.value;
+    matches = Realtime.searchStations(query, { network: station.network, limit: 8 });
+    liveEls.suggest.textContent = '';
+    if (!query.trim()) { closeSuggestions(); return; }
+    if (!matches.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-disabled', 'true');
+      li.textContent = t('noMatches');
+      liveEls.suggest.appendChild(li);
+    }
+    matches.forEach((st, i) => {
+      const li = document.createElement('li');
+      li.id = 'live-opt-' + i;
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', String(i === active));
+      li.append(st.name);
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = st.networkName + ' · ' + st.code + (st.town ? ' · ' + st.town : '');
+      li.appendChild(meta);
+      // mousedown, not click: a click would blur the input first and close the list.
+      li.addEventListener('mousedown', (e) => { e.preventDefault(); chooseStation(st); });
+      liveEls.suggest.appendChild(li);
+    });
+    liveEls.suggest.hidden = false;
+    liveEls.search.setAttribute('aria-expanded', 'true');
+    if (active >= 0) liveEls.search.setAttribute('aria-activedescendant', 'live-opt-' + active);
+    else liveEls.search.removeAttribute('aria-activedescendant');
+  }
+
+  function moveActive(step) {
+    if (!matches.length) return;
+    active = (active + step + matches.length) % matches.length;
+    for (const li of liveEls.suggest.children) {
+      li.setAttribute('aria-selected', String(li.id === 'live-opt-' + active));
+    }
+    liveEls.search.setAttribute('aria-activedescendant', 'live-opt-' + active);
+    const li = document.getElementById('live-opt-' + active);
+    if (li) li.scrollIntoView({ block: 'nearest' });
+  }
+
+  liveEls.search.addEventListener('input', () => { active = -1; renderSuggestions(); });
+  liveEls.search.addEventListener('focus', () => liveEls.search.select());
+  liveEls.search.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (liveEls.suggest.hidden) renderSuggestions();
+      moveActive(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveActive(-1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = matches[active >= 0 ? active : 0];
+      if (pick) { chooseStation(pick); return; }
+      // A bare code that stations.js does not know: take it on trust, in the
+      // network it most likely belongs to, so a new station is not locked out.
+      const code = liveEls.search.value.trim();
+      if (/^\d{4,5}$/.test(code)) {
+        chooseStation({ network: Realtime.networkForCode(code) || station.network, code: code });
+      }
+    } else if (e.key === 'Escape') {
+      if (!liveEls.suggest.hidden) e.preventDefault();
+      closeSuggestions();
+      liveEls.search.value = stationLabel(station);
+    }
+  });
+  liveEls.search.addEventListener('blur', () => {
+    closeSuggestions();
+    liveEls.search.value = stationLabel(station);
+  });
+
+  for (const chip of liveEls.chips) {
+    chip.addEventListener('click', () =>
+      chooseStation({ network: chip.dataset.network, code: chip.dataset.code }));
   }
 
   let lastStatus = { state: 'idle', detail: null };
@@ -1101,25 +1306,15 @@
     lastStatus = { state: state, detail: detail };
     liveEls.status.dataset.state = state;
     const label = t('status_' + state) || state;
-    liveEls.statusText.textContent = detail ? label + ' — ' + detail : label;
-  }
-
-  /* The "check the official information" link points at ADIF's own board for
-     whichever station is selected; without a usable code it falls back to the
-     site's front page, which asks for one. */
-  function renderDisclaimer() {
-    const code = liveEls.station.value.trim();
-    const url = /^\d+$/.test(code)
-      ? 'https://info.adif.es/?s=' + encodeURIComponent(code)
-      : 'https://info.adif.es/';
-    liveEls.disclaimer.innerHTML = t('liveDisclaimer').replace('%URL%', url);
+    const text = state === 'live' && detail === 'demo' ? t('demoStation') : null;
+    liveEls.statusText.textContent = text
+      ? label + ' — ' + text
+      : detail && detail !== 'demo' ? label + ' — ' + detail : label;
   }
 
   function startLive() {
     stopLive();
-    renderDisclaimer();
-    const cfg = liveConfig();
-    if (cfg.kind === 'adif' && !/^\d+$/.test(cfg.station)) {
+    if (!liveEls.demo.checked && !/^\d+$/.test(station.code)) {
       setStatus('idle', t('needStation'));
       render();
       return;
@@ -1128,9 +1323,9 @@
     cycleIndex = 0;
     cycleAt = 0;
 
-    source = cfg.kind === 'demo'
-      ? Realtime.DemoSource({ station: cfg.station })
-      : Realtime.AdifSource({ station: cfg.station });
+    source = liveEls.demo.checked
+      ? Realtime.DemoSource({ station: station.code })
+      : Realtime.MitrenSource({ station: station.code, network: station.network });
 
     source.start({
       onStatus: (state, detail) => setStatus(state, detail),
@@ -1148,7 +1343,7 @@
     if (liveOverride) { liveOverride = null; apply(); }
   }
 
-  const MAX_ROWS = 12; // ADIF sends the whole day; a sign shows the next few
+  const MAX_ROWS = 12; // a sign shows the next few
 
   function render() {
     const rows = Realtime.selectDepartures(departures, {
@@ -1202,16 +1397,19 @@
         const line = document.createElement('span');
         line.className = 'dep-line';
         line.textContent = dep.line;
+        // The line's own colours, as mitren.app resolves them.
+        if (dep.lineColor) line.style.background = dep.lineColor;
+        if (dep.lineTextColor) line.style.color = dep.lineTextColor;
         li.appendChild(line);
       }
 
       const dest = document.createElement('span');
       dest.className = 'dep-dest';
-      dest.textContent = Realtime.foldToPanel(dep.destination);
+      dest.textContent = dep.destination;
       li.appendChild(dest);
 
-      // ADIF reports early running as a negative delay; only lateness is worth
-      // flagging, and "+-1 min" is not a thing.
+      // Only lateness is worth flagging, and "+-1 min" is not a thing. Only
+      // the simulation reports it; mitren.app folds it into the time.
       if (dep.delayMin > 0) {
         const delay = document.createElement('span');
         delay.className = 'dep-delay';
@@ -1222,43 +1420,42 @@
       const plat = document.createElement('span');
       plat.className = 'dep-plat';
       const via = Realtime.platformDigits(dep.platform);
-      plat.textContent = via ? t('viaShort') + ' ' + via : '';
+      if (via) {
+        plat.textContent = t('viaShort') + ' ' + via;
+      } else if (dep.platformGuess) {
+        plat.classList.add('is-guess');
+        plat.textContent = t('viaShort') + ' ' + dep.platformGuess;
+        plat.title = t('platformGuess');
+        plat.setAttribute('aria-label', t('viaShort') + ' ' + dep.platformGuess + ', ' + t('platformGuess'));
+      }
       li.appendChild(plat);
+
+      const rt = document.createElement('span');
+      rt.className = 'dep-rt' + (dep.realtime ? ' is-live' : '');
+      rt.title = dep.realtime ? t('rtLive') : t('rtScheduled');
+      rt.setAttribute('role', 'img');
+      rt.setAttribute('aria-label', rt.title);
+      li.appendChild(rt);
 
       const mins = document.createElement('span');
       mins.className = 'dep-min';
       const m = Realtime.minutesTo(dep.epoch);
-      mins.textContent = m === 0 ? t('due') : m + ' min';
+      // "Now" only on mitren.app's word that the train is there; a countdown
+      // reaching zero is not evidence of that, so it holds at 1 min.
+      if (dep.presence) mins.textContent = dep.isOrigin ? t('atPlatform') : t('due');
+      else if (dep.realtime === undefined) mins.textContent = m === 0 ? t('due') : m + ' min';
+      else mins.textContent = Math.max(1, m) + ' min';
       li.appendChild(mins);
 
       liveEls.list.appendChild(li);
     });
   }
 
-  function syncSourceFields() {
-    liveEls.help.hidden = liveEls.source.value !== 'adif';
-  }
-
-  liveEls.source.addEventListener('change', () => { syncSourceFields(); startLive(); });
-
-  liveEls.preset.addEventListener('change', () => {
-    const option = liveEls.preset.selectedOptions[0];
-    if (!option || !option.value) return;
-    liveEls.station.value = option.value;
-    startLive();
-  });
-
-  liveEls.station.addEventListener('change', () => {
-    // Keep the dropdown honest: it goes blank once the field holds something
-    // that is not one of the presets.
-    const code = liveEls.station.value.trim();
-    const known = [...liveEls.preset.options].some(o => o.value === code);
-    liveEls.preset.value = known ? code : '';
-    startLive();
-  });
+  liveEls.demo.addEventListener('change', startLive);
   liveEls.platform.addEventListener('input', render);
   liveEls.cycle.addEventListener('change', () => { cycleAt = 0; render(); });
-  syncSourceFields();
+  liveEls.search.value = stationLabel(station);
+  renderCurrent();
   setTab('live');
 
   // --- i18n: static markup ships in Spanish (the default); this swaps
@@ -1270,14 +1467,13 @@
     document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
     document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
     updateEmbedBtnLabel();
     setFullscreenUi(isFullscreenActive());
     // The live panel is built from script, so it misses the data-i18n sweep.
     setStatus(lastStatus.state, lastStatus.detail);
-    liveEls.presetPanel.label = t('presetGroupPanel');
-    liveEls.presetMajor.label = t('presetGroupMajor');
-    liveEls.preset.options[0].textContent = t('presetNone');
-    renderDisclaimer();
+    if (document.activeElement !== liveEls.search) liveEls.search.value = stationLabel(station);
+    renderCurrent();
     if (activeTab === 'live') render();
     for (const btn of langButtons) btn.setAttribute('aria-pressed', String(btn.dataset.lang === lang));
   }
