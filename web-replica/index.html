@@ -554,7 +554,7 @@
   <ol class="departures" id="live-departures" aria-labelledby="departures-title"></ol>
   <p class="departures-key" id="departures-title"></p>
 
-  <!-- Filled by renderCredit(): it links to the selected station on mitren.app. -->
+  <!-- Filled by renderCredit(), so it follows the language switch. -->
   <aside class="live-credit" id="live-credit"></aside>
 </section>
 
@@ -712,7 +712,7 @@
       status_error: 'Error',
       status_nodata: 'Sin datos',
       needStation: 'elige una estación',
-      credit: '<p><strong>Datos de <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a></strong> Gracias a <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a> y a su proyecto de código abierto, que combina el horario y el tiempo real que publica Renfe para Cercanías y Rodalies y hace posible esta pestaña. Para consultar trenes, líneas y estaciones, <a href="%URL%" target="_blank" rel="noopener noreferrer">visita mitren.app</a>.</p><p class="small">Las salidas se muestran tal y como llegan y pueden estar incompletas o ser incorrectas. Este es un proyecto de aficionado sin ánimo de lucro, sin publicidad ni analítica: cada pestaña abre una sola conexión, a una sola estación. Si el autor de mitren.app prefiere que esta función no exista, basta con un mensaje en el <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">repositorio de GitHub</a>.</p>',
+      credit: '<p><strong>Datos de <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a></strong> Gracias a <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a> y a su proyecto, que combina los horarios y los datos en tiempo real de los operadores ferroviarios españoles.</p>',
       footer: 'Creado por Oier Lauzirika Zarrabeitia. Proyecto de aficionado, no oficial. No afiliado, respaldado ni patrocinado por RENFE ni PAGE Ibérica. RENFE y Renfe Cercanías son marcas registradas de Renfe Operadora. Se citan aquí únicamente con fines descriptivos. Las marcas pertenecen a sus respectivos propietarios.'
     },
     en: {
@@ -780,7 +780,7 @@
       status_error: 'Error',
       status_nodata: 'No data',
       needStation: 'pick a station',
-      credit: '<p><strong>Data from <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a></strong> Thanks to <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a> and their open-source project, which combines the timetable and real-time feeds Renfe publishes for Cercanías and Rodalies and makes this tab possible. For trains, lines and stations, <a href="%URL%" target="_blank" rel="noopener noreferrer">visit mitren.app</a>.</p><p class="small">Departures are shown as they arrive and may be incomplete or wrong. This is a non-commercial fan project with no advertising or analytics: each tab opens a single connection, to a single station. If the author of mitren.app would rather this feature did not exist, a message on the <a href="https://github.com/oierlauzi/renfe-flipdot-re/issues" target="_blank" rel="noopener noreferrer">GitHub repository</a> is enough.</p>',
+      credit: '<p><strong>Data from <a href="https://mitren.app/" target="_blank" rel="noopener noreferrer">¿Dónde está mi tren?</a></strong> Thanks to <a href="https://github.com/jotaelediaz/dondeestamitren" target="_blank" rel="noopener noreferrer">jotaelediaz</a> and his project, which combines the timetable and real-time feeds from Spanish rail operators.</p>',
       footer: 'Created by Oier Lauzirika Zarrabeitia. Fan-made, unofficial project. Not affiliated with, endorsed by, or sponsored by RENFE or PAGE Ibérica. RENFE and Renfe Cercanías are registered trademarks of Renfe Operadora. They are cited here for descriptive purposes only. Trademarks belong to their respective owners.'
     }
   };
@@ -1203,8 +1203,7 @@
   }
 
   function renderCredit() {
-    liveEls.credit.innerHTML = t('credit')
-      .replace('%URL%', Realtime.stationUrl(station.network, station.code));
+    liveEls.credit.innerHTML = t('credit');
     liveEls.key.innerHTML = t('departuresKey');
   }
 
