@@ -65,8 +65,8 @@ the LED row that scrolled the stations the train would call at.
 Mounting varied by station: under the canopy, or on a pole. Thirty years
 separate the top row from the bottom one.
 
-Flip dots are mechanical and hold their last message with no power, which is why
-the firmware has a switch for whether to blank the panel on reset.
+Flip dots are mechanical and hold their last message with no power. The
+dismantled unit at Aravaca is still showing the destination it was last sent.
 
 As of November 2026, the only ones known to remain in service are at Méndez
 Álvaro, on line C-5.
