@@ -38,14 +38,14 @@
  *   cycle     0 to hold the next train only; otherwise rotate every 6 s
  *   source    'demo' for the simulated feed, for testing offline
  *   plus display.html's own appearance parameters, passed straight through:
- *   dot, showoff, showmin, deadon, deadoff, deadseed, ledc, scroll, speed
+ *   dot, showoff, showmin, deadon, deadoff, deadseed, hearts, ledc, scroll, speed
  */
 (function () {
   'use strict';
 
   const Q = new URLSearchParams(location.search);
   const APPEARANCE = ['dot', 'showoff', 'showmin', 'deadon', 'deadoff',
-                      'deadseed', 'ledc', 'scroll', 'speed'];
+                      'deadseed', 'hearts', 'ledc', 'scroll', 'speed'];
   const CYCLE_MS = 6000;
   const MAX_ROWS = 12;
 
@@ -105,7 +105,10 @@
     }
 
     if (!rows.length) { push(Realtime.blankPanel({ platform: platform })); return; }
-    push(Realtime.panelFields(rows[cycleIndex % rows.length], {
+    const shown = cycleIndex % rows.length;
+    // Follow the train on the panel and the next ones for their calling points.
+    if (source && source.focus) source.focus(rows.slice(shown).concat(rows.slice(0, shown)));
+    push(Realtime.panelFields(rows[shown], {
       showMinutes: showMinutes,
       platform: platform
     }));

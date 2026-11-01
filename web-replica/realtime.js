@@ -29,10 +29,12 @@
   // Protocol, from app/routers/trains_api.py upstream. Plain JSON frames:
   //   wss://mitren.app/api/ws/trains/<nucleus>?listing=0
   //   <-  {"type":"subscribed","nucleus":…,"station_id":null,…}   on connect
-  //   ->  {"type":"subscribe","station_id":"17000"}
-  //   <-  {"type":"subscribed","station_id":"17000"}
+  //   ->  {"type":"subscriptions","station_ids":["17000"],"train_ids":[…]}
+  //   <-  {"type":"subscriptions",…}                              the accepted set
   //   <-  {"type":"arrivals_update","station_id":"17000","arrivals":[…]}
   //       at once, then again on every poll cycle of the server
+  //   <-  {"type":"train_update","train_id":…,"data":{"stops":[…],…}}
+  //   <-  {"type":"train_removed","train_id":…}     not running (yet, or any more)
   //   ->  {"type":"ping"}   <-  {"type":"pong","server_epoch":…}
   //   <-  {"type":"error","message":…}
   // listing=0 opts out of the nucleus-wide train positions, which this page has
@@ -154,6 +156,12 @@
     if (lastFrames.length > 25) lastFrames.shift();
   }
 
+  // How many trains the server lets one socket follow, unless it says otherwise
+  // in its first `subscribed`; and the least time between two changes of the
+  // followed set, well inside its limit of 30 changes a minute.
+  const DEFAULT_MAX_TRAINS = 4;
+  const SUBSCRIBE_GAP_MS = 3000;
+
   function MitrenSource(options) {
     const station = String((options && options.station) || '').trim();
     const network = String((options && options.network) || DEFAULT_NETWORK).trim();
@@ -163,12 +171,56 @@
     let socket = null, pinger = null, retry = null, dataTimer = null;
     let attempts = 0, stopped = false;
 
+    // Calling points. The board names no stops, but each train's own channel
+    // does, so the source follows the few trains the page is about to show
+    // (see focus()) and lays their remaining stops onto the board's rows.
+    let maxTrains = DEFAULT_MAX_TRAINS;
+    let wanted = [];          // train ids the page asked to follow, soonest first
+    let followed = '';        // the set last sent, as a key
+    let lastSentAt = 0;
+    let holdUntil = 0;        // after a refusal, leave the set alone until then
+    let subscribeTimer = null;
+    let sendSubscriptions = null;   // set while a socket is open
+    const stopsByTrain = new Map();
+    let board = null;         // the last mapped board, before stops are laid on
+    let emit = null;
+
+    function withStops(rows) {
+      return rows.map(row => {
+        const stops = row.trainId ? stopsByTrain.get(row.trainId) : null;
+        return stops ? Object.assign({}, row, { stops: stops }) : row;
+      });
+    }
+
+    function syncSubscriptions() {
+      clearTimeout(subscribeTimer);
+      if (!sendSubscriptions) return;
+      const ids = wanted.slice(0, maxTrains);
+      // The same trains in another order are the same set to the server.
+      const key = ids.slice().sort().join(',');
+      if (key === followed) return;
+      // The gap only spaces out changes to a set of trains; the first trains
+      // after the station-only opening go at once.
+      const gapFrom = followed ? lastSentAt : 0;
+      const wait = Math.max(gapFrom + SUBSCRIBE_GAP_MS, holdUntil) - Date.now();
+      if (wait > 0 && (followed || holdUntil > Date.now())) {
+        subscribeTimer = setTimeout(syncSubscriptions, wait);
+        return;
+      }
+      followed = key;
+      lastSentAt = Date.now();
+      for (const id of stopsByTrain.keys()) if (!ids.includes(id)) stopsByTrain.delete(id);
+      sendSubscriptions(ids);
+    }
+
     function open(handlers) {
       if (stopped) return;
       handlers.onStatus('connecting', null);
       let reported = false;   // a specific failure was surfaced; don't overwrite it
       let gotData = false;
       let busy = false;       // the server turned us away for load, not for a fault
+      followed = '';
+      emit = handlers.onDepartures;
 
       try {
         socket = new WebSocket(url);
@@ -184,9 +236,8 @@
 
       sock.addEventListener('open', () => {
         // The server subscribes the socket to the nucleus by itself and says so;
-        // the station is asked for once that arrives (below). Sending it now
-        // would also work, but this way an unknown network surfaces as its own
-        // error rather than as a silent station.
+        // the station is asked for once that arrives (below), so an unknown
+        // network surfaces as its own error rather than as a silent station.
         pinger = setInterval(() => send({ type: 'ping' }), PING_MS);
         dataTimer = setTimeout(() => {
           if (!gotData && !reported) handlers.onStatus('nodata', null);
@@ -202,36 +253,74 @@
 
         switch (msg.type) {
           case 'subscribed':
-            if (msg.station_id == null) {
+            if (msg.station_id == null && !sendSubscriptions) {
               attempts = 0;
-              send({ type: 'subscribe', station_id: station });
+              if (Number(msg.max_trains) > 0) maxTrains = Number(msg.max_trains);
+              // `subscriptions` replaces the whole set, station and trains, and
+              // pushes the board of a newly added station at once.
+              sendSubscriptions = (ids) => send({
+                type: 'subscriptions', station_ids: [station], train_ids: ids
+              });
+              followed = null;   // force the first send
+              lastSentAt = 0;
+              syncSubscriptions();
             }
             return;
           case 'arrivals_update': {
             if (String(msg.station_id) !== station) return;
             const departures = mapMitren(msg, here);
             if (!departures) return;
+            board = departures;
             gotData = true;
             reported = false;
             clearTimeout(dataTimer);
             handlers.onStatus('live', null);
-            handlers.onDepartures(departures);
+            handlers.onDepartures(withStops(board));
             return;
           }
-          case 'error':
-            reported = true;
-            busy = /busy|too many/i.test(String(msg.message || ''));
-            handlers.onStatus('error', String(msg.message || 'server error'));
+          case 'train_update': {
+            const id = String(msg.train_id || '');
+            if (!id || !wanted.includes(id)) return;
+            const stops = remainingStops(msg.data, here, station);
+            if (stops) stopsByTrain.set(id, stops); else stopsByTrain.delete(id);
+            if (board) handlers.onDepartures(withStops(board));
             return;
+          }
+          case 'train_removed':
+            // Not running yet, or finished: its stops are not known live.
+            if (stopsByTrain.delete(String(msg.train_id || '')) && board) {
+              handlers.onDepartures(withStops(board));
+            }
+            return;
+          case 'error': {
+            const text = String(msg.message || 'server error');
+            // Following trains is a nicety. A refused change of subscriptions
+            // (rate limit, malformed set) must not take the board down with it:
+            // forget what was sent so the next sync tries again.
+            if (/subscription|rate limit/i.test(text)) {
+              if (global.console) global.console.warn('realtime: ' + text);
+              followed = null;
+              holdUntil = Date.now() + 20000;
+              syncSubscriptions();
+              return;
+            }
+            reported = true;
+            busy = /busy|too many connections/i.test(text);
+            handlers.onStatus('error', text);
+            return;
+          }
           default:
-            return;   // pong, and anything newer than this page
+            return;   // pong, `subscriptions` echo, anything newer than this page
         }
       });
 
       sock.addEventListener('close', (event) => {
         clearInterval(pinger);
         clearTimeout(dataTimer);
-        if (stopped || sock !== socket) return;
+        clearTimeout(subscribeTimer);
+        if (sock !== socket) return;
+        sendSubscriptions = null;
+        if (stopped) return;
         if (!reported) handlers.onStatus('error', 'connection lost (' + event.code + ')');
         // 1013 is "try again later": the server is full. Don't add to it.
         schedule(handlers, busy || event.code === 1013);
@@ -252,12 +341,42 @@
       start(handlers) { stopped = false; attempts = 0; open(handlers); },
       stop() {
         stopped = true;
+        sendSubscriptions = null;
         clearInterval(pinger);
         clearTimeout(retry);
         clearTimeout(dataTimer);
+        clearTimeout(subscribeTimer);
         if (socket) { try { socket.close(1000); } catch (e) { /* already closing */ } socket = null; }
+      },
+      /* The departures the page is showing, in the order it will show them.
+         The first few (the server allows 4) are followed for their calling
+         points. Unchanged lists cost nothing, so this can run on every tick. */
+      focus(departures) {
+        wanted = [];
+        for (const dep of departures || []) {
+          if (dep && dep.trainId && !wanted.includes(dep.trainId)) wanted.push(dep.trainId);
+        }
+        syncSubscriptions();
       }
     };
+  }
+
+  /* The stops a train still has to make after `station`, as the names to
+     announce. From a train_update's data.stops (TrainStop in
+     app/schemas/train_detail.py upstream). Null when the station is not on
+     the train's list, which means nothing trustworthy can be said. */
+  function remainingStops(data, here, station) {
+    const stops = data && Array.isArray(data.stops) ? data.stops : null;
+    if (!stops) return null;
+    const at = stops.findIndex(s => s && (String(s.station_id) === station || String(s.stop_id) === station));
+    if (at < 0) return null;
+    return stops.slice(at + 1)
+      .filter(s => {
+        const state = s.times && s.times.display && s.times.display.service_state;
+        return !s.skipped_side && state !== 'skipped' && state !== 'canceled';
+      })
+      .map(s => s.short_name || s.name || (findStation(here ? here.network : '', s.station_id) || {}).name)
+      .filter(Boolean);
   }
 
   /* One arrivals_update carries the station's next trains (up to 20, at most
@@ -295,13 +414,16 @@
         lineColor: line.color_bg || null,
         lineTextColor: line.color_fg || null,
         train: identity.public_number || null,
+        // The live train's id, which its own channel is keyed by. Only a train
+        // already running has one; a timetabled row has a locator instead.
+        trainId: row.is_realtime && identity.technical_id ? String(identity.technical_id) : null,
         realtime: !!row.is_realtime,
         // at_station / arriving, resolved by mitren.app from positive evidence.
         presence: row.presence || null,
         isOrigin: !!row.is_origin,
         // The board folds the delay into `epoch` rather than reporting it.
         delayMin: null,
-        // Nor does it carry calling points, so the LED row stays dark.
+        // Filled in from the train's own channel once it is followed.
         stops: []
       });
     }
@@ -482,6 +604,7 @@
     MitrenSource: MitrenSource,
     DemoSource: DemoSource,
     mapMitren: mapMitren,
+    remainingStops: remainingStops,
     lastFrames: lastFrames,
     MITREN_WS: MITREN_WS,
     NETWORKS: NETWORKS,
