@@ -32,8 +32,7 @@ void layout(const char *spec, char out[PANEL_CHARS + 1])
 
     /* The right field is the one the "min" sticker continues, so it survives
      * intact and the left is what gets cut. Keep at least one space between
-     * them, so a truncated label never runs into the number -- the same rule
-     * web-replica/realtime.js applies with PANEL_CELLS - mins.length - 1. */
+     * them, so a truncated label never runs into the number. */
     if (rn > PANEL_CHARS)
         rn = PANEL_CHARS;
     size_t room = PANEL_CHARS - rn;
